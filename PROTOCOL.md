@@ -52,6 +52,18 @@ Form: `F0 00 21 10 77 <idx> 01 <cmd> 00 <cksum> F7` (11 bytes).
 | 0x03 | ping (keepalive)     | `F0 00 21 10 77 2E 01 03 00 63 F7` **[dev]**    |
 | 0x05 | saveProgramAsDefault | never sent by seaprobe **[src]**               |
 
+### Phase 3 write result (config set) [dev]
+Confirmed write of Pressure Sensitivity (id 13) 0 → 64 on fw 1.4.3:
+- Sent: `F0 00 21 10 77 2E 10 50 01 10 00 00 00 00 0B F7`
+  (idx 46, `10`=configMessage, packed `setConfig`/item=13/value=64, cksum `0B`).
+- Immediate read-back (via factory re-sync): **64** — accepted.
+- **Persistence across power cycle: CONFIRMED.** After unplugging/replugging USB,
+  id 13 still read **64**. So on fw 1.4.3 a plain `setConfig` (0x00) write is
+  persisted to flash by the firmware — the separate `setConfigState` (0x06)
+  flash/activation command is **not** required to persist a value.
+- Restored to original `0` afterwards (read-back `0`). Restore packet:
+  `F0 00 21 10 77 2E 10 50 01 00 00 00 00 00 7B F7`.
+
 ### 3b. Config messages [dev]
 - Factory config sync request (message type `0x10`):
   `F0 00 21 10 77 2E 10 02 44 F7` **[dev]** — triggers the device to stream all
