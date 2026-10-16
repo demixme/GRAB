@@ -14,8 +14,10 @@ Built with **JUCE 8** + **CMake** (no Projucer), targeting Windows 10/11 x64
   skipped), dumps raw SysEx with timestamps, and decodes topology (type, serial,
   firmware, battery) + all config items via the library over a custom logging
   transport. Observations recorded in `PROTOCOL.md`. _(done)_
-- Phase 3 — Single approved write. _(not started)_
-- Phase 4 — Minimal GUI. _(not started)_
+- **Phase 3 — Single approved write (`seaprobe set`):** wrote one config value
+  (`setConfig`), read it back, and confirmed it persists across a power cycle on
+  fw 1.4.3. Dry-run by default; `--commit` to transmit. _(done)_
+- Phase 4 — Minimal GUI (`SeaboardConfig`). _(not started)_
 
 ## Run the probe
 ```sh
