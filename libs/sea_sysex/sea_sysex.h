@@ -117,4 +117,11 @@ std::vector<std::vector<std::uint8_t>> reassembleUsbMidiSysex (const std::uint8_
 // outside a sysex frame). Useful for already-reassembled MIDI dumps.
 std::vector<std::vector<std::uint8_t>> splitSysex (const std::uint8_t* data, std::size_t size);
 
+// Reassemble BLE-MIDI packets into SysEx messages. Each element of `packets` is
+// one BLE-MIDI characteristic value (ATT write or notification): a header byte
+// followed by timestamp-interleaved MIDI. SysEx may span several packets. Used
+// to decode a BLE capture (the ROLI protocol is identical over BLE and USB).
+std::vector<std::vector<std::uint8_t>>
+    reassembleBleMidiSysex (const std::vector<std::vector<std::uint8_t>>& packets);
+
 } // namespace sea

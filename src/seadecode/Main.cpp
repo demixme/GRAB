@@ -48,6 +48,7 @@ std::string readStdin()
 int main (int argc, char* argv[])
 {
     bool usbMidi = false;
+    bool bleMidi = false;
     std::string hexText;
     bool haveInput = false;
 
@@ -56,11 +57,13 @@ int main (int argc, char* argv[])
         const std::string a = argv[i];
 
         if (a == "--usbmidi")        { usbMidi = true; }
-        else if (a == "--file")      { if (i + 1 < argc) { hexText += " " + readFile (argv[++i]); haveInput = true; } }
-        else if (a == "-")           { hexText += " " + readStdin(); haveInput = true; }
+        else if (a == "--blemidi")   { bleMidi = true; }
+        else if (a == "--file")      { if (i + 1 < argc) { hexText += "\n" + readFile (argv[++i]); haveInput = true; } }
+        else if (a == "-")           { hexText += "\n" + readStdin(); haveInput = true; }
         else if (a == "--help" || a == "-h")
         {
-            std::cout << "Usage: seadecode [--usbmidi] [--file <path> | - | <hex...>]\n";
+            std::cout << "Usage: seadecode [--usbmidi | --blemidi] [--file <path> | - | <hex...>]\n"
+                         "  --blemidi: each input LINE is one BLE-MIDI characteristic value.\n";
             return 0;
         }
         else                         { hexText += " " + a; haveInput = true; } // treat as hex
@@ -69,21 +72,36 @@ int main (int argc, char* argv[])
     if (! haveInput)
         hexText = readStdin();
 
-    const auto bytes = sea::fromHex (hexText);
-    if (bytes.empty())
+    std::vector<std::vector<std::uint8_t>> messages;
+
+    if (bleMidi)
     {
-        std::cerr << "seadecode: no hex bytes found on input.\n";
-        return 1;
+        // Each non-empty line is one BLE-MIDI packet (ATT value).
+        std::vector<std::vector<std::uint8_t>> packets;
+        std::istringstream lines (hexText);
+        std::string ln;
+        while (std::getline (lines, ln))
+        {
+            auto p = sea::fromHex (ln);
+            if (! p.empty())
+                packets.push_back (std::move (p));
+        }
+        messages = sea::reassembleBleMidiSysex (packets);
     }
+    else
+    {
+        const auto bytes = sea::fromHex (hexText);
+        if (bytes.empty())
+        {
+            std::cerr << "seadecode: no hex bytes found on input.\n";
+            return 1;
+        }
+        messages = usbMidi ? sea::reassembleUsbMidiSysex (bytes.data(), bytes.size())
+                           : sea::splitSysex (bytes.data(), bytes.size());
 
-    std::vector<std::vector<std::uint8_t>> messages =
-        usbMidi ? sea::reassembleUsbMidiSysex (bytes.data(), bytes.size())
-                : sea::splitSysex (bytes.data(), bytes.size());
-
-    // If nothing framed and it wasn't a USB-MIDI stream, try the raw buffer as a
-    // single message (lets you paste one message that may be missing a trailing F7).
-    if (messages.empty() && ! usbMidi)
-        messages.push_back (bytes);
+        if (messages.empty() && ! usbMidi)
+            messages.push_back (bytes);
+    }
 
     std::cout << "seadecode: " << messages.size() << " message(s)\n\n";
 

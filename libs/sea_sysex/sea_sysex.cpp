@@ -320,6 +320,12 @@ namespace
             line (out, "%s idx=%u '%s'", mt == 0x06 ? "deviceVersion" : "deviceName", idx, s.c_str());
             return true;
         }
+        if (mt == 0x02) // packetACK
+        {
+            const auto counter = r.read (10);
+            line (out, "packetACK counter=%u", counter);
+            return true;
+        }
         line (out, "device message type 0x%02X [remaining %d bits] (not decoded)", mt, r.remaining());
         return false;
     }
@@ -389,6 +395,39 @@ std::vector<std::vector<std::uint8_t>> splitSysex (const std::uint8_t* data, std
         }
         ++i;
     }
+    return out;
+}
+
+std::vector<std::vector<std::uint8_t>>
+    reassembleBleMidiSysex (const std::vector<std::vector<std::uint8_t>>& packets)
+{
+    // BLE-MIDI framing: each packet is [header(0x80|tsHi)] then, interleaved,
+    // [timestamp(0x80|tsLo)] before each MIDI status and before a SysEx-terminating
+    // 0xF7. Inside a ROLI SysEx every data byte is 7-bit (<0x80), so any high-bit
+    // byte there is either a timestamp (skip) or 0xF7 (end). SysEx can span packets.
+    std::vector<std::vector<std::uint8_t>> out;
+    std::vector<std::uint8_t> cur;
+    bool inSysex = false;
+
+    for (const auto& p : packets)
+    {
+        for (std::size_t i = 1; i < p.size(); ++i) // i=1: skip the per-packet header byte
+        {
+            const std::uint8_t b = p[i];
+            if (! inSysex)
+            {
+                if (b == 0xF0) { inSysex = true; cur.clear(); cur.push_back (0xF0); }
+                // else: timestamp / channel status / stray data outside a sysex — ignore
+            }
+            else
+            {
+                if (b == 0xF7)      { cur.push_back (0xF7); out.push_back (cur); cur.clear(); inSysex = false; }
+                else if (b & 0x80)  { /* timestamp before F7 — skip */ }
+                else                { cur.push_back (b); }
+            }
+        }
+    }
+
     return out;
 }
 

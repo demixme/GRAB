@@ -159,10 +159,34 @@ capture into the above. It reassembles USB-MIDI 32-bit event packets (CIN
 reproduces serial `SBBUI5PBW5X03XU9`, fw `1.4.3`, battery, and the full config
 set (e.g. MIDI Mode=2, Octave=-2 [-4..5]) from raw captured bytes.
 
-## 10. Open questions / to cross-check with a real Dashboard capture
+## 10. ROLI Dashboard ground-truth capture [dev]
+Captured Dashboard ↔ Seaboard with USBPcap/Wireshark and decoded with `seadecode`.
+Note: Dashboard connected over **BLE**, not USB — so the MIDI rode on Bluetooth
+ATT (writes = opcode 0x52 host→device, notifications = 0x1b device→host), not
+USB-MIDI. BLE-MIDI just wraps each ROLI message with a header + timestamp byte;
+`seadecode --blemidi` strips that. **The ROLI SysEx protocol is identical over BLE
+and USB**, so this is valid ground truth. seadecode verified 475/476 host writes
+and 268/272 notifications (the few failures are lost/split BLE packets).
+
+**What Dashboard sends (host→device), complete list:**
+- `ping` (0x03) keepalive · `requestTopology` (0x01) · `requestFactorySync` ·
+  and `setConfig item=13 value=N` — one per slider position while dragging
+  Pressure Sensitivity (…73, 89, 31, … down to 0).
+
+**Key confirmations:**
+- Dashboard writes config with the **same `setConfig` (0x00)** message we use —
+  byte-for-byte the same format.
+- Dashboard **never** sends `setConfigState` (0x06 flash), `saveProgramAsDefault`,
+  `beginAPIMode`/`endAPIMode`, firmware, or factory-reset for a normal edit. This
+  independently confirms Phase 3: a plain `setConfig` is persisted by the
+  firmware; no explicit flash command is needed, and Dashboard doesn't use one.
+- Device notifications decode identically to USB: topology (serial
+  `SBBUI5PBW5X03XU9`, battery, fw `1.4.3`), config `updateConfig`/`setConfig`,
+  `packetACK`.
+
+## 11. Still open
 - The `updateUserConfig` (0x05) layout (user-config metadata) — not yet seen.
-- `setConfigState` (0x06) exact fields — the flash/activation command Dashboard
-  may use; our writes persist without it, but a capture would confirm Dashboard's
-  behaviour.
+- `setConfigState` (0x06) exact fields — Dashboard never sent it, so unobserved.
 - Touch / control-button / program-event message layouts (not needed for config).
-- Whether beginAPIMode is required on a cold device (ours was already heartbeating).
+- A clean **USB** capture (disable the Seaboard's Bluetooth pairing so Dashboard
+  uses USB) if we ever want to confirm USB-MIDI framing against Dashboard too.
