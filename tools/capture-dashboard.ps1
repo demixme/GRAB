@@ -8,16 +8,18 @@
 # It captures BOTH USB root hubs (USBPcap1 + USBPcap2) for -Seconds seconds into
 # captures\. The Seaboard is on one of them; seadecode sorts that out later.
 #
-# WHAT TO DO DURING THE CAPTURE (have ROLI Dashboard already open & connected
-# to the Seaboard BEFORE you start):
-#   1. Start this script.
-#   2. In ROLI Dashboard, change ONE setting to a DISTINCTIVE value, e.g. set
-#      "Pressure Sensitivity" to 77, and Save if there's a Save/Apply control.
-#   3. Change it back if you like. Then let the capture finish.
+# IMPORTANT ordering (USBPcap only captures a MIDI pipe opened AFTER it starts):
+#   1. CLOSE ROLI Dashboard first (so the Seaboard MIDI port is not open).
+#   2. Run this script. It arms the capture, waits a few seconds, then says "GO".
+#   3. When it says GO: OPEN ROLI Dashboard, let it connect to the Seaboard, then
+#      change "Pressure Sensitivity" to a DISTINCTIVE value like 77 and Save/Edit.
+#      Change it back if you like. Then let the capture finish.
 # A distinctive value (77) is easy to spot in the decode.
+# (If Dashboard was already open and you can't restart it, instead UNPLUG and
+#  REPLUG the Seaboard USB cable after the GO, then let it reconnect.)
 
 param(
-    [int]$Seconds = 40,
+    [int]$Seconds = 60,
     [string]$OutDir = "captures"
 )
 
@@ -40,14 +42,19 @@ $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $f1 = Join-Path $OutDir "dashboard-$stamp-hub1.pcapng"
 $f2 = Join-Path $OutDir "dashboard-$stamp-hub2.pcapng"
 
-Write-Host "Capturing USBPcap1 -> $f1" -ForegroundColor Cyan
-Write-Host "Capturing USBPcap2 -> $f2" -ForegroundColor Cyan
-Write-Host ""
-Write-Host ">>> NOW: in ROLI Dashboard change Pressure Sensitivity to 77 and Save. <<<" -ForegroundColor Yellow
-Write-Host "    Capturing for $Seconds seconds..." -ForegroundColor Yellow
+Write-Host "Make sure ROLI Dashboard is CLOSED right now." -ForegroundColor Yellow
+Write-Host "Arming capture on USBPcap1 + USBPcap2 ($Seconds s)..." -ForegroundColor Cyan
 
 $p1 = Start-Process -FilePath $tshark -ArgumentList @("-i","USBPcap1","-a","duration:$Seconds","-w",$f1) -PassThru -NoNewWindow
 $p2 = Start-Process -FilePath $tshark -ArgumentList @("-i","USBPcap2","-a","duration:$Seconds","-w",$f2) -PassThru -NoNewWindow
+
+Start-Sleep -Seconds 4
+Write-Host ""
+Write-Host "==================== GO NOW ====================" -ForegroundColor Green
+Write-Host " OPEN ROLI Dashboard, let it connect to the Seaboard," -ForegroundColor Green
+Write-Host " then change Pressure Sensitivity to 77 and Save/Edit." -ForegroundColor Green
+Write-Host "===============================================" -ForegroundColor Green
+
 $p1.WaitForExit(); $p2.WaitForExit()
 
 function Count($f) { try { (& $tshark -r $f 2>$null | Measure-Object -Line).Lines } catch { 0 } }
