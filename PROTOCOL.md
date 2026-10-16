@@ -200,7 +200,39 @@ endpoint (`midi bluetooth disconnect <id> --forget`) **and** turning the Bluetoo
 radio off — ROLI's own stack reconnects BLE otherwise. Restore BLE by re-pairing
 "Seaboard Block 3XU9" in Windows Settings.
 
-## 12. Still open (not needed for the config tool)
+## 12. Firmware update mechanism [dev]
+Reverse-engineered by capturing ROLI Dashboard (native JUCE app) over an HTTPS
+intercept proxy (mitmproxy; see `tools/FIRMWARE-CAPTURE.md`).
+
+**Server side (how Dashboard gets firmware):**
+1. Version check: `GET https://my.roli.com/firmware_versions/update_to/{device}/{version}`
+   with an `X-API-Key` header. Returns **204** when already current, else JSON
+   `{ "version", "notes" }` (release notes). `{device}` e.g. `Seaboard Block`.
+2. Download (legacy API): `GET https://api.roli.com/api/legacy/build_redirect/product/{productId}/version/{versionId}/build/firmware`
+   → **302** to a signed `https://builds.roli.com/hardware/{device}/{ver}/....syx.zip`.
+   (The non-legacy `/firmware_versions/update_to/...` returns the metadata but not
+   the redirect; the legacy `build_redirect` path gives the download.)
+3. The file is a **zip containing a `.syx`** — e.g. `BLOCKS seaboard 1.4.3 RC.syx`
+   (~248 KB, 2882 SysEx messages). The firmware *is* the SysEx flash stream.
+
+**Firmware .syx format [dev]:** a concatenation of ~2882 `F0 00 21 10 ... F7`
+messages. The first message uses a **`0x47` namespace** (`F0 00 21 10 47 ...`)
+carrying ASCII metadata ("ROLI BLOCKS ..."), followed by the
+`firmwareUpdatePacket` payload messages.
+
+**Device side (how it's flashed) [src]:** host streams `firmwareUpdatePacket`
+(MessageFromHost `0x04`: `size(7) + 7-bit data`) over the same transport; device
+replies `firmwareUpdateACK` (MessageFromDevice `0x03`: `code(7) + detail(32)`).
+Dashboard brackets it with `hardware_firmware_update_begin`/`_end` and reports
+`firmware-update-progress`.
+
+**Preservation note (ROLI winding down):** the version check + download depend on
+`my.roli.com`/`api.roli.com`/`builds.roli.com`. The 1.4.3 Seaboard Block firmware
+has been archived locally (`captures/firmware/`, gitignored — it is ROLI's
+copyrighted file, not committed). We do NOT flash firmware (hard rule; a bad flash
+bricks the device) — this is archival only.
+
+## 13. Still open (not needed for the config tool)
 - The `updateUserConfig` (0x05) layout (user-config metadata) — not yet seen.
 - `setConfigState` (0x06) exact fields — Dashboard never sent it, so unobserved.
 - Touch / control-button / program-event message layouts.

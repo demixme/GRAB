@@ -41,6 +41,27 @@ def _looks_like_firmware(url: str, content_type: str) -> bool:
     )
 
 
+_saved_auth = set()
+
+
+def request(flow: http.HTTPFlow) -> None:
+    # Record the auth headers ROLI Dashboard sends to the firmware endpoint, so we
+    # can ask the server (as you) for the current firmware even though your device
+    # is already up to date. Written once per host. These headers are SENSITIVE
+    # (your ROLI session) — the file stays local and gitignored.
+    host = flow.request.host.lower()
+    if "roli.com" not in host:
+        return
+    if "firmware_versions" in flow.request.path and host not in _saved_auth:
+        _saved_auth.add(host)
+        path = os.path.join(OUT, "auth-headers.txt")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(f"{flow.request.method} {flow.request.pretty_url}\n")
+            for k, v in flow.request.headers.items():
+                f.write(f"{k}: {v}\n")
+        _log(f"  captured request headers for {host} -> {path}")
+
+
 def response(flow: http.HTTPFlow) -> None:
     url = flow.request.pretty_url
     host = flow.request.host.lower()
