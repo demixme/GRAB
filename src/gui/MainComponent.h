@@ -70,6 +70,8 @@ private:
     void timerCallback() override;
 
     void connect (seaprobe::Transport transport);
+    void updateBlockList (const roli::BlockTopology& topology);
+    void selectBlock (roli::Block::UID uid);
     void requestConfig();
     void rebuildRows();
     void saveToDevice();
@@ -82,7 +84,9 @@ private:
     std::unique_ptr<seaprobe::RawLogger>            logger;
     std::unique_ptr<seaprobe::LoggingDeviceDetector> detector;
     std::unique_ptr<roli::PhysicalTopologySource>    source;
-    roli::Block::Ptr block;
+    roli::Block::Ptr block;                 // currently selected block
+    roli::Block::UID selectedBlockUid = 0;  // kept across topology updates
+    std::vector<roli::Block::UID> blockOrder; // combo index -> uid
 
     // Config sync bookkeeping
     bool   configRequested = false;
@@ -95,6 +99,8 @@ private:
     juce::Label        statusLabel;
     juce::Label        transportLabel;
     juce::ComboBox     transportBox;
+    juce::Label        blockLabel;
+    juce::ComboBox     blockBox;
     juce::TextButton   reloadButton  { "Reload from device" };
     juce::TextButton   saveButton    { "Save to device" };
     juce::TextButton   loadPresetBtn { "Load preset..." };

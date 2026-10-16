@@ -74,21 +74,34 @@ public:
         const auto topology = source.getCurrentTopology();
         logger.line ("--- topologyChanged: " + juce::String (topology.blocks.size()) + " block(s) ---");
 
-        for (auto& block : topology.blocks)
+        blocks = topology.blocks;
+        for (auto& block : blocks)
             logBlock (block);
 
-        if (blocksMode && ! topology.blocks.isEmpty() && ! configRequested)
+        if (blocksMode && ! blocks.isEmpty() && ! configRequested)
         {
-            firstBlock = topology.blocks.getFirst();
-            logger.line ("Requesting factory config sync for '" + firstBlock->name + "'...");
-            firstBlock->requestFactoryConfigSync();
+            for (auto& block : blocks)
+            {
+                logger.line ("Requesting factory config sync for " + block->serialNumber + "...");
+                block->requestFactoryConfigSync();
+            }
             configRequested = true;
             configRequestedAtMs = juce::Time::getMillisecondCounterHiRes();
         }
     }
 
     bool didDumpConfig() const { return configDumped; }
-    roli::Block::Ptr getFirstBlock() const { return firstBlock; }
+    roli::Block::Ptr getFirstBlock() const { return blocks.isEmpty() ? nullptr : blocks.getFirst(); }
+
+    roli::Block::Ptr getBlockBySerial (const juce::String& serial) const
+    {
+        for (auto& b : blocks)
+            if (b->serialNumber.equalsIgnoreCase (serial))
+                return b;
+        return nullptr;
+    }
+
+    const roli::Block::Array& getBlocks() const { return blocks; }
 
     bool readyToDumpConfig() const
     {
@@ -99,11 +112,20 @@ public:
     void dumpConfig()
     {
         configDumped = true;
-        if (firstBlock == nullptr)
+        for (auto& block : blocks)
+            dumpConfigForBlock (block);
+    }
+
+    void dumpConfigForBlock (const roli::Block::Ptr& blockToDump)
+    {
+        if (blockToDump == nullptr)
             return;
 
+        const auto firstBlock = blockToDump; // keep body below unchanged
+
         logger.line ("");
-        logger.line ("================ CONFIG ITEMS for '" + firstBlock->name + "' ================");
+        logger.line ("====== CONFIG ITEMS for " + firstBlock->serialNumber
+                     + " (" + firstBlock->getDeviceDescription() + ") ======");
         logger.line (juce::String ("id").paddedRight (' ', 4)
                      + juce::String ("name").paddedRight (' ', 24)
                      + juce::String ("value").paddedRight (' ', 12)
@@ -163,7 +185,7 @@ private:
     RawLogger& logger;
     bool blocksMode;
 
-    roli::Block::Ptr firstBlock;
+    roli::Block::Array blocks;
     bool configRequested = false;
     bool configDumped = false;
     double configRequestedAtMs = 0.0;
@@ -246,7 +268,8 @@ static roli::Block::Ptr waitForBlockAndConfig (Probe& probe, juce::MessageManage
 // nothing); only transmits when commit==true. This is the ONLY code path that can
 // write to the device, and it writes exactly one config value via setConfig
 // (RAM write; it does NOT send the flash-persist setConfigState command).
-static int runSet (RawLogger& logger, seaprobe::Transport transport, juce::uint32 id, juce::int32 value, bool commit)
+static int runSet (RawLogger& logger, seaprobe::Transport transport, const juce::String& serial,
+                   juce::uint32 id, juce::int32 value, bool commit)
 {
     LoggingDeviceDetector detector (logger, transport);
     if (detector.getSelectedPairs().empty())
@@ -261,7 +284,28 @@ static int runSet (RawLogger& logger, seaprobe::Transport transport, juce::uint3
     source.setActive (true);
 
     auto* mm = juce::MessageManager::getInstance();
-    auto block = waitForBlockAndConfig (probe, mm, 6000.0);
+    waitForBlockAndConfig (probe, mm, 6000.0);
+
+    // Select the target block: by --serial if given, else the only/first block.
+    roli::Block::Ptr block;
+    if (serial.isNotEmpty())
+    {
+        block = probe.getBlockBySerial (serial);
+        if (block == nullptr)
+            logger.line ("ERROR: no block with serial '" + serial + "'.");
+    }
+    else
+    {
+        block = probe.getFirstBlock();
+        if (probe.getBlocks().size() > 1)
+        {
+            juce::String serials;
+            for (auto& b : probe.getBlocks()) serials << " " << b->serialNumber;
+            logger.line ("NOTE: " + juce::String (probe.getBlocks().size())
+                         + " blocks connected; writing to the first (" + (block != nullptr ? block->serialNumber : "")
+                         + "). Use --serial <S> to target another. Connected:" + serials);
+        }
+    }
 
     int rc = 0;
     if (block == nullptr)
@@ -351,13 +395,21 @@ int main (int argc, char* argv[])
             transport = seaprobe::parseTransport (args[ti + 1]);
     }
 
-    // Positional args, with flags (and their values) removed, so --transport/--commit
-    // may appear anywhere on the command line.
+    // --serial <S>: target a specific block (for 'set' with multiple blocks).
+    juce::String serial;
+    {
+        const auto si = args.indexOf ("--serial");
+        if (si >= 0 && si + 1 < args.size())
+            serial = args[si + 1];
+    }
+
+    // Positional args, with flags (and their values) removed, so --transport/--serial/
+    // --commit may appear anywhere on the command line.
     juce::StringArray pos;
     for (int i = 0; i < args.size(); ++i)
     {
         if (args[i] == "--commit") continue;
-        if (args[i] == "--transport") { ++i; continue; }
+        if (args[i] == "--transport" || args[i] == "--serial") { ++i; continue; }
         pos.add (args[i]);
     }
 
@@ -389,14 +441,14 @@ int main (int argc, char* argv[])
         // set <id> <value> [--commit] [--transport usb|ble]
         if (pos.size() < 3)
         {
-            logger.line ("Usage: seaprobe set <configId> <value> [--commit] [--transport usb|ble]");
+            logger.line ("Usage: seaprobe set <configId> <value> [--commit] [--transport usb|ble] [--serial <S>]");
             rc = 2;
         }
         else
         {
             const auto id    = (juce::uint32) pos[1].getIntValue();
             const auto value = (juce::int32)  pos[2].getIntValue();
-            rc = runSet (logger, transport, id, value, commit);
+            rc = runSet (logger, transport, serial, id, value, commit);
         }
     }
     else

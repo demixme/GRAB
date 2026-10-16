@@ -132,6 +132,17 @@ MainComponent::MainComponent()
         connect (t);
     };
 
+    addAndMakeVisible (blockLabel);
+    blockLabel.setText ("Block:", juce::dontSendNotification);
+    blockLabel.setJustificationType (juce::Justification::centredRight);
+    addAndMakeVisible (blockBox);
+    blockBox.onChange = [this]
+    {
+        const int idx = blockBox.getSelectedId() - 1;
+        if (idx >= 0 && idx < (int) blockOrder.size())
+            selectBlock (blockOrder[(size_t) idx]);
+    };
+
     addAndMakeVisible (viewport);
     viewport.setViewedComponent (&rowHolder, false);
     viewport.setScrollBarsShown (true, false);
@@ -169,6 +180,9 @@ void MainComponent::connect (seaprobe::Transport transport)
     }
     detector.reset();
     block = nullptr;
+    selectedBlockUid = 0;
+    blockOrder.clear();
+    blockBox.clear (juce::dontSendNotification);
     rows.clear();
     rowHolder.removeAllChildren();
     deviceValues.clear();
@@ -209,6 +223,9 @@ void MainComponent::topologyChanged()
     if (topo.blocks.isEmpty())
     {
         block = nullptr;
+        selectedBlockUid = 0;
+        blockOrder.clear();
+        blockBox.clear (juce::dontSendNotification);
         rowsBuilt = false;
         configRequested = false;
         rows.clear();
@@ -218,14 +235,65 @@ void MainComponent::topologyChanged()
         return;
     }
 
-    block = topo.blocks.getFirst();
-    setStatus ("Connected (" + (detector != nullptr ? detector->getActiveTransport() : juce::String())
-               + "): " + block->serialNumber + "  fw " + block->versionNumber
-               + "  battery " + juce::String (juce::roundToInt (block->getBatteryLevel() * 100.0f)) + "%"
-               + (block->isBatteryCharging() ? " (charging)" : ""));
+    updateBlockList (topo);
+}
 
-    if (! configRequested)
+void MainComponent::updateBlockList (const roli::BlockTopology& topo)
+{
+    blockOrder.clear();
+    blockBox.clear (juce::dontSendNotification);
+
+    int selectId = 0;
+    for (int i = 0; i < topo.blocks.size(); ++i)
+    {
+        const auto b = topo.blocks[i];
+        blockOrder.push_back (b->uid);
+        blockBox.addItem (b->getDeviceDescription() + "  " + b->serialNumber, i + 1);
+        if (b->uid == selectedBlockUid)
+            selectId = i + 1;
+    }
+
+    if (selectId == 0) // first time, or previously-selected block is gone
+    {
+        selectId = 1;
+        selectedBlockUid = topo.blocks.getFirst()->uid;
+    }
+    blockBox.setSelectedId (selectId, juce::dontSendNotification);
+
+    const bool blockChanged = (block == nullptr) || (block->uid != selectedBlockUid);
+    block = topo.getBlockWithUID (selectedBlockUid);
+
+    setStatus ("Connected (" + (detector != nullptr ? detector->getActiveTransport() : juce::String())
+               + "): " + juce::String (topo.blocks.size()) + " block(s)"
+               + (block != nullptr ? "   -   " + block->serialNumber + " fw " + block->versionNumber
+                                       + " battery " + juce::String (juce::roundToInt (block->getBatteryLevel() * 100.0f)) + "%"
+                                     : juce::String()));
+
+    if (block != nullptr && (blockChanged || ! configRequested))
         requestConfig();
+}
+
+void MainComponent::selectBlock (roli::Block::UID uid)
+{
+    selectedBlockUid = uid;
+    if (source == nullptr)
+        return;
+
+    block = source->getCurrentTopology().getBlockWithUID (uid);
+
+    // Reset per-block config state and re-read for the newly selected block.
+    rows.clear();
+    rowHolder.removeAllChildren();
+    deviceValues.clear();
+    configRequested = false;
+    rowsBuilt = false;
+    saveButton.setEnabled (false);
+
+    if (block != nullptr)
+    {
+        setStatus ("Reading " + block->serialNumber + "...");
+        requestConfig();
+    }
 }
 
 void MainComponent::requestConfig()
@@ -294,7 +362,7 @@ void MainComponent::rebuildRows()
                        (int) rows.size() * rowHeight);
     resized();
     saveButton.setEnabled (false);
-    setStatus (statusLabel.getText() + "   —   " + juce::String ((int) rows.size()) + " config items");
+    setStatus (statusLabel.getText() + "   -   " + juce::String ((int) rows.size()) + " config items");
 }
 
 void MainComponent::saveToDevice()
@@ -429,6 +497,9 @@ void MainComponent::resized()
     auto trow = r.removeFromTop (26);
     transportLabel.setBounds (trow.removeFromLeft (80));
     transportBox.setBounds (trow.removeFromLeft (120).reduced (2, 0));
+    trow.removeFromLeft (16);
+    blockLabel.setBounds (trow.removeFromLeft (52));
+    blockBox.setBounds (trow.reduced (2, 0));
     r.removeFromTop (6);
 
     viewport.setBounds (r);
