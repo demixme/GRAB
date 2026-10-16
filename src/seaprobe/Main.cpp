@@ -21,6 +21,7 @@
 #include <roli_blocks_basics/roli_blocks_basics.h>
 
 #include "LoggingMidi.h"
+#include "ConfigOverrides.h"
 
 #include <iostream>
 
@@ -137,7 +138,8 @@ public:
         const auto maxId = firstBlock->getMaxConfigIndex();
         for (juce::uint32 id = 0; id < maxId; ++id)
         {
-            const auto meta = firstBlock->getLocalConfigMetaData (id);
+            auto meta = firstBlock->getLocalConfigMetaData (id);
+            seaprobe::applyConfigOverrides (meta); // e.g. name Chord's option values
 
             // Only show items that exist (named) or that the device reported active.
             if (meta.name.isEmpty() && ! meta.isActive)

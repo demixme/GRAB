@@ -10,6 +10,7 @@
 #include <roli_blocks_basics/roli_blocks_basics.h>
 
 #include "LoggingMidi.h"
+#include "ConfigOverrides.h"
 
 #include <map>
 #include <vector>

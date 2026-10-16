@@ -328,9 +328,10 @@ void MainComponent::rebuildRows()
     const auto maxId = block->getMaxConfigIndex();
     for (juce::uint32 id = 0; id < maxId; ++id)
     {
-        const auto meta = block->getLocalConfigMetaData (id);
+        auto meta = block->getLocalConfigMetaData (id);
         if (! meta.isActive)            // only items the device actually reports
             continue;
+        seaprobe::applyConfigOverrides (meta); // e.g. render Chord as a named dropdown
 
         const auto value = block->getLocalConfigValue (id);
         deviceValues[id] = value;
