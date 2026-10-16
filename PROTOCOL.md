@@ -33,10 +33,12 @@ F0  00 21 10  77   <idx>   <packed 7-bit body...>   <cksum>   F7
 - First body byte is the **topology index** (0..63) **[dev]**.
   - Host→device uses the plain index (e.g. `00`, `2E`=46).
   - Device→host sets bit 6: our block at index 46 replies with `0x6E` = `0x40|0x2E` **[dev]**.
-- The byte immediately before `F7` is a checksum **[dev]** (its exact algorithm
-  is in `roli_BitPackingUtilities.h` / blocksd — not yet re-derived here) **[src]**.
+- The byte immediately before `F7` is a checksum **[dev]**, now derived and
+  validated (see §8).
 - The library strips `F0 00 21 10 77` and the trailing `F7` before decoding; the
   decoder sees `<idx><body>`.
+- Body fields are a **7-bit, LSB-first** bit stream: each MIDI data byte carries 7
+  payload bits, low bits first; multi-bit fields span byte boundaries **[dev]**.
 
 ## 3. Host → device messages
 
@@ -112,9 +114,55 @@ Spot-checks confirmed against ROLI Dashboard for this device:
   write-only in the library and not read back; determining true persistence will
   need a power-cycle test (Phase 3) or a Dashboard capture.
 
-## 7. Open questions / to cross-check with blocksd + a capture
-- Checksum algorithm (byte before `F7`).
-- Exact bit layout of the 42-byte topology/status body (serial, version, battery).
-- The `0x10 02` factory-sync request's full field meaning; is there a user-sync
-  variant we should also send?
+## 8. Checksum & message bit-layouts [dev]
+Derived from `roli_BitPackingUtilities.h` and **validated** by `seadecode` against
+real captured packets (serial, battery, firmware and config values all reproduce).
+
+### Checksum
+Over `payload` = the bytes after the index byte, excluding the checksum itself:
+```
+c = (uint8) payloadLength
+for each payload byte b:  c = (uint8)(c + (c*2 + b))   // i.e. c = 3*c + b (mod 256)
+checksum = c & 0x7f
+```
+Verified on requestTopology (`5D`), ping (`63`), factory-sync (`44`),
+config-set (`0B`), and the 40-byte topology reply (`7A`).
+
+### Field sizes (bits)
+MessageType 7 · PacketTimestamp 32 · ProtocolVersion 8 · DeviceCount 7 ·
+ConnectionCount 8 · DeviceCommand 9 · ConfigCommand 4 · topologyIndex 7 ·
+BatteryLevel 5 · BatteryCharging 1 · ConnectorPort 5 · serial char 7 (×16).
+
+### Packet body
+- **host→device:** `<MessageType><message...>` repeated; no timestamp.
+  - deviceCommand (MT 0x01): `DeviceCommand(9)` = begin/requestTopology/end/ping/save.
+  - config (MT 0x10): `ConfigCommand(4)` then — setConfig: `item(8) value(32)`;
+    requestConfig: `0(32) item(8)`; requestFactorySync/UserSync: none.
+- **device→host:** `PacketTimestamp(32)` then `<MessageType><message...>` repeated,
+  terminated by a 0 MessageType.
+  - topology (MT 0x01): `ProtocolVersion(8) DeviceCount(7) ConnectionCount(8)`, then
+    per device `serial(16×7) index(7) battery(5) charging(1)`, then per connection
+    `idx(7) port(5) idx(7) port(5)`.
+  - deviceVersion/deviceName (MT 0x06/0x07): `index(7) len(7) chars(len×7)`.
+  - config (MT 0x18): `ConfigCommand(4)` then — updateConfig: `item(8) value(32)
+    min(32) max(32)`; setConfig: `item(8) value(32)`; factorySyncEnd/Reset/cluster: none.
+
+**Library inconsistency noted:** `BitSizes::topologyDeviceInfo` is defined as
+`serial*7 + battery + charging` (118) but `handleTopologyDevice` also reads a
+7-bit `index` (→125). Only a capacity pre-check uses the constant, so it is
+harmless in practice; our decoder reads the real 125-bit layout.
+
+## 9. Offline decoding (seadecode) [dev]
+`seadecode` (portable, in `libs/sea_sysex`) decodes a hex dump or a USB-MIDI
+capture into the above. It reassembles USB-MIDI 32-bit event packets (CIN
+0x4–0x7) into SysEx, verifies checksums, and prints each message. Validated: it
+reproduces serial `SBBUI5PBW5X03XU9`, fw `1.4.3`, battery, and the full config
+set (e.g. MIDI Mode=2, Octave=-2 [-4..5]) from raw captured bytes.
+
+## 10. Open questions / to cross-check with a real Dashboard capture
+- The `updateUserConfig` (0x05) layout (user-config metadata) — not yet seen.
+- `setConfigState` (0x06) exact fields — the flash/activation command Dashboard
+  may use; our writes persist without it, but a capture would confirm Dashboard's
+  behaviour.
+- Touch / control-button / program-event message layouts (not needed for config).
 - Whether beginAPIMode is required on a cold device (ours was already heartbeating).

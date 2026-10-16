@@ -78,4 +78,43 @@ std::string annotate (const std::uint8_t* data, std::size_t size);
 // bytes, for replaying captured dumps offline. Non-hex separators are ignored.
 std::vector<std::uint8_t> fromHex (const std::string& text);
 
+//==============================================================================
+// Checksum & bit-stream decoding (derived from roli BitPackingUtilities, and
+// validated against real captured packets).
+
+// ROLI packet checksum over `payload` (the bytes AFTER the topology-index byte,
+// excluding the checksum byte itself). Returns the 7-bit checksum.
+std::uint8_t checksum (const std::uint8_t* payload, std::size_t size) noexcept;
+
+// Verify the trailing checksum byte of a full F0..F7 ROLI message.
+bool checksumOk (const std::uint8_t* msg, std::size_t size) noexcept;
+
+// LSB-first, 7-bits-per-byte reader (mirror of roli Packed7BitArrayReader).
+class BitReader
+{
+public:
+    BitReader (const std::uint8_t* d, std::size_t numBytes) noexcept;
+    int remaining() const noexcept { return totalBits - bitsReadInCurrentByte; }
+    std::uint32_t read (int numBits) noexcept;
+
+private:
+    const std::uint8_t* data;
+    int totalBits;
+    int bitsReadInCurrentByte = 0;
+};
+
+// Full human-readable decode of one raw MIDI message (F0..F7 for ROLI sysex):
+// framing, direction, checksum result, and each inner protocol message decoded
+// (device commands, config get/set/sync/update, topology w/ serial+battery,
+// version/name). Unknown inner messages are reported by type + remaining bits.
+std::string decode (const std::uint8_t* msg, std::size_t size);
+
+// Reassemble a stream of 32-bit USB-MIDI event packets (as seen in a USBPcap /
+// Wireshark capture of a USB-MIDI device) into complete SysEx messages.
+std::vector<std::vector<std::uint8_t>> reassembleUsbMidiSysex (const std::uint8_t* data, std::size_t size);
+
+// Split a flat byte buffer into complete F0..F7 SysEx messages (ignores bytes
+// outside a sysex frame). Useful for already-reassembled MIDI dumps.
+std::vector<std::vector<std::uint8_t>> splitSysex (const std::uint8_t* data, std::size_t size);
+
 } // namespace sea

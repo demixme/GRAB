@@ -40,6 +40,14 @@ juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/third_party/roli_blocks_basics")
 add_subdirectory(libs/sea_sysex)
 
 # ---------------------------------------------------------------------------
+# seadecode: portable offline decoder CLI (no JUCE). Parses hex dumps and
+# USB-MIDI captures (Wireshark/USBPcap) into decoded ROLI messages.
+# ---------------------------------------------------------------------------
+add_executable(seadecode src/seadecode/Main.cpp)
+target_link_libraries(seadecode PRIVATE sea_sysex)
+target_compile_features(seadecode PRIVATE cxx_std_17)
+
+# ---------------------------------------------------------------------------
 # Phase 1 target: seaprobe
 #   Minimal console app. Its sole Phase-1 job is to force the whole
 #   roli_blocks_basics module to compile and link against JUCE 8.

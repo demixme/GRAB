@@ -40,6 +40,18 @@ Shows connection status and one control per device-reported config item. Edits a
 local (changed rows are highlighted) until **Save to device**. Presets load/save as
 JSON. Uses the USB Seaboard only; BLE is skipped.
 
+## Offline decoder (`seadecode`)
+Portable CLI (no JUCE) that decodes ROLI SysEx — hex dumps or USB-MIDI captures —
+into framing, direction, checksum result, and decoded messages.
+```sh
+cmake --build build --config Debug --target seadecode
+./build/Debug/seadecode.exe F0 00 21 10 77 00 01 01 00 5D F7     # decode hex
+./build/Debug/seadecode.exe --usbmidi --file usbcapdata.hex       # a USB-MIDI capture
+tshark -r cap.pcapng -Y usb.capdata -T fields -e usb.capdata | ./build/Debug/seadecode.exe --usbmidi -
+```
+Validated against real device bytes (reproduces serial, firmware, battery, and the
+full config set). Checksum algorithm and bit layouts are in `PROTOCOL.md`.
+
 ## Layout
 - `third_party/roli_blocks_basics/` — vendored, patched for JUCE 8 (see `PATCHES.md`).
 - `third_party/blocksd/`, `third_party/myblocks/` — reference implementations, gitignored.
