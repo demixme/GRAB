@@ -29,7 +29,8 @@ cmake --build build --config Debug --target seaprobe
 ./build/seaprobe_artefacts/Debug/seaprobe.exe blocks       # decode topology + config
 ./build/seaprobe_artefacts/Debug/seaprobe.exe set 13 64 --commit   # write one value
 ```
-Logs are written to `logs/seaprobe-<time>.log`.
+Transport: add `--transport usb|ble|auto` (default **auto** = prefer USB, fall
+back to BLE). The ROLI protocol is identical over both. Logs → `logs/seaprobe-<time>.log`.
 
 ## Run the GUI
 ```sh
@@ -38,7 +39,8 @@ cmake --build build --config Debug --target SeaboardConfig
 ```
 Shows connection status and one control per device-reported config item. Edits are
 local (changed rows are highlighted) until **Save to device**. Presets load/save as
-JSON. Uses the USB Seaboard only; BLE is skipped.
+JSON. A **Transport** dropdown selects Auto / USB / BLE (Auto prefers USB, falls
+back to BLE); changing it reconnects.
 
 ## Offline decoder (`seadecode`)
 Portable CLI (no JUCE) that decodes ROLI SysEx — hex dumps or USB-MIDI captures —

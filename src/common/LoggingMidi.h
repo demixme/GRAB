@@ -175,8 +175,24 @@ private:
 };
 
 //==============================================================================
-/** Enumerates MIDI ports, logs them all, and exposes only the USB Seaboard
-    pair(s) to the library — BLE ports are listed but never opened. */
+/** Which transport to use for the Seaboard. Auto prefers USB, falls back to BLE. */
+enum class Transport { Auto, Usb, Ble };
+
+inline const char* transportName (Transport t)
+{
+    switch (t) { case Transport::Usb: return "USB"; case Transport::Ble: return "BLE"; default: return "Auto"; }
+}
+
+inline Transport parseTransport (const juce::String& s)
+{
+    if (s.equalsIgnoreCase ("usb")) return Transport::Usb;
+    if (s.equalsIgnoreCase ("ble")) return Transport::Ble;
+    return Transport::Auto;
+}
+
+//==============================================================================
+/** Enumerates MIDI ports, logs them all, and exposes the selected-transport
+    Seaboard pair(s) to the library. Transport is USB, BLE, or Auto (USB first). */
 class LoggingDeviceDetector  : public roli::PhysicalTopologySource::DeviceDetector
 {
 public:
@@ -194,13 +210,14 @@ public:
         juce::String description;
     };
 
-    explicit LoggingDeviceDetector (RawLogger& loggerToUse)
-        : logger (loggerToUse)
+    explicit LoggingDeviceDetector (RawLogger& loggerToUse, Transport transportToUse = Transport::Auto)
+        : logger (loggerToUse), transport (transportToUse)
     {
         enumerateAndLog();
     }
 
-    const std::vector<Pair>& getUsbSeaboardPairs() const { return usbPairs; }
+    const std::vector<Pair>& getSelectedPairs() const { return selectedPairs; }
+    juce::String getActiveTransport() const { return activeTransport; }
 
     /** The most recently opened connection (owned by the library; valid while the
         topology source is active). */
@@ -209,18 +226,18 @@ public:
     juce::StringArray scanForDevices() override
     {
         juce::StringArray result;
-        for (auto& p : usbPairs)
+        for (auto& p : selectedPairs)
             result.add (p.description);
         return result;
     }
 
     roli::PhysicalTopologySource::DeviceConnection* openDevice (int index) override
     {
-        if (index < 0 || index >= (int) usbPairs.size())
+        if (index < 0 || index >= (int) selectedPairs.size())
             return nullptr;
 
-        const auto& pair = usbPairs[(std::size_t) index];
-        logger.line ("Opening USB Seaboard: IN='" + pair.input.name + "' [" + pair.input.identifier
+        const auto& pair = selectedPairs[(std::size_t) index];
+        logger.line ("Opening " + activeTransport + " Seaboard: IN='" + pair.input.name + "' [" + pair.input.identifier
                      + "]  OUT='" + pair.output.name + "' [" + pair.output.identifier + "]");
 
         auto out = juce::MidiOutput::openDevice (pair.output.identifier);
@@ -296,35 +313,64 @@ private:
                          + d.name + "'  id=[" + d.identifier + "]"
                          + (isSeaboard (d) ? "  <seaboard>" : ""));
 
-        // Select USB Seaboard input(s); pair with the output sharing the same
-        // identifier (the Seaboard reports identical in/out identifiers). BLE is
-        // deliberately excluded.
-        for (auto& in : inputs)
-        {
-            if (! isSeaboard (in) || isBle (in) || ! isUsb (in))
-                continue;
+        // Build candidate pairs for each transport (in/out share an identifier).
+        const auto usbPairs = buildPairs (inputs, outputs, /*wantBle*/ false);
+        const auto blePairs = buildPairs (inputs, outputs, /*wantBle*/ true);
 
-            for (auto& out : outputs)
-            {
-                if (isBle (out) || ! isUsb (out))
-                    continue;
-                if (out.identifier == in.identifier || out.name == in.name)
-                {
-                    usbPairs.push_back (Pair { in, out, "USB:" + in.name });
-                    break;
-                }
-            }
+        // Choose per the requested transport; Auto prefers USB, falls back to BLE.
+        if (transport == Transport::Usb)
+        {
+            selectedPairs = usbPairs; activeTransport = "USB";
+        }
+        else if (transport == Transport::Ble)
+        {
+            selectedPairs = blePairs; activeTransport = "BLE";
+        }
+        else // Auto
+        {
+            if (! usbPairs.empty()) { selectedPairs = usbPairs; activeTransport = "USB (auto)"; }
+            else                    { selectedPairs = blePairs; activeTransport = "BLE (auto)"; }
         }
 
-        logger.line ("=== Selected USB Seaboard pairs (" + juce::String ((int) usbPairs.size())
-                     + "; BLE deliberately skipped) ===");
-        for (auto& p : usbPairs)
+        logger.line ("=== Selected " + activeTransport + " Seaboard pairs ("
+                     + juce::String ((int) selectedPairs.size()) + ")  [requested: "
+                     + transportName (transport) + ";  USB avail=" + juce::String ((int) usbPairs.size())
+                     + ", BLE avail=" + juce::String ((int) blePairs.size()) + "] ===");
+        for (auto& p : selectedPairs)
             logger.line ("  USE  IN='" + p.input.name + "' [" + p.input.identifier
                          + "]  OUT='" + p.output.name + "' [" + p.output.identifier + "]");
     }
 
+    std::vector<Pair> buildPairs (const juce::Array<juce::MidiDeviceInfo>& inputs,
+                                  const juce::Array<juce::MidiDeviceInfo>& outputs,
+                                  bool wantBle) const
+    {
+        std::vector<Pair> pairs;
+        for (auto& in : inputs)
+        {
+            if (! isSeaboard (in) || isBle (in) != wantBle)
+                continue;
+            if (! wantBle && ! isUsb (in))   // USB must positively look like USB
+                continue;
+
+            for (auto& out : outputs)
+            {
+                if (isBle (out) != wantBle || (! wantBle && ! isUsb (out)))
+                    continue;
+                if (out.identifier == in.identifier || out.name == in.name)
+                {
+                    pairs.push_back (Pair { in, out, juce::String (wantBle ? "BLE:" : "USB:") + in.name });
+                    break;
+                }
+            }
+        }
+        return pairs;
+    }
+
     RawLogger& logger;
-    std::vector<Pair> usbPairs;
+    Transport transport = Transport::Auto;
+    juce::String activeTransport { "none" };
+    std::vector<Pair> selectedPairs;
     LoggingDeviceConnection* lastConnection = nullptr;
 };
 

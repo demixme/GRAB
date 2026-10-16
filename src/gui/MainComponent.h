@@ -69,6 +69,7 @@ private:
     void topologyChanged() override;
     void timerCallback() override;
 
+    void connect (seaprobe::Transport transport);
     void requestConfig();
     void rebuildRows();
     void saveToDevice();
@@ -92,6 +93,8 @@ private:
 
     // UI
     juce::Label        statusLabel;
+    juce::Label        transportLabel;
+    juce::ComboBox     transportBox;
     juce::TextButton   reloadButton  { "Reload from device" };
     juce::TextButton   saveButton    { "Save to device" };
     juce::TextButton   loadPresetBtn { "Load preset..." };

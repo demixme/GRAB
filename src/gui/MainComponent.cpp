@@ -116,31 +116,35 @@ MainComponent::MainComponent()
     savePresetBtn.onClick = [this] { savePreset(); };
     saveButton.setEnabled (false);
 
+    addAndMakeVisible (transportLabel);
+    transportLabel.setText ("Transport:", juce::dontSendNotification);
+    transportLabel.setJustificationType (juce::Justification::centredRight);
+    addAndMakeVisible (transportBox);
+    transportBox.addItem ("Auto", 1);
+    transportBox.addItem ("USB",  2);
+    transportBox.addItem ("BLE",  3);
+    transportBox.setSelectedId (1, juce::dontSendNotification);
+    transportBox.onChange = [this]
+    {
+        const auto t = transportBox.getSelectedId() == 2 ? seaprobe::Transport::Usb
+                     : transportBox.getSelectedId() == 3 ? seaprobe::Transport::Ble
+                                                         : seaprobe::Transport::Auto;
+        connect (t);
+    };
+
     addAndMakeVisible (viewport);
     viewport.setViewedComponent (&rowHolder, false);
     viewport.setScrollBarsShown (true, false);
 
     setSize (720, 680);
-    setStatus ("Scanning for USB Seaboard (BLE skipped)...");
 
     const auto logFile = juce::File::getCurrentWorkingDirectory()
                              .getChildFile ("logs")
                              .getChildFile ("SeaboardConfig-"
                                  + juce::Time::getCurrentTime().formatted ("%Y%m%d-%H%M%S") + ".log");
-    logger   = std::make_unique<seaprobe::RawLogger> (logFile);
-    detector = std::make_unique<seaprobe::LoggingDeviceDetector> (*logger);
+    logger = std::make_unique<seaprobe::RawLogger> (logFile);
 
-    if (detector->getUsbSeaboardPairs().empty())
-    {
-        setStatus ("No USB Seaboard found (BLE skipped). Plug it in over USB, and make sure "
-                   "ROLI Dashboard/Connect isn't holding the port.");
-        return;
-    }
-
-    source = std::make_unique<roli::PhysicalTopologySource> (*detector);
-    source->addListener (this);
-    source->setActive (true);
-    startTimer (250);
+    connect (seaprobe::Transport::Auto);
 }
 
 MainComponent::~MainComponent()
@@ -151,6 +155,43 @@ MainComponent::~MainComponent()
         source->removeListener (this);
         source->setActive (false);
     }
+}
+
+void MainComponent::connect (seaprobe::Transport transport)
+{
+    // Tear down any existing session.
+    stopTimer();
+    if (source != nullptr)
+    {
+        source->removeListener (this);
+        source->setActive (false);
+        source.reset();
+    }
+    detector.reset();
+    block = nullptr;
+    rows.clear();
+    rowHolder.removeAllChildren();
+    deviceValues.clear();
+    configRequested = false;
+    rowsBuilt = false;
+    saveButton.setEnabled (false);
+
+    setStatus ("Scanning (" + juce::String (seaprobe::transportName (transport)) + ")...");
+
+    detector = std::make_unique<seaprobe::LoggingDeviceDetector> (*logger, transport);
+
+    if (detector->getSelectedPairs().empty())
+    {
+        setStatus ("No " + juce::String (seaprobe::transportName (transport)) + " Seaboard found. "
+                   "Check the cable / Bluetooth, and that ROLI Dashboard isn't holding the port.");
+        return;
+    }
+
+    setStatus ("Connecting over " + detector->getActiveTransport() + "...");
+    source = std::make_unique<roli::PhysicalTopologySource> (*detector);
+    source->addListener (this);
+    source->setActive (true);
+    startTimer (250);
 }
 
 void MainComponent::setStatus (const juce::String& s)
@@ -178,7 +219,8 @@ void MainComponent::topologyChanged()
     }
 
     block = topo.blocks.getFirst();
-    setStatus ("Connected: " + block->serialNumber + "  fw " + block->versionNumber
+    setStatus ("Connected (" + (detector != nullptr ? detector->getActiveTransport() : juce::String())
+               + "): " + block->serialNumber + "  fw " + block->versionNumber
                + "  battery " + juce::String (juce::roundToInt (block->getBatteryLevel() * 100.0f)) + "%"
                + (block->isBatteryCharging() ? " (charging)" : ""));
 
@@ -382,6 +424,11 @@ void MainComponent::resized()
     saveButton   .setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
     loadPresetBtn.setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
     savePresetBtn.setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
+    r.removeFromTop (6);
+
+    auto trow = r.removeFromTop (26);
+    transportLabel.setBounds (trow.removeFromLeft (80));
+    transportBox.setBounds (trow.removeFromLeft (120).reduced (2, 0));
     r.removeFromTop (6);
 
     viewport.setBounds (r);

@@ -170,26 +170,26 @@ private:
 };
 
 //==============================================================================
-static int runList (RawLogger& logger)
+static int runList (RawLogger& logger, seaprobe::Transport transport)
 {
-    LoggingDeviceDetector detector (logger); // enumerates + logs in its ctor
+    LoggingDeviceDetector detector (logger, transport); // enumerates + logs in its ctor
 
-    if (detector.getUsbSeaboardPairs().empty())
+    if (detector.getSelectedPairs().empty())
     {
-        logger.line ("No USB Seaboard found. If it is only paired over Bluetooth, connect it");
-        logger.line ("over USB (BLE is deliberately skipped).");
+        logger.line ("No Seaboard found for transport '" + juce::String (seaprobe::transportName (transport))
+                     + "'. Try --transport usb or --transport ble, or check the connection.");
         return 1;
     }
     return 0;
 }
 
-static int runProbe (RawLogger& logger, bool blocksMode, int durationSeconds)
+static int runProbe (RawLogger& logger, seaprobe::Transport transport, bool blocksMode, int durationSeconds)
 {
-    LoggingDeviceDetector detector (logger);
+    LoggingDeviceDetector detector (logger, transport);
 
-    if (detector.getUsbSeaboardPairs().empty())
+    if (detector.getSelectedPairs().empty())
     {
-        logger.line ("No USB Seaboard found (BLE skipped). Nothing to probe.");
+        logger.line ("No Seaboard found for the selected transport. Nothing to probe.");
         return 1;
     }
 
@@ -246,12 +246,12 @@ static roli::Block::Ptr waitForBlockAndConfig (Probe& probe, juce::MessageManage
 // nothing); only transmits when commit==true. This is the ONLY code path that can
 // write to the device, and it writes exactly one config value via setConfig
 // (RAM write; it does NOT send the flash-persist setConfigState command).
-static int runSet (RawLogger& logger, juce::uint32 id, juce::int32 value, bool commit)
+static int runSet (RawLogger& logger, seaprobe::Transport transport, juce::uint32 id, juce::int32 value, bool commit)
 {
-    LoggingDeviceDetector detector (logger);
-    if (detector.getUsbSeaboardPairs().empty())
+    LoggingDeviceDetector detector (logger, transport);
+    if (detector.getSelectedPairs().empty())
     {
-        logger.line ("No USB Seaboard found (BLE skipped). Nothing to write.");
+        logger.line ("No Seaboard found for the selected transport. Nothing to write.");
         return 1;
     }
 
@@ -341,42 +341,62 @@ int main (int argc, char* argv[])
     for (int i = 1; i < argc; ++i)
         args.add (juce::String (argv[i]));
 
-    juce::String mode = args.isEmpty() ? "blocks" : args[0];
     const bool commit = args.contains ("--commit");
+
+    // --transport usb|ble|auto  (default auto: prefer USB, fall back to BLE)
+    seaprobe::Transport transport = seaprobe::Transport::Auto;
+    {
+        const auto ti = args.indexOf ("--transport");
+        if (ti >= 0 && ti + 1 < args.size())
+            transport = seaprobe::parseTransport (args[ti + 1]);
+    }
+
+    // Positional args, with flags (and their values) removed, so --transport/--commit
+    // may appear anywhere on the command line.
+    juce::StringArray pos;
+    for (int i = 0; i < args.size(); ++i)
+    {
+        if (args[i] == "--commit") continue;
+        if (args[i] == "--transport") { ++i; continue; }
+        pos.add (args[i]);
+    }
+
+    juce::String mode = pos.isEmpty() ? "blocks" : pos[0];
 
     const auto logDir = juce::File::getCurrentWorkingDirectory().getChildFile ("logs");
     const auto logFile = logDir.getChildFile ("seaprobe-"
         + juce::Time::getCurrentTime().formatted ("%Y%m%d-%H%M%S") + ".log");
 
     RawLogger logger (logFile);
-    logger.line ("seaprobe  mode=" + mode + (commit ? "  --commit" : ""));
+    logger.line ("seaprobe  mode=" + mode + "  transport=" + seaprobe::transportName (transport)
+                 + (commit ? "  --commit" : ""));
     logger.line ("JUCE " + juce::SystemStats::getJUCEVersion() + "   log file: " + logFile.getFullPathName());
     logger.line ("");
 
     int rc = 0;
     if (mode == "list")
     {
-        rc = runList (logger);
+        rc = runList (logger, transport);
     }
     else if (mode == "raw" || mode == "blocks")
     {
-        int duration = (args.size() > 1) ? args[1].getIntValue() : (mode == "raw" ? 15 : 12);
+        int duration = (pos.size() > 1) ? pos[1].getIntValue() : (mode == "raw" ? 15 : 12);
         if (duration <= 0) duration = 12;
-        rc = runProbe (logger, /*blocksMode*/ mode == "blocks", duration);
+        rc = runProbe (logger, transport, /*blocksMode*/ mode == "blocks", duration);
     }
     else if (mode == "set")
     {
-        // set <id> <value> [--commit]
-        if (args.size() < 3)
+        // set <id> <value> [--commit] [--transport usb|ble]
+        if (pos.size() < 3)
         {
-            logger.line ("Usage: seaprobe set <configId> <value> [--commit]");
+            logger.line ("Usage: seaprobe set <configId> <value> [--commit] [--transport usb|ble]");
             rc = 2;
         }
         else
         {
-            const auto id    = (juce::uint32) args[1].getIntValue();
-            const auto value = (juce::int32)  args[2].getIntValue();
-            rc = runSet (logger, id, value, commit);
+            const auto id    = (juce::uint32) pos[1].getIntValue();
+            const auto value = (juce::int32)  pos[2].getIntValue();
+            rc = runSet (logger, transport, id, value, commit);
         }
     }
     else
