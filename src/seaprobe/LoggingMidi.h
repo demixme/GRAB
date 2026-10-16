@@ -112,6 +112,13 @@ public:
             midiIn->stop();
     }
 
+    /** When true, outbound messages are logged and captured but NOT transmitted.
+        Used to show the exact bytes of a write before it is approved. */
+    void setSuppressSends (bool shouldSuppress) { suppressSends = shouldSuppress; }
+
+    /** The bytes of the most recent suppressed (dry-run) send. */
+    const std::vector<std::uint8_t>& getLastSuppressed() const { return lastSuppressed; }
+
     bool sendMessageToDevice (const void* data, std::size_t dataSize) override
     {
         // Start listening lazily on the first outbound message. By this point the
@@ -121,7 +128,16 @@ public:
             midiIn->start();
 
         const auto* bytes = static_cast<const std::uint8_t*> (data);
-        logger.midi ("OUT", bytes, dataSize, juce::String (sea::annotate (bytes, dataSize)));
+        const juce::String note (sea::annotate (bytes, dataSize));
+
+        if (suppressSends)
+        {
+            lastSuppressed.assign (bytes, bytes + dataSize);
+            logger.midi ("DRY", bytes, dataSize, "WOULD SEND (dry-run, NOT transmitted): " + note);
+            return true;
+        }
+
+        logger.midi ("OUT", bytes, dataSize, note);
 
         if (midiOut != nullptr)
         {
@@ -154,6 +170,8 @@ private:
     std::unique_ptr<juce::MidiInput> midiIn;
     std::unique_ptr<juce::MidiOutput> midiOut;
     std::atomic<bool> started { false };
+    std::atomic<bool> suppressSends { false };
+    std::vector<std::uint8_t> lastSuppressed;
 };
 
 //==============================================================================
@@ -183,6 +201,10 @@ public:
     }
 
     const std::vector<Pair>& getUsbSeaboardPairs() const { return usbPairs; }
+
+    /** The most recently opened connection (owned by the library; valid while the
+        topology source is active). */
+    LoggingDeviceConnection* getLastConnection() const { return lastConnection; }
 
     juce::StringArray scanForDevices() override
     {
@@ -220,6 +242,7 @@ public:
             return nullptr;
         }
 
+        lastConnection = conn.get();
         return conn.release();
     }
 
@@ -302,6 +325,7 @@ private:
 
     RawLogger& logger;
     std::vector<Pair> usbPairs;
+    LoggingDeviceConnection* lastConnection = nullptr;
 };
 
 } // namespace seaprobe

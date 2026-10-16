@@ -88,6 +88,7 @@ public:
     }
 
     bool didDumpConfig() const { return configDumped; }
+    roli::Block::Ptr getFirstBlock() const { return firstBlock; }
 
     bool readyToDumpConfig() const
     {
@@ -227,33 +228,160 @@ static int runProbe (RawLogger& logger, bool blocksMode, int durationSeconds)
 }
 
 //==============================================================================
+// Wait (pumping the message loop) until the first block is present and its config
+// has been synced, or timeout. Returns the block (or nullptr).
+static roli::Block::Ptr waitForBlockAndConfig (Probe& probe, juce::MessageManager* mm, double timeoutMs)
+{
+    const auto endMs = juce::Time::getMillisecondCounterHiRes() + timeoutMs;
+    while (juce::Time::getMillisecondCounterHiRes() < endMs)
+    {
+        mm->runDispatchLoopUntil (100);
+        if (probe.readyToDumpConfig())
+            break;
+    }
+    return probe.getFirstBlock();
+}
+
+// Single-config write. Dry-run by default (builds + prints the exact bytes, sends
+// nothing); only transmits when commit==true. This is the ONLY code path that can
+// write to the device, and it writes exactly one config value via setConfig
+// (RAM write; it does NOT send the flash-persist setConfigState command).
+static int runSet (RawLogger& logger, juce::uint32 id, juce::int32 value, bool commit)
+{
+    LoggingDeviceDetector detector (logger);
+    if (detector.getUsbSeaboardPairs().empty())
+    {
+        logger.line ("No USB Seaboard found (BLE skipped). Nothing to write.");
+        return 1;
+    }
+
+    roli::PhysicalTopologySource source (detector);
+    Probe probe (source, logger, /*blocksMode*/ true);
+    source.addListener (&probe);
+    source.setActive (true);
+
+    auto* mm = juce::MessageManager::getInstance();
+    auto block = waitForBlockAndConfig (probe, mm, 6000.0);
+
+    int rc = 0;
+    if (block == nullptr)
+    {
+        logger.line ("ERROR: no block/config available; aborting write.");
+        rc = 1;
+    }
+    else
+    {
+        const auto meta   = block->getLocalConfigMetaData (id);
+        const auto before = block->getLocalConfigValue (id);
+        const juce::String name (meta.name.isNotEmpty() ? meta.name : juce::String ("<id ") + juce::String ((int) id) + ">");
+
+        logger.line ("");
+        logger.line ("---- CONFIG WRITE " + juce::String (commit ? "(COMMIT)" : "(DRY-RUN)") + " ----");
+        logger.line ("  block serial : " + block->serialNumber + "  fw " + block->versionNumber);
+        logger.line ("  item         : id=" + juce::String ((int) id) + "  '" + name + "'  group=" + meta.group);
+        logger.line ("  range        : [" + juce::String (meta.range.getStart()) + ".." + juce::String (meta.range.getEnd()) + "]");
+        logger.line ("  current value: " + juce::String (before));
+        logger.line ("  new value    : " + juce::String (value));
+
+        if (value < meta.range.getStart() || value > meta.range.getEnd())
+        {
+            logger.line ("  REFUSED: new value is outside the device-reported range.");
+            rc = 2;
+        }
+        else if (auto* conn = detector.getLastConnection())
+        {
+            if (! commit)
+            {
+                // Build the real packet but suppress the physical send.
+                conn->setSuppressSends (true);
+                block->setLocalConfigValue (id, value);
+                mm->runDispatchLoopUntil (150);
+                conn->setSuppressSends (false);
+
+                const auto& bytes = conn->getLastSuppressed();
+                logger.line ("  EXACT BYTES  : " + juce::String (sea::toHex (bytes)) + "   (NOT SENT)");
+                logger.line ("  Re-run with --commit to transmit these bytes.");
+            }
+            else
+            {
+                logger.line ("  transmitting setConfig ...");
+                block->setLocalConfigValue (id, value);
+                mm->runDispatchLoopUntil (400);
+
+                // Read back by re-syncing factory config.
+                block->requestFactoryConfigSync();
+                mm->runDispatchLoopUntil (2500);
+
+                const auto after = block->getLocalConfigValue (id);
+                logger.line ("  read-back    : " + juce::String (after)
+                             + (after == value ? "   (OK, matches)" : "   (MISMATCH!)"));
+                rc = (after == value) ? 0 : 3;
+            }
+        }
+        else
+        {
+            logger.line ("ERROR: no live connection handle; aborting.");
+            rc = 1;
+        }
+    }
+
+    logger.line ("Deactivating topology source.");
+    source.removeListener (&probe);
+    source.setActive (false);
+    mm->runDispatchLoopUntil (200);
+    return rc;
+}
+
+//==============================================================================
 int main (int argc, char* argv[])
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
 
-    juce::String mode = (argc > 1) ? juce::String (argv[1]) : "blocks";
-    int duration = (argc > 2) ? juce::String (argv[2]).getIntValue() : (mode == "raw" ? 15 : 12);
-    if (duration <= 0) duration = 12;
+    juce::StringArray args;
+    for (int i = 1; i < argc; ++i)
+        args.add (juce::String (argv[i]));
+
+    juce::String mode = args.isEmpty() ? "blocks" : args[0];
+    const bool commit = args.contains ("--commit");
 
     const auto logDir = juce::File::getCurrentWorkingDirectory().getChildFile ("logs");
     const auto logFile = logDir.getChildFile ("seaprobe-"
         + juce::Time::getCurrentTime().formatted ("%Y%m%d-%H%M%S") + ".log");
 
     RawLogger logger (logFile);
-    logger.line ("seaprobe Phase 2  mode=" + mode + "  duration=" + juce::String (duration) + "s");
+    logger.line ("seaprobe  mode=" + mode + (commit ? "  --commit" : ""));
     logger.line ("JUCE " + juce::SystemStats::getJUCEVersion() + "   log file: " + logFile.getFullPathName());
     logger.line ("");
 
     int rc = 0;
     if (mode == "list")
+    {
         rc = runList (logger);
-    else if (mode == "raw")
-        rc = runProbe (logger, /*blocksMode*/ false, duration);
-    else if (mode == "blocks")
-        rc = runProbe (logger, /*blocksMode*/ true, duration);
+    }
+    else if (mode == "raw" || mode == "blocks")
+    {
+        int duration = (args.size() > 1) ? args[1].getIntValue() : (mode == "raw" ? 15 : 12);
+        if (duration <= 0) duration = 12;
+        rc = runProbe (logger, /*blocksMode*/ mode == "blocks", duration);
+    }
+    else if (mode == "set")
+    {
+        // set <id> <value> [--commit]
+        if (args.size() < 3)
+        {
+            logger.line ("Usage: seaprobe set <configId> <value> [--commit]");
+            rc = 2;
+        }
+        else
+        {
+            const auto id    = (juce::uint32) args[1].getIntValue();
+            const auto value = (juce::int32)  args[2].getIntValue();
+            rc = runSet (logger, id, value, commit);
+        }
+    }
     else
     {
-        std::cerr << "Unknown mode '" << mode << "'. Use: list | raw [s] | blocks [s]\n";
+        std::cerr << "Unknown mode '" << mode << "'. Use: list | raw [s] | blocks [s] | set <id> <value> [--commit]\n";
         rc = 2;
     }
 
