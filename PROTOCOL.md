@@ -184,9 +184,23 @@ and 268/272 notifications (the few failures are lost/split BLE packets).
   `SBBUI5PBW5X03XU9`, battery, fw `1.4.3`), config `updateConfig`/`setConfig`,
   `packetACK`.
 
-## 11. Still open
+## 11. USB capture limitation [dev]
+We could not capture the Seaboard's **USB**-MIDI with USBPcap on this machine.
+Confirmed decisively: running our own `seaprobe` (which provably exchanges ROLI
+USB-MIDI on endpoints 0x01/0x82) while capturing produced **only the device's
+enumeration (control) packets — no bulk MIDI data**. This is a known USBPcap
+limitation with USB audio/MIDI-class devices and filtered driver stacks (the ROLI
+MIDI driver is present). Timing, BLE removal, and USB replug did not help.
+Not a blocker: §10's BLE capture already provides the Dashboard ground truth, and
+the ROLI protocol is identical over both transports. (An ETW-based USB trace could
+in principle capture what USBPcap misses, but it is unnecessary here.)
+
+Note: forcing Dashboard onto USB required removing the Windows MIDI Services BLE
+endpoint (`midi bluetooth disconnect <id> --forget`) **and** turning the Bluetooth
+radio off — ROLI's own stack reconnects BLE otherwise. Restore BLE by re-pairing
+"Seaboard Block 3XU9" in Windows Settings.
+
+## 12. Still open (not needed for the config tool)
 - The `updateUserConfig` (0x05) layout (user-config metadata) — not yet seen.
 - `setConfigState` (0x06) exact fields — Dashboard never sent it, so unobserved.
-- Touch / control-button / program-event message layouts (not needed for config).
-- A clean **USB** capture (disable the Seaboard's Bluetooth pairing so Dashboard
-  uses USB) if we ever want to confirm USB-MIDI framing against Dashboard too.
+- Touch / control-button / program-event message layouts.
