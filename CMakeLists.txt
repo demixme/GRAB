@@ -35,6 +35,11 @@ FetchContent_MakeAvailable(JUCE)
 juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/third_party/roli_blocks_basics")
 
 # ---------------------------------------------------------------------------
+# Portable SysEx decoder helpers (no JUCE; also parses offline hex dumps)
+# ---------------------------------------------------------------------------
+add_subdirectory(libs/sea_sysex)
+
+# ---------------------------------------------------------------------------
 # Phase 1 target: seaprobe
 #   Minimal console app. Its sole Phase-1 job is to force the whole
 #   roli_blocks_basics module to compile and link against JUCE 8.
@@ -50,11 +55,14 @@ target_compile_definitions(seaprobe PRIVATE
     JUCE_STANDALONE_APPLICATION=1
     JUCE_USE_CURL=0
     JUCE_WEB_BROWSER=0
-    JUCE_MODAL_LOOPS_PERMITTED=0
-    DONT_SET_USING_JUCE_NAMESPACE=1)
+    JUCE_MODAL_LOOPS_PERMITTED=1
+    DONT_SET_USING_JUCE_NAMESPACE=1
+    # Make roli_blocks_basics log its handshake / keepalive / topology events
+    # (e.g. "API Try <uid>" when beginAPIMode is sent) to stderr.
+    LOG_BLOCKS_CONNECTIVITY=1)
 
 target_link_libraries(seaprobe PRIVATE
+    sea_sysex
     roli_blocks_basics
     juce::juce_recommended_config_flags
-    juce::juce_recommended_lto_flags
     juce::juce_recommended_warning_flags)

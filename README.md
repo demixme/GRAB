@@ -9,10 +9,22 @@ Built with **JUCE 8** + **CMake** (no Projucer), targeting Windows 10/11 x64
 
 ## Status
 - **Phase 1 — Build:** CMake project fetches JUCE 8 and builds `roli_blocks_basics`
-  as a JUCE module. Target `seaprobe` proves the module compiles/links. _(current)_
-- Phase 2 — Read-only probe. _(not started)_
+  as a JUCE module. _(done)_
+- **Phase 2 — Read-only probe (`seaprobe`):** lists MIDI ports (USB selected, BLE
+  skipped), dumps raw SysEx with timestamps, and decodes topology (type, serial,
+  firmware, battery) + all config items via the library over a custom logging
+  transport. Observations recorded in `PROTOCOL.md`. _(done)_
 - Phase 3 — Single approved write. _(not started)_
 - Phase 4 — Minimal GUI. _(not started)_
+
+## Run the probe
+```sh
+cmake --build build --config Debug --target seaprobe
+./build/seaprobe_artefacts/Debug/seaprobe.exe list        # enumerate ports only
+./build/seaprobe_artefacts/Debug/seaprobe.exe raw   15     # raw SysEx hex dump, 15s
+./build/seaprobe_artefacts/Debug/seaprobe.exe blocks       # decode topology + config
+```
+Logs are written to `logs/seaprobe-<time>.log`.
 
 ## Layout
 - `third_party/roli_blocks_basics/` — vendored, patched for JUCE 8 (see `PATCHES.md`).
