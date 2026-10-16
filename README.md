@@ -17,7 +17,9 @@ Built with **JUCE 8** + **CMake** (no Projucer), targeting Windows 10/11 x64
 - **Phase 3 — Single approved write (`seaprobe set`):** wrote one config value
   (`setConfig`), read it back, and confirmed it persists across a power cycle on
   fw 1.4.3. Dry-run by default; `--commit` to transmit. _(done)_
-- Phase 4 — Minimal GUI (`SeaboardConfig`). _(not started)_
+- **Phase 4 — Minimal GUI (`SeaboardConfig`):** JUCE desktop app showing connection
+  status and one control per device-reported config item (sliders/toggles/combos,
+  generated — not hard-coded), with Save to device and JSON preset load/save. _(done)_
 
 ## Run the probe
 ```sh
@@ -25,8 +27,18 @@ cmake --build build --config Debug --target seaprobe
 ./build/seaprobe_artefacts/Debug/seaprobe.exe list        # enumerate ports only
 ./build/seaprobe_artefacts/Debug/seaprobe.exe raw   15     # raw SysEx hex dump, 15s
 ./build/seaprobe_artefacts/Debug/seaprobe.exe blocks       # decode topology + config
+./build/seaprobe_artefacts/Debug/seaprobe.exe set 13 64 --commit   # write one value
 ```
 Logs are written to `logs/seaprobe-<time>.log`.
+
+## Run the GUI
+```sh
+cmake --build build --config Debug --target SeaboardConfig
+./build/SeaboardConfig_artefacts/Debug/SeaboardConfig.exe
+```
+Shows connection status and one control per device-reported config item. Edits are
+local (changed rows are highlighted) until **Save to device**. Presets load/save as
+JSON. Uses the USB Seaboard only; BLE is skipped.
 
 ## Layout
 - `third_party/roli_blocks_basics/` — vendored, patched for JUCE 8 (see `PATCHES.md`).

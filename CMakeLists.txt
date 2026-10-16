@@ -51,6 +51,8 @@ juce_add_console_app(seaprobe
 target_sources(seaprobe PRIVATE
     src/seaprobe/Main.cpp)
 
+target_include_directories(seaprobe PRIVATE src/common)
+
 target_compile_definitions(seaprobe PRIVATE
     JUCE_STANDALONE_APPLICATION=1
     JUCE_USE_CURL=0
@@ -64,5 +66,32 @@ target_compile_definitions(seaprobe PRIVATE
 target_link_libraries(seaprobe PRIVATE
     sea_sysex
     roli_blocks_basics
+    juce::juce_recommended_config_flags
+    juce::juce_recommended_warning_flags)
+
+# ---------------------------------------------------------------------------
+# Phase 4 target: SeaboardConfig (minimal JUCE GUI)
+#   One control per device-reported config item; Save to device; JSON presets.
+# ---------------------------------------------------------------------------
+juce_add_gui_app(SeaboardConfig
+    PRODUCT_NAME "SeaboardConfig")
+
+target_sources(SeaboardConfig PRIVATE
+    src/gui/Main.cpp
+    src/gui/MainComponent.cpp)
+
+target_include_directories(SeaboardConfig PRIVATE src/common src/gui)
+
+target_compile_definitions(SeaboardConfig PRIVATE
+    JUCE_USE_CURL=0
+    JUCE_WEB_BROWSER=0
+    JUCE_MODAL_LOOPS_PERMITTED=0
+    DONT_SET_USING_JUCE_NAMESPACE=1
+    LOG_BLOCKS_CONNECTIVITY=1)
+
+target_link_libraries(SeaboardConfig PRIVATE
+    sea_sysex
+    roli_blocks_basics
+    juce::juce_gui_extra
     juce::juce_recommended_config_flags
     juce::juce_recommended_warning_flags)
