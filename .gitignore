@@ -21,3 +21,7 @@
 # Device logs produced by seaprobe (Phase 2)
 /logs/
 *.sysex.log
+
+# Wireshark/USBPcap captures (local only)
+/captures/
+*.pcapng
