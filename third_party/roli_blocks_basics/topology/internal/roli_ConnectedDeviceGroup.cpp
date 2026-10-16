@@ -37,7 +37,11 @@ struct ConnectedDeviceGroup  : private juce::AsyncUpdater,
     ConnectedDeviceGroup (Detector& d, const juce::String& name, PhysicalTopologySource::DeviceConnection* connection)
         : detector (d), deviceName (name), deviceConnection (connection)
     {
-        if (auto midiDeviceConnection = static_cast<MIDIDeviceConnection*> (deviceConnection.get()))
+        // PATCH (seaprobe): static_cast -> dynamic_cast. A custom DeviceDetector may
+        // supply a DeviceConnection that is NOT a MIDIDeviceConnection; the original
+        // unchecked static_cast was undefined behaviour for those. dynamic_cast matches
+        // how isBluetoothConnection() already probes this same pointer.
+        if (auto midiDeviceConnection = dynamic_cast<MIDIDeviceConnection*> (deviceConnection.get()))
         {
             juce::ScopedLock lock (midiDeviceConnection->criticalSecton);
             setMidiMessageCallback();
@@ -798,13 +802,21 @@ private:
 
     void initialiseVersionReader()
     {
-        if (auto midiDeviceConnection = static_cast<MIDIDeviceConnection*> (deviceConnection.get()))
+        // PATCH (seaprobe): static_cast -> dynamic_cast. A custom DeviceDetector may
+        // supply a DeviceConnection that is NOT a MIDIDeviceConnection; the original
+        // unchecked static_cast was undefined behaviour for those. dynamic_cast matches
+        // how isBluetoothConnection() already probes this same pointer.
+        if (auto midiDeviceConnection = dynamic_cast<MIDIDeviceConnection*> (deviceConnection.get()))
             depreciatedVersionReader = std::make_unique<DepreciatedVersionReader> (*midiDeviceConnection);
     }
 
     void initialiseSerialReader()
     {
-        if (auto midiDeviceConnection = static_cast<MIDIDeviceConnection*> (deviceConnection.get()))
+        // PATCH (seaprobe): static_cast -> dynamic_cast. A custom DeviceDetector may
+        // supply a DeviceConnection that is NOT a MIDIDeviceConnection; the original
+        // unchecked static_cast was undefined behaviour for those. dynamic_cast matches
+        // how isBluetoothConnection() already probes this same pointer.
+        if (auto midiDeviceConnection = dynamic_cast<MIDIDeviceConnection*> (deviceConnection.get()))
             masterSerialReader = std::make_unique<BlockSerialReader> (*midiDeviceConnection);
     }
 

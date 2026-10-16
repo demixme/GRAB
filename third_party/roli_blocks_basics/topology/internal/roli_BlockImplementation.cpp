@@ -131,12 +131,18 @@ public:
         if (detector == nullptr)
             return;
 
-        listenerToMidiConnection = dynamic_cast<MIDIDeviceConnection*> (detector->getDeviceConnectionFor (*this));
+        // PATCH (seaprobe): config comms must use the BASE DeviceConnection, not the
+        // MIDIDeviceConnection downcast. For a custom transport the downcast is null,
+        // which previously left the config manager with no connection, so config
+        // requests/sets were silently dropped. The MIDIDeviceConnection cast is only
+        // needed for the raw-MIDI addListener below; setDeviceComms takes the base.
+        auto* baseConnection = detector->getDeviceConnectionFor (*this);
+        listenerToMidiConnection = dynamic_cast<MIDIDeviceConnection*> (baseConnection);
 
         if (listenerToMidiConnection != nullptr)
             listenerToMidiConnection->addListener (this);
 
-        config.setDeviceComms (listenerToMidiConnection);
+        config.setDeviceComms (baseConnection);
     }
 
     void disconnectMidiConnectionListener()
@@ -730,7 +736,12 @@ private:
     void initialiseDeviceIndexAndConnection()
     {
         config.setDeviceIndex ((TopologyIndex) getDeviceIndex());
-        config.setDeviceComms (listenerToMidiConnection);
+        // PATCH (seaprobe): use the base DeviceConnection, not the (possibly null)
+        // MIDIDeviceConnection downcast. This is called from every config accessor and
+        // previously overwrote the connection set in updateMidiConnectionListener with
+        // null for a custom transport, silently dropping all config traffic.
+        config.setDeviceComms (detector != nullptr ? detector->getDeviceConnectionFor (*this)
+                                                    : nullptr);
     }
 
     const juce::MidiInput* getMidiInput() const
