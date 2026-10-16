@@ -1,0 +1,23 @@
+# Build output
+/build/
+/out/
+/cmake-build-*/
+
+# JUCE / CMake FetchContent cache (JUCE is fetched, never committed)
+/_deps/
+*.user
+
+# Reference repos kept locally but NOT tracked (vendored copy of
+# roli_blocks_basics IS tracked; these two stay out of our history).
+/third_party/blocksd/
+/third_party/myblocks/
+
+# Editor / OS
+.vs/
+.vscode/
+*.swp
+.DS_Store
+
+# Device logs produced by seaprobe (Phase 2)
+/logs/
+*.sysex.log
