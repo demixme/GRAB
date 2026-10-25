@@ -48,6 +48,19 @@ warns on first launch:
   quarantine flag once: `xattr -dr com.apple.quarantine GRAB.app`, then open it
   (or right-click → Open the first time).
 
+## Connecting (no ROLI software or driver needed)
+ROLI devices are **class-compliant USB-MIDI**, so no driver and none of ROLI's
+software (Dashboard / Connect / hardware service) is required:
+- **Windows:** plug in over USB and GRAB detects it — nothing to install.
+- **macOS:** plug in over USB and GRAB detects it — CoreMIDI handles it natively,
+  confirmed working with no ROLI software installed.
+- **BLE-MIDI** works too (the OS's own Bluetooth-MIDI support). Windows is
+  confirmed; macOS BLE is being brought up.
+
+Just connect the device and launch GRAB. If a port won't open, another app
+(a DAW, or leftover ROLI software) is holding it — GRAB tells you rather than
+fighting for it.
+
 ## Supported devices
 | Device | Status |
 |---|---|
