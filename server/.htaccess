@@ -1,0 +1,10 @@
+# Pretty URLs so the client can POST to /grab/v1/profiles (no .php). Optional —
+# without rewrite, point the tool at .../profiles.php and .../names.php instead.
+RewriteEngine On
+RewriteRule ^profiles/?$ profiles.php [L]
+RewriteRule ^names/?$     names.php    [L]
+
+# Never serve the DB credentials.
+<Files "config.php">
+  Require all denied
+</Files>

@@ -32,3 +32,6 @@
 # Python bytecode (from mitmproxy running tools/*.py)
 __pycache__/
 *.pyc
+
+# Server DB credentials (copy config.sample.php -> config.php)
+/server/config.php
