@@ -185,6 +185,7 @@ MainComponent::MainComponent()
                                  + juce::Time::getCurrentTime().formatted ("%Y%m%d-%H%M%S") + ".log");
     logger = std::make_unique<seaprobe::RawLogger> (logFile);
     logger->line ("GRAB log: " + logFile.getFullPathName());
+    logFolder = logFile.getParentDirectory();
 
     connect (seaprobe::Transport::Auto);
 }
@@ -228,6 +229,9 @@ void MainComponent::connect (seaprobe::Transport transport)
     pendingValues.clear();
     configRequested = false;
     rowsBuilt = false;
+    deviceSeen = false;
+    connectTimeoutShown = false;
+    sourceActiveAtMs = 0.0;
     saveButton.setEnabled (false);
 
     setStatus ("Scanning (" + juce::String (seaprobe::transportName (transport)) + ")...");
@@ -241,10 +245,12 @@ void MainComponent::connect (seaprobe::Transport transport)
         return;
     }
 
-    setStatus ("Connecting over " + detector->getActiveTransport() + "...");
+    setStatus ("Connecting over " + detector->getActiveTransport() + " to '"
+               + detector->getSelectedPairs().front().input.name + "'...");
     source = std::make_unique<roli::PhysicalTopologySource> (*detector);
     source->addListener (this);
     source->setActive (true);
+    sourceActiveAtMs = juce::Time::getMillisecondCounterHiRes(); // start the connect timeout
     startTimer (250);
 }
 
@@ -277,7 +283,10 @@ void MainComponent::topologyChanged()
         rowHolder.removeAllChildren();
         pendingValues.clear();
         saveButton.setEnabled (false);
-        setStatus ("Seaboard disconnected.");
+        if (deviceSeen)
+            setStatus ("Seaboard disconnected.");
+        // else: we never got a device on this connection — keep the "Connecting…"
+        // status; checkConnectTimeout() will give specific guidance if it stays empty.
         return;
     }
 
@@ -309,6 +318,8 @@ void MainComponent::updateBlockList (const roli::BlockTopology& topo)
     const bool blockChanged = (block == nullptr) || (block->uid != selectedBlockUid);
     block = topo.getBlockWithUID (selectedBlockUid);
     setListeningBlock (block); // live config updates for the selected block
+    deviceSeen = true;             // a real BLOCKS device responded; disarm the connect timeout
+    connectTimeoutShown = false;
 
     setStatus ("Connected (" + (detector != nullptr ? detector->getActiveTransport() : juce::String())
                + "): " + juce::String (topo.blocks.size()) + " block(s)"
@@ -440,6 +451,43 @@ void MainComponent::timerCallback()
         rebuildRows();
         rowsBuilt = true;
     }
+
+    checkConnectTimeout();
+}
+
+void MainComponent::checkConnectTimeout()
+{
+    // A port was opened but no BLOCKS topology ever arrived. The usual cause is a
+    // non-BLOCKS device that our name match still picked up — a Seaboard RISE/GRAND
+    // (different protocol), or a port held by another app. Turn the silent wait into
+    // clear guidance + a request to report, instead of hanging on "Connecting…".
+    if (source == nullptr || deviceSeen || connectTimeoutShown || sourceActiveAtMs <= 0.0)
+        return;
+    if (juce::Time::getMillisecondCounterHiRes() - sourceActiveAtMs < 6000.0)
+        return;
+
+    connectTimeoutShown = true;
+
+    juce::String name;
+    if (detector != nullptr && ! detector->getSelectedPairs().empty())
+        name = detector->getSelectedPairs().front().input.name;
+
+    const bool riseGrand = name.containsIgnoreCase ("rise") || name.containsIgnoreCase ("grand");
+    const auto path = logFolder.getFullPathName();
+
+    if (riseGrand)
+        setStatus ("Found '" + name + "' but it isn't a BLOCKS device. Seaboard RISE/GRAND "
+                   "use a different protocol GRAB doesn't support yet — see github.com/demixme/GRAB/issues/1 to help add it.");
+    else
+        setStatus ("Opened '" + name + "' but no ROLI BLOCKS device replied. If it's a Seaboard "
+                   "RISE/GRAND it isn't supported yet (issue #1); otherwise the port may be held by "
+                   "another app — try the other Transport.");
+
+    // Full guidance (incl. the log path to attach to a report) goes to the log.
+    logger->line ("CONNECT TIMEOUT: opened '" + name + "' but received no BLOCKS topology in 6s."
+                  + juce::String (riseGrand ? "  Name looks like RISE/GRAND (unsupported protocol)." : ""));
+    logger->line ("  To report: open an issue at https://github.com/demixme/GRAB/issues and attach the "
+                  "'=== MIDI inputs ===' lines above. Log file: " + path);
 }
 
 void MainComponent::setListeningBlock (roli::Block::Ptr b)

@@ -110,6 +110,14 @@ private:
     double configRequestedAtMs = 0.0;
     bool   rowsBuilt = false;
 
+    // Connect-timeout bookkeeping: detect a port that opens but never produces a
+    // BLOCKS topology (e.g. a Seaboard RISE/GRAND — a different, unsupported protocol).
+    double sourceActiveAtMs   = 0.0;
+    bool   deviceSeen         = false;
+    bool   connectTimeoutShown = false;
+    juce::File logFolder;     // where the log is written, to point users at for reports
+    void checkConnectTimeout();
+
     std::map<juce::uint32, juce::int32> deviceValues;  // last values read from device
     std::map<juce::uint32, juce::int32> pendingValues; // edited (unsaved) values, rows + curves
 
