@@ -5,13 +5,31 @@ function grab_config(): array
 {
     static $cfg = null;
     if ($cfg === null) {
-        // Priority: GRAB_CONFIG env (absolute path, e.g. your /private/… file that
-        // returns the array), then local config.php, then the sample.
+        // Point GRAB at your existing config with the GRAB_CONFIG env var (absolute
+        // path), else a local config.php, else the sample.
         $env  = getenv('GRAB_CONFIG');
         $path = ($env && is_file($env)) ? $env
               : (is_file(__DIR__ . '/config.php') ? __DIR__ . '/config.php'
               : __DIR__ . '/config.sample.php');
-        $cfg = require $path;
+
+        $ret = require $path;
+
+        if (is_array($ret)) {
+            // config file returned the array directly
+            $cfg = $ret;
+        } elseif (defined('DB_HOST') && defined('DB_USER') && defined('DB_PASS')) {
+            // Your existing config.php defines DB_* constants — use them as-is.
+            // Optionally define GRAB_DB_NAME / GRAB_WRITE_TOKEN to override.
+            $cfg = [
+                'host'       => DB_HOST,
+                'dbname'     => defined('GRAB_DB_NAME') ? GRAB_DB_NAME : (defined('DB_NAME') ? DB_NAME : ''),
+                'user'       => DB_USER,
+                'pass'       => DB_PASS,
+                'writeToken' => defined('GRAB_WRITE_TOKEN') ? GRAB_WRITE_TOKEN : '',
+            ];
+        } else {
+            $cfg = require __DIR__ . '/config.sample.php';
+        }
     }
     return $cfg;
 }
