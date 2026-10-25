@@ -66,7 +66,7 @@ Response: `201` with `{ "message": "...", "id": N }`.
 
 The **diagnostics**, **capture** and **probe** payloads follow the same shape — a
 `schemaVersion`, a `kind` (`connection-diagnostic` / `midi-capture`), a `tool` + `platform`,
-and their data — see `src/common/Diagnostics.h`, `src/gui/CapturePanel.h`, `src/gui/ProbePanel.h`.
+and their data — see `src/gui/CapturePanel.h`, `src/gui/ProbePanel.h`.
 
 ## Names map (self-learn pull)
 `GET {endpoint}/v1/names?family=BLOCKS&type=Seaboard` → a map GRAB merges into its names

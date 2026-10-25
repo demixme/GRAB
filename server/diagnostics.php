@@ -3,7 +3,9 @@ declare(strict_types=1);
 require __DIR__ . '/db.php';
 
 // POST /grab/v1/diagnostics — store one anonymized connection diagnostic (the MIDI
-// ports GRAB saw + how the connect attempt ended). See Diagnostics.h / DEVICE-PROFILES.md.
+// ports GRAB saw + how the connect attempt ended). See DEVICE-PROFILES.md.
+// Retained server-side for historical data; GRAB no longer posts here (the one-click
+// "Help add device" capture supersedes the old Report flow).
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     grab_json(405, ['error' => 'POST only']);
