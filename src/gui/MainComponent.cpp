@@ -1,5 +1,8 @@
 #include "MainComponent.h"
 
+#include <algorithm>
+#include <map>
+
 //==============================================================================
 ConfigRow::ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value, ChangeFn onChange)
     : id (meta.item), type (meta.type), range (meta.range), change (std::move (onChange))
@@ -100,6 +103,20 @@ void ConfigRow::paint (juce::Graphics& g)
 
 //==============================================================================
 static constexpr int rowHeight = 30;
+static constexpr int sectionHeaderHeight = 30;
+
+// Order config sections roughly like ROLI Dashboard (Sensitivity / 5D first).
+static int groupRank (const juce::String& g)
+{
+    static const char* order[] = {
+        "Sensitivity", "MIDI Settings", "Pitch", "Play mode",
+        "Pedal", "Colors", "Rhythm", "Mode 1", "Mode 2", "Mode 3", "Mode 4"
+    };
+    for (int i = 0; i < (int) (sizeof (order) / sizeof (order[0])); ++i)
+        if (g == order[i])
+            return i;
+    return g.isEmpty() ? 100 : 50; // unknown groups after, empty/"Other" last
+}
 
 MainComponent::MainComponent()
 {
@@ -184,6 +201,8 @@ void MainComponent::connect (seaprobe::Transport transport)
     blockOrder.clear();
     blockBox.clear (juce::dontSendNotification);
     rows.clear();
+    sectionHeaders.clear();
+    layoutOrder.clear();
     rowHolder.removeAllChildren();
     deviceValues.clear();
     configRequested = false;
@@ -229,6 +248,8 @@ void MainComponent::topologyChanged()
         rowsBuilt = false;
         configRequested = false;
         rows.clear();
+        sectionHeaders.clear();
+        layoutOrder.clear();
         rowHolder.removeAllChildren();
         saveButton.setEnabled (false);
         setStatus ("Seaboard disconnected.");
@@ -283,6 +304,8 @@ void MainComponent::selectBlock (roli::Block::UID uid)
 
     // Reset per-block config state and re-read for the newly selected block.
     rows.clear();
+    sectionHeaders.clear();
+    layoutOrder.clear();
     rowHolder.removeAllChildren();
     deviceValues.clear();
     configRequested = false;
@@ -319,11 +342,36 @@ void MainComponent::timerCallback()
 void MainComponent::rebuildRows()
 {
     rows.clear();
+    sectionHeaders.clear();
+    layoutOrder.clear();
     rowHolder.removeAllChildren();
     deviceValues.clear();
 
     if (block == nullptr)
         return;
+
+    const auto changeFn = [this] (juce::uint32 changedId, juce::int32 v)
+    {
+        auto it = deviceValues.find (changedId);
+        const bool differs = (it != deviceValues.end() && it->second != v);
+        for (auto& r : rows)
+            if (r->getId() == changedId)
+                r->setChangedFromDevice (differs);
+        bool anyChanged = false;
+        for (auto& r : rows)
+        {
+            auto di = deviceValues.find (r->getId());
+            if (di != deviceValues.end() && di->second != r->getValue())
+                anyChanged = true;
+        }
+        saveButton.setEnabled (anyChanged);
+    };
+
+    // Collect active items grouped by their device-reported group, preserving id
+    // order within a group and first-seen order of groups.
+    struct Item { roli::Block::ConfigMetaData meta; juce::int32 value; };
+    std::vector<juce::String> groupOrder;
+    std::map<juce::String, std::vector<Item>> groups;
 
     const auto maxId = block->getMaxConfigIndex();
     for (juce::uint32 id = 0; id < maxId; ++id)
@@ -336,34 +384,41 @@ void MainComponent::rebuildRows()
         const auto value = block->getLocalConfigValue (id);
         deviceValues[id] = value;
 
-        auto row = std::make_unique<ConfigRow> (meta, value,
-            [this] (juce::uint32 changedId, juce::int32 v)
-            {
-                auto it = deviceValues.find (changedId);
-                const bool differs = (it != deviceValues.end() && it->second != v);
-                for (auto& r : rows)
-                    if (r->getId() == changedId)
-                        r->setChangedFromDevice (differs);
-                // Enable Save if any row differs from the device.
-                bool anyChanged = false;
-                for (auto& r : rows)
-                {
-                    auto di = deviceValues.find (r->getId());
-                    if (di != deviceValues.end() && di->second != r->getValue())
-                        anyChanged = true;
-                }
-                saveButton.setEnabled (anyChanged);
-            });
-
-        rowHolder.addAndMakeVisible (*row);
-        rows.push_back (std::move (row));
+        auto g = meta.group;
+        if (std::find (groupOrder.begin(), groupOrder.end(), g) == groupOrder.end())
+            groupOrder.push_back (g);
+        groups[g].push_back ({ meta, value });
     }
 
-    rowHolder.setSize (viewport.getWidth() > 0 ? viewport.getWidth() - 12 : 540,
-                       (int) rows.size() * rowHeight);
-    resized();
+    // Order sections roughly like ROLI Dashboard.
+    std::stable_sort (groupOrder.begin(), groupOrder.end(),
+                      [] (const juce::String& a, const juce::String& b) { return groupRank (a) < groupRank (b); });
+
+    for (const auto& g : groupOrder)
+    {
+        auto header = std::make_unique<juce::Label>();
+        header->setText (g.isEmpty() ? "Other" : g, juce::dontSendNotification);
+        header->setFont (juce::Font (16.0f, juce::Font::bold));
+        header->setColour (juce::Label::textColourId, juce::Colour (0xff6fd3d6));
+        header->setColour (juce::Label::backgroundColourId, juce::Colour (0x22ffffff));
+        header->setJustificationType (juce::Justification::centredLeft);
+        rowHolder.addAndMakeVisible (*header);
+        layoutOrder.push_back ({ header.get(), sectionHeaderHeight });
+        sectionHeaders.push_back (std::move (header));
+
+        for (auto& item : groups[g])
+        {
+            auto row = std::make_unique<ConfigRow> (item.meta, item.value, changeFn);
+            rowHolder.addAndMakeVisible (*row);
+            layoutOrder.push_back ({ row.get(), rowHeight });
+            rows.push_back (std::move (row));
+        }
+    }
+
+    resized(); // positions the sections/rows and sizes rowHolder
     saveButton.setEnabled (false);
-    setStatus (statusLabel.getText() + "   -   " + juce::String ((int) rows.size()) + " config items");
+    setStatus (statusLabel.getText() + "   -   " + juce::String ((int) rows.size())
+               + " items in " + juce::String ((int) groupOrder.size()) + " sections");
 }
 
 void MainComponent::saveToDevice()
@@ -504,9 +559,16 @@ void MainComponent::resized()
     r.removeFromTop (6);
 
     viewport.setBounds (r);
-    rowHolder.setSize (viewport.getWidth() - 12, (int) rows.size() * rowHeight);
-    for (int i = 0; i < (int) rows.size(); ++i)
-        rows[(size_t) i]->setBounds (0, i * rowHeight, rowHolder.getWidth(), rowHeight);
+    const int w = juce::jmax (200, viewport.getWidth() - 12);
+    int total = 0;
+    for (auto& item : layoutOrder) total += item.second;
+    rowHolder.setSize (w, total);
+    int y = 0;
+    for (auto& item : layoutOrder)
+    {
+        item.first->setBounds (0, y, w, item.second);
+        y += item.second;
+    }
 }
 
 void MainComponent::paint (juce::Graphics& g)

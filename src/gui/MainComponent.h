@@ -109,6 +109,10 @@ private:
     juce::Viewport     viewport;
     juce::Component    rowHolder;
     std::vector<std::unique_ptr<ConfigRow>> rows;
+    std::vector<std::unique_ptr<juce::Label>> sectionHeaders;
+    // Ordered list of what to stack in rowHolder: section headers and rows, each
+    // with its height. Drives both rebuildRows() and resized().
+    std::vector<std::pair<juce::Component*, int>> layoutOrder;
 
     std::unique_ptr<juce::FileChooser> chooser;
 
