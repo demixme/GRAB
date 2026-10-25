@@ -5,8 +5,13 @@ function grab_config(): array
 {
     static $cfg = null;
     if ($cfg === null) {
-        $path = __DIR__ . '/config.php';
-        $cfg = is_file($path) ? require $path : require __DIR__ . '/config.sample.php';
+        // Priority: GRAB_CONFIG env (absolute path, e.g. your /private/… file that
+        // returns the array), then local config.php, then the sample.
+        $env  = getenv('GRAB_CONFIG');
+        $path = ($env && is_file($env)) ? $env
+              : (is_file(__DIR__ . '/config.php') ? __DIR__ . '/config.php'
+              : __DIR__ . '/config.sample.php');
+        $cfg = require $path;
     }
     return $cfg;
 }

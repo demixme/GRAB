@@ -10,9 +10,13 @@ the contract in [../DEVICE-PROFILES.md](../DEVICE-PROFILES.md):
    ```sh
    mysql -u <user> -p <dbname> < schema.sql
    ```
-2. **Credentials:** copy `config.sample.php` to `config.php` and fill in host/db/
-   user/pass. (`config.php` is gitignored — don't commit it.) Optionally set a
-   `writeToken` to require an `X-Grab-Token` header on POSTs.
+2. **Credentials:** create `config.php` (gitignored — never commit creds). Either
+   fill in host/db/user/pass directly (option A in `config.sample.php`), or — to
+   reuse an existing secret like `your_db_user` in a `/private` file — have
+   `config.php` `require` that file and map its keys (option B), so no credentials
+   sit in the web root. (You can also point the `GRAB_CONFIG` env var at a file
+   that returns the array.) The tables can live in your existing database; just run
+   `schema.sql` there.
 3. **Upload** this folder to `https://demix.me/grab/v1/` (so the files sit at
    `/grab/v1/profiles.php`, `/grab/v1/names.php`, etc.).
 4. **URLs:** with the included `.htaccess` (mod_rewrite), the endpoints are
