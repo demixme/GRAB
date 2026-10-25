@@ -6,8 +6,10 @@ the contract in [../DEVICE-PROFILES.md](../DEVICE-PROFILES.md):
 - `GET  /grab/v1/names?family=&type=` — return the learned name map.
 - `POST /grab/v1/diagnostics` — accept an anonymized connection diagnostic (ports
   seen + connect outcome; opt-in, for diagnosing/adding device support).
-- `GET  /grab/v1/export` — maintainer-only export of raw profiles **or** diagnostics
-  (`?kind=diagnostics`), token-gated (see below).
+- `POST /grab/v1/captures` — accept a raw MIDI capture (what a device emitted; opt-in,
+  for reverse-engineering unsupported devices; 4 MB cap).
+- `GET  /grab/v1/export` — maintainer-only export of raw profiles, diagnostics
+  (`?kind=diagnostics`) **or** captures (`?kind=captures`), token-gated (see below).
 
 ## Setup (shared hosting / cPanel style)
 1. **Database:** create a MySQL database + user, then load the schema:
@@ -70,7 +72,7 @@ curl -H 'X-Grab-Token: YOURTOKEN' \
 # the connection diagnostics instead of profiles
 curl -H 'X-Grab-Token: YOURTOKEN' 'https://www.demix.me/grab/v1/export?kind=diagnostics'
 ```
-Params: `kind=profiles|diagnostics`, `family=` (profiles), `type=`, `format=json|ndjson`,
+Params: `kind=profiles|diagnostics|captures`, `family=` (profiles), `type=`, `format=json|ndjson`,
 `limit=` (default 5000). JSON form is `{ "kind", "count", "records": [ { "id",
 "receivedAt", "record": { …the full submitted JSON… } } ] }`. Nothing de-anonymizes
 the data — serials are already hashed by the client.

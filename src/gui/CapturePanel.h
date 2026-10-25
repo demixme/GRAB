@@ -10,6 +10,11 @@
 #include <sea_sysex.h>
 
 #include <cstdint>
+#include <thread>
+
+#ifndef GRAB_VERSION
+ #define GRAB_VERSION "0.0.0-dev"
+#endif
 
 class CapturePanel  : public juce::Component,
                       private juce::MidiInputCallback,
@@ -38,14 +43,20 @@ public:
         logView.setCaretVisible (false);
         addAndMakeVisible (logView);
 
+        addAndMakeVisible (notesLabel);
+        notesLabel.setText ("Notes (device model, what you did):", juce::dontSendNotification);
+        addAndMakeVisible (notesField);
+
         addAndMakeVisible (statusLabel);
         statusLabel.setJustificationType (juce::Justification::centredLeft);
 
         addAndMakeVisible (startBtn);
         addAndMakeVisible (stopBtn);
+        addAndMakeVisible (submitBtn);
         addAndMakeVisible (saveBtn);
         addAndMakeVisible (issueBtn);
         addAndMakeVisible (closeBtn);
+        submitBtn.onClick = [this] { submit(); };
         stopBtn.setEnabled (false);
         startBtn.onClick = [this] { start(); };
         stopBtn.onClick  = [this] { stop(); };
@@ -79,10 +90,16 @@ public:
         r.removeFromTop (6);
 
         auto buttons = r.removeFromBottom (30);
-        closeBtn .setBounds (buttons.removeFromRight (80).reduced (2, 0));
-        issueBtn .setBounds (buttons.removeFromRight (100).reduced (2, 0));
-        saveBtn  .setBounds (buttons.removeFromRight (100).reduced (2, 0));
+        closeBtn .setBounds (buttons.removeFromRight (74).reduced (2, 0));
+        issueBtn .setBounds (buttons.removeFromRight (94).reduced (2, 0));
+        saveBtn  .setBounds (buttons.removeFromRight (94).reduced (2, 0));
+        submitBtn.setBounds (buttons.removeFromRight (80).reduced (2, 0));
         statusLabel.setBounds (buttons);
+        r.removeFromBottom (6);
+
+        auto notesRow = r.removeFromBottom (24);
+        notesLabel.setBounds (notesRow.removeFromLeft (210));
+        notesField.setBounds (notesRow);
         r.removeFromBottom (6);
 
         logView.setBounds (r);
@@ -224,6 +241,87 @@ private:
         setStatus ("Opened a prefilled issue — attach the saved capture file to it.");
     }
 
+    void submit()
+    {
+        if (allLines.isEmpty()) { setStatus ("Nothing captured yet."); return; }
+        if (input != nullptr) stop(); // finalize the capture first
+
+        const auto endpoint = capturesEndpoint();
+        if (! juce::URL (endpoint).isWellFormed()) { setStatus ("Bad endpoint; use Save to file instead."); return; }
+
+        auto* root = new juce::DynamicObject();
+        root->setProperty ("schemaVersion", 1);
+        root->setProperty ("kind", "midi-capture");
+        root->setProperty ("submittedAt", juce::Time::getCurrentTime().toISO8601 (true));
+        auto* tool = new juce::DynamicObject();
+        tool->setProperty ("name", "GRAB");
+        tool->setProperty ("version", GRAB_VERSION);
+        root->setProperty ("tool", juce::var (tool));
+        auto* plat = new juce::DynamicObject();
+        plat->setProperty ("os", juce::SystemStats::getOperatingSystemName());
+        root->setProperty ("platform", juce::var (plat));
+        auto* cap = new juce::DynamicObject();
+        cap->setProperty ("port", capturedPortName);
+        cap->setProperty ("messageCount", messageCount);
+        juce::Array<juce::var> lines;
+        for (auto& l : allLines) lines.add (l);
+        cap->setProperty ("lines", lines);
+        root->setProperty ("capture", juce::var (cap));
+        root->setProperty ("notes", notesField.getText());
+
+        const auto body = juce::JSON::toString (juce::var (root), true); // compact
+        setStatus ("Submitting " + juce::String (messageCount) + " messages...");
+        submitBtn.setEnabled (false);
+
+        juce::Component::SafePointer<CapturePanel> safe (this);
+        std::thread ([safe, endpoint, body]
+        {
+            int code = 0;
+            juce::String err;
+            {
+                juce::URL url (endpoint);
+                url = url.withPOSTData (body);
+                juce::WebInputStream web (url, true);
+                web.withExtraHeaders ("Content-Type: application/json");
+                web.withConnectionTimeout (20000);
+                if (web.connect (nullptr))
+                    code = web.getStatusCode();
+                else
+                    err = "connection failed";
+            }
+            juce::MessageManager::callAsync ([safe, code, err]
+            {
+                if (auto* p = safe.getComponent())
+                    p->onSubmitResult (code, err);
+            });
+        }).detach();
+    }
+
+    void onSubmitResult (int code, const juce::String& err)
+    {
+        submitBtn.setEnabled (true);
+        if (err.isNotEmpty())
+            setStatus ("Submit failed (" + err + "). Try Save to file or Open issue.");
+        else if (code >= 200 && code < 300)
+            setStatus ("Thank you! Capture submitted (HTTP " + juce::String (code) + ").");
+        else
+            setStatus ("Server returned HTTP " + juce::String (code) + ". Try Save or Open issue.");
+    }
+
+    static juce::File settingsFile()
+    {
+        return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                   .getChildFile ("GRAB").getChildFile ("settings.properties");
+    }
+
+    static juce::String capturesEndpoint()
+    {
+        juce::PropertiesFile::Options o; o.millisecondsBeforeSaving = 0;
+        juce::PropertiesFile props (settingsFile(), o);
+        const auto base = props.getValue ("profileEndpoint", "https://www.demix.me/grab/v1/profiles");
+        return base.replace ("profiles", "captures");
+    }
+
     static juce::String sanitize (const juce::String& s)
     {
         return s.retainCharacters ("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_");
@@ -231,12 +329,13 @@ private:
 
     void setStatus (const juce::String& s) { statusLabel.setText (s, juce::dontSendNotification); }
 
-    juce::Label       title, portLabel, statusLabel;
+    juce::Label       title, portLabel, notesLabel, statusLabel;
     juce::ComboBox    portBox;
     juce::Array<juce::MidiDeviceInfo> inputs;
     juce::TextButton  refreshBtn { "Refresh" }, startBtn { "Start" }, stopBtn { "Stop" },
-                      saveBtn { "Save to file" }, issueBtn { "Open issue" }, closeBtn { "Close" };
-    juce::TextEditor  logView;
+                      submitBtn { "Submit" }, saveBtn { "Save to file" },
+                      issueBtn { "Open issue" }, closeBtn { "Close" };
+    juce::TextEditor  logView, notesField;
 
     std::unique_ptr<juce::MidiInput> input;
     juce::CriticalSection lock;

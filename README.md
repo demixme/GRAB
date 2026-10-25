@@ -158,8 +158,8 @@ GRAB gets better the more devices people point it at. Three easy ways to help, a
   issue). This is how unsupported devices — **Seaboard RISE/GRAND** especially — get the
   data needed to add them.
 - **Capture raw MIDI** — **Capture…** opens any port and logs everything a device emits
-  (read-only — it sends nothing); save it and attach to an issue. The best way to help
-  reverse-engineer a device GRAB can't talk to yet.
+  (read-only — it sends nothing), then **Submit** it to the store, save it, or open an
+  issue. The best way to help reverse-engineer a device GRAB can't talk to yet.
 - **Contribute code** — the dashboard/UI and new-device support are open; open a pull
   request. RISE/GRAND is a great start ([RISE-GRAND.md](RISE-GRAND.md) / [issue #1](../../issues/1)).
 

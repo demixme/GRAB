@@ -35,6 +35,20 @@ CREATE TABLE IF NOT EXISTS grab_diagnostics (
   INDEX idx_diag (outcome, type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Raw MIDI captures (opt-in): what a device emitted, for reverse-engineering
+-- unsupported devices. raw_json can be large, so LONGTEXT rather than JSON.
+CREATE TABLE IF NOT EXISTS grab_captures (
+  id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  received_at   DATETIME        NOT NULL,
+  os            VARCHAR(64)     NULL,
+  port_name     VARCHAR(128)    NULL,
+  message_count INT             NULL,
+  tool_version  VARCHAR(16)     NULL,
+  notes         TEXT            NULL,
+  raw_json      LONGTEXT        NOT NULL,
+  INDEX idx_cap (port_name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS grab_config_observations (
   id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   profile_id BIGINT UNSIGNED NOT NULL,

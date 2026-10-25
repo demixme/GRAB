@@ -32,8 +32,9 @@ if (!is_string($given) || !hash_equals($token, $given)) {
     grab_json(401, ['error' => 'bad token']);
 }
 
-$kind   = (($_GET['kind'] ?? 'profiles') === 'diagnostics') ? 'diagnostics' : 'profiles';
-$table  = ($kind === 'diagnostics') ? 'grab_diagnostics' : 'grab_profiles';
+$tables = ['profiles' => 'grab_profiles', 'diagnostics' => 'grab_diagnostics', 'captures' => 'grab_captures'];
+$kind   = isset($tables[$_GET['kind'] ?? '']) ? $_GET['kind'] : 'profiles';
+$table  = $tables[$kind];
 $family = isset($_GET['family']) ? grab_str($_GET['family'], 16) : '';
 $type   = isset($_GET['type'])   ? grab_str($_GET['type'], 64)   : '';
 $format = (($_GET['format'] ?? 'json') === 'ndjson') ? 'ndjson' : 'json';
@@ -41,9 +42,10 @@ $limit  = isset($_GET['limit']) ? max(1, min(100000, (int) $_GET['limit'])) : 50
 
 $where = [];
 $args  = [];
-// grab_diagnostics has no family column; only filter by it for profiles.
-if ($family !== '' && $kind === 'profiles') { $where[] = 'family = ?'; $args[] = $family; }
-if ($type   !== '') { $where[] = 'type = ?'; $args[] = $type; }
+// Only filter on columns the table actually has: family (profiles only),
+// type (profiles + diagnostics, not captures).
+if ($family !== '' && $kind === 'profiles')  { $where[] = 'family = ?'; $args[] = $family; }
+if ($type   !== '' && $kind !== 'captures')  { $where[] = 'type = ?';   $args[] = $type; }
 
 $sql = 'SELECT id, received_at, raw_json FROM ' . $table // $table is from a fixed whitelist
      . ($where ? ' WHERE ' . implode(' AND ', $where) : '')
