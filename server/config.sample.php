@@ -6,7 +6,7 @@
 // (A) Standalone: copy this file to config.php and fill in:
 return [
     'host'       => 'localhost',
-    'dbname'     => 'demixme_grab',   // or your existing DB (where you ran schema.sql)
+    'dbname'     => 'grab',           // or your existing DB (where you ran schema.sql)
     'user'       => 'your_db_user',
     'pass'       => 'CHANGE_ME',
     'writeToken' => '',               // optional X-Grab-Token to require on POSTs
