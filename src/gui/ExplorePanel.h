@@ -132,9 +132,16 @@ private:
         {
             if (auto out = juce::MidiOutput::openDevice (outputs[outIdx].identifier))
             {
-                const std::uint8_t idReq[] = { 0xF0, 0x7E, 0x7F, 0x06, 0x01, 0xF7 }; // Universal Identity Request (read-only)
+                // Universal Identity Request (read-only) — works on most MIDI gear.
+                const std::uint8_t idReq[] = { 0xF0, 0x7E, 0x7F, 0x06, 0x01, 0xF7 };
                 out->sendMessageNow (juce::MidiMessage (idReq, (int) sizeof (idReq)));
-                logLine ("SENT   " + juce::String (sea::toHex (idReq, sizeof (idReq))) + "   (Identity Request)");
+                logLine ("SENT   " + juce::String (sea::toHex (idReq, sizeof (idReq))) + "   (Universal Identity Request)");
+
+                // ROLI identify (read-only) — RISE/GRAND ignore the universal one but answer this
+                // with a full settings dump (confirmed safe: the 0x78 handler only reads here).
+                const std::uint8_t roliId[] = { 0xF0, 0x00, 0x21, 0x10, 0x78, 0x3F, 0xF7 };
+                out->sendMessageNow (juce::MidiMessage (roliId, (int) sizeof (roliId)));
+                logLine ("SENT   " + juce::String (sea::toHex (roliId, sizeof (roliId))) + "   (ROLI identify)");
             }
             else logLine ("# could not open output to send the Identity Request");
         }

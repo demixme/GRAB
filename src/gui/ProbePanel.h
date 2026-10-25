@@ -145,22 +145,12 @@ private:
 
     void buildLibrary()
     {
-        library.push_back ({ "Identity Request (read-only, any device)",
+        // Reads only by default; RISE 2 config now has its own page + `seaprobe rise2`,
+        // so the GUI probe stays to read-identify an unknown device. Writes go via Custom.
+        library.push_back ({ "Universal Identity Request (read-only, any device)",
                              { 0xF0, 0x7E, 0x7F, 0x06, 0x01, 0xF7 }, -1, false });
-        library.push_back ({ "RISE: MPE mode ON (write)",
-                             { 0xF0, 0x00, 0x21, 0x10, 0x78, 0x3D, 0x0E, 0x01, 0xF7 }, -1, false });
-        library.push_back ({ "RISE: MPE mode OFF (write)",
-                             { 0xF0, 0x00, 0x21, 0x10, 0x78, 0x3D, 0x0E, 0x00, 0xF7 }, -1, false });
-        library.push_back ({ "RISE: Glide curve = value (write)",
-                             { 0xF0, 0x00, 0x21, 0x10, 0x78, 0x3D, 0x17, 0x00, 0xF7 }, 7, false });
-        library.push_back ({ "RISE: Slide curve = value (write)",
-                             { 0xF0, 0x00, 0x21, 0x10, 0x78, 0x3D, 0x18, 0x00, 0xF7 }, 7, false });
-        library.push_back ({ "RISE: Pressure curve = value (write)",
-                             { 0xF0, 0x00, 0x21, 0x10, 0x78, 0x3D, 0x19, 0x00, 0xF7 }, 7, false });
-        library.push_back ({ "RISE: Strike curve = value (write)",
-                             { 0xF0, 0x00, 0x21, 0x10, 0x78, 0x3D, 0x1A, 0x00, 0xF7 }, 7, false });
-        library.push_back ({ "RISE: Lift curve = value (write)",
-                             { 0xF0, 0x00, 0x21, 0x10, 0x78, 0x3D, 0x1B, 0x00, 0xF7 }, 7, false });
+        library.push_back ({ "ROLI identify (read-only, RISE/GRAND answer this)",
+                             { 0xF0, 0x00, 0x21, 0x10, 0x78, 0x3F, 0xF7 }, -1, false });
         library.push_back ({ "Custom hex...", {}, -1, true });
     }
 
