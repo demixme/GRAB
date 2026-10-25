@@ -26,6 +26,24 @@ GRAB recognises the Piano by name (`roli piano`) or port identifier (`pianoforty
 with ROLI's driver, `vid_2af4&pid_0f00` with the in-box driver) — see
 `src/common/LoggingMidi.h`, `isBlocksDevice()`.
 
+## It's a hybrid: it answers both protocols
+
+A **Help add device…** / auto-explore capture of a Piano (contributed via the store)
+shows it is a dual-protocol device:
+
+- It **answers the ROLI identify** (`F0 00 21 10 78 3F F7`) with a **RISE-style state
+  dump** (`F0 00 21 10 78 3A …`, a ~217-byte `0x78` serialDump) — the same message a
+  Seaboard RISE 2 returns. The dump begins with the firmware string **`RISE1.00`**,
+  then the BLE/MAC address, then the serial (`RP4…`), then binary state bytes in the
+  same layout as the RISE 2 dump (see [RISE-GRAND.md](RISE-GRAND.md)).
+- It **also streams the `0x77` BLOCKS packed protocol** and connects over the normal
+  BLOCKS topology — which is how GRAB reads/writes its config today.
+
+So both views of the Piano are real: GRAB drives it as a BLOCKS device (`0x77`,
+`setConfig`), and the Piano additionally exposes the RISE-family `0x78` state dump. (A
+plain **Seaboard Block**, by contrast, answers *neither* raw identity request — it only
+talks over the `0x77` topology handshake.)
+
 ## Key colours
 
 Items **34** (Global Key Color) and **35** (Root Key Color) are written as **32-bit
