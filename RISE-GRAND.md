@@ -34,11 +34,20 @@ CC Assignments" section** for those controllers. The screenshot values match the
 `.mode`-derived table below, so those defaults are confirmed against a live device's
 UI — what still needs a capture is the on-wire `<param>` encoding.
 
-## Confirmed from a live device (first report, Oct 2026)
-A **Seaboard RISE** enumerates as a **class-compliant USB-MIDI** port named exactly
-`Seaboard RISE` — both an input and an output — on macOS (no driver). GRAB detects it,
-flags it as RISE/GRAND, and times out with guidance (it isn't a BLOCKS device). It has a
-MIDI **output** too, so active probing (host → device) is possible as well as listening.
+## Confirmed from live devices (first reports, Oct 2026)
+RISE devices are **class-compliant USB-MIDI** (no driver), with both an input and an
+**output** port — so active probing (host → device) is possible as well as listening.
+GRAB detects them by name, flags them RISE/GRAND, and times out with guidance (they
+aren't BLOCKS devices). Confirmed so far:
+
+| Model | OS seen | MIDI port name | USB IDs |
+|---|---|---|---|
+| **Seaboard RISE 49** (original, 2016) | Windows 11 | `ROLI Seaboard RISE 49` | `vid_2af4 pid_0210` |
+| **Seaboard RISE** (likely RISE 2) | macOS | `Seaboard RISE` | (CoreMIDI UID only) |
+
+Vendor `2af4` is shared across ROLI devices (the Seaboard **Block** is `vid_2af4 pid_0700`);
+the PID identifies the model. The **original RISE 49** is the best starting point — it uses
+the older, documented `0x78` dialect below (vs the RISE 2's compiled-in encoding).
 
 **To capture one:** in GRAB, **Capture…** → pick `Seaboard RISE` → **Start** → play and
 operate the device (and change settings on it) → **Save to file** → attach the `.txt` to
