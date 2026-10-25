@@ -285,8 +285,16 @@ private:
 
     static bool isUsb (const juce::MidiDeviceInfo& d)
     {
+       #if JUCE_WINDOWS
+        // Windows MIDI identifiers encode the bus: USB endpoints look like usb#/vid_.
         return d.identifier.containsIgnoreCase ("usb#")
             || d.identifier.containsIgnoreCase ("vid_");
+       #else
+        // macOS CoreMIDI / Linux ALSA identifiers don't name the bus (they're a UID),
+        // so there's no positive "USB" marker to match. A Seaboard that isn't BLE is
+        // reached over USB. BLE is still detected positively by isBle().
+        return ! isBle (d);
+       #endif
     }
 
     static const char* transportTag (const juce::MidiDeviceInfo& d)
