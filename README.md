@@ -49,8 +49,9 @@ usable whatever happens to ROLI's software and servers.
   firmware, upload Littlefoot programs/apps, or customise lighting — and it doesn't
   reproduce Dashboard's full workflow.
 - Finished or polished — expect rough edges. **Confirmed on real hardware: the Seaboard
-  Block, the Seaboard RISE 2, and the ROLI Piano 49** so far (other BLOCKS should work.
-  The GRAND and the original RISE aren't supported yet).
+  Block, the Seaboard RISE 2, and the ROLI Piano 49** so far (other BLOCKS should work).
+  The **original Seaboard RISE** shows its settings **read-only** (writes not confirmed on
+  that firmware yet); the **GRAND** isn't supported yet.
 
 If you just want to tweak your device's settings today, it does that. If you'd like it to
 *grow into* a fuller Dashboard alternative, that's exactly why **contributing a profile**
@@ -125,8 +126,10 @@ A port opened but the device never answered — usually one of:
 - **Windows: ROLI's background service holds the port.** If ROLI Connect/Dashboard is
   installed, the **"ROLI Hardware Driver"** Windows service can keep the port open. Stop
   that service (or uninstall Connect) and reconnect. GRAB itself needs **no** ROLI driver.
-- **It's a Seaboard RISE or GRAND** — these use a different protocol and **aren't
-  supported yet**; GRAB says so in the status line. That's expected — please help add it.
+- **It's a Seaboard RISE** — RISE uses a different protocol (GRAB shows a separate RISE
+  page). The **RISE 2** is fully supported; the **original RISE 25/49** shows its settings
+  **read-only** (Save disabled until writes are confirmed on that firmware). The **GRAND**
+  isn't supported yet — GRAB says so in the status line; please help add it.
 - Try the other **Transport** option (USB ↔ BLE).
 
 **Connected, but a setting looks missing / unnamed / wrong** — contribute a profile
