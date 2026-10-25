@@ -30,6 +30,11 @@ public:
     /** True when a RISE MIDI port is present. */
     static bool isConnected();
 
+    /** Dev/preview: render the page from a synthetic identify reply, no device needed.
+        verifiedFirmware=true fakes a RISE 2 (2.0.2, full settings shown); false fakes an
+        original RISE (1.1.8, the "not verified" path). No real serial/MAC. */
+    void previewSyntheticState (bool verifiedFirmware);
+
     void resized() override;
 
 private:
@@ -62,6 +67,7 @@ private:
     std::map<juce::uint32, juce::int32> expected;  // after a save, what the device should report
     bool awaitingState = false;
     int  stateRetries = 0;
+    bool readOnly = false;   // original RISE (1.x): show settings, but writes aren't confirmed yet
 
     juce::Label      statusLabel;
     juce::Label      infoLabel;

@@ -191,6 +191,10 @@ MainComponent::MainComponent()
     viewport.setScrollBarsShown (true, false);
 
     setSize (900, 680);
+    setWantsKeyboardFocus (true);   // so the secret RISE-preview shortcut reaches keyPressed
+    // Grab focus once the window is on screen, so the shortcut works without clicking first.
+    juce::Component::SafePointer<MainComponent> sp (this);
+    juce::MessageManager::callAsync ([sp] { if (sp != nullptr) sp->grabKeyboardFocus(); });
 
     // Logs go to a stable per-user dir (same base as settings.properties), not the
     // current working directory — a Finder/Explorer-launched app has an unpredictable
@@ -860,27 +864,74 @@ void MainComponent::loadPreset()
         });
 }
 
+bool MainComponent::keyPressed (const juce::KeyPress& key)
+{
+    // Secret dev shortcut: Ctrl+Alt+Shift+R forces a local RISE preview (synthetic data,
+    // no hardware). Each press toggles the verified (RISE 2) / unverified (old RISE) view.
+    const auto mods = key.getModifiers();
+    if (mods.isCtrlDown() && mods.isAltDown() && mods.isShiftDown() && key.getKeyCode() == 'R')
+    {
+        forceRisePreview();
+        return true;
+    }
+    return false;
+}
+
+void MainComponent::forceRisePreview()
+{
+    if (source != nullptr) { source->setActive (false); source.reset(); }
+    block = nullptr;
+    stopTimer();
+
+    if (rise2Page == nullptr)
+    {
+        rise2Page = std::make_unique<Rise2Component> (*logger);
+        addAndMakeVisible (*rise2Page);
+        setBlocksControlsVisible (false);
+    }
+
+    rise2Page->previewSyntheticState (risePreviewVerified);
+    setStatus (juce::String ("RISE preview - ")
+               + (risePreviewVerified ? "verified fw 2.0.2 (editable)"
+                                      : "original RISE fw 1.1.8 (read-only)")
+               + ".  Ctrl+Alt+Shift+R to toggle.");
+    risePreviewVerified = ! risePreviewVerified;   // next press shows the other
+    resized();
+}
+
 void MainComponent::resized()
 {
     auto r = getLocalBounds().reduced (8);
     statusLabel.setBounds (r.removeFromTop (28));
     r.removeFromTop (4);
 
-    // The RISE page has its own controls, so skip the BLOCKS button row when it's shown.
-    auto buttons = rise2Page != nullptr ? juce::Rectangle<int>() : r.removeFromTop (30);
-    if (rise2Page == nullptr)
+    // The RISE page owns its own reload/save/info/viewport, so when it's shown lay out
+    // only the controls that still apply (Help add, Transport, Advanced) and hand it the
+    // rest of the window. (The BLOCKS-only controls are hidden by setBlocksControlsVisible.)
+    if (rise2Page != nullptr)
     {
-        // "Help add device..." sits first (the one-click action for unsupported devices).
-        helpAddBtn.setBounds (buttons.removeFromLeft (150).reduced (2, 0));
-        buttons.removeFromLeft (8);
+        auto row = r.removeFromTop (30);
+        helpAddBtn.setBounds (row.removeFromLeft (150).reduced (2, 0));
+        row.removeFromLeft (8);
+        advancedBtn.setBounds (row.removeFromRight (92).reduced (2, 0));
+        row.removeFromRight (10);
+        transportLabel.setBounds (row.removeFromLeft (66));
+        transportBox.setBounds (row.removeFromLeft (92).reduced (2, 0));
+        r.removeFromTop (6);
+        rise2Page->setBounds (r);
+        return;
     }
+
+    auto buttons = r.removeFromTop (30);
+    // "Help add device..." sits first (the one-click action for unsupported devices).
+    helpAddBtn.setBounds (buttons.removeFromLeft (150).reduced (2, 0));
+    buttons.removeFromLeft (8);
     const int bw = 137;
     reloadButton .setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
     saveButton   .setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
     loadPresetBtn.setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
     savePresetBtn.setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
-    if (rise2Page == nullptr)
-        r.removeFromTop (6);
+    r.removeFromTop (6);
 
     auto trow = r.removeFromTop (26);
     contributeBtn.setBounds (trow.removeFromRight (100).reduced (2, 0));
@@ -892,12 +943,6 @@ void MainComponent::resized()
     blockLabel.setBounds (trow.removeFromLeft (84));
     blockBox.setBounds (trow.reduced (2, 0));
     r.removeFromTop (6);
-
-    if (rise2Page != nullptr)
-    {
-        rise2Page->setBounds (r);
-        return;
-    }
 
     viewport.setBounds (r);
     const int w = juce::jmax (200, viewport.getWidth() - 12);

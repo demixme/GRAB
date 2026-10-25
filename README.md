@@ -24,7 +24,8 @@ reports — here a Seaboard BLOCK on fw 1.4.3 over USB.</sub></p>
 | **ROLI Piano** (49) | ✅ confirmed (config read/write, key colours; firmware 1.5.0, Windows) — same BLOCKS protocol · [PIANO.md](PIANO.md) |
 | Other **BLOCKS** (Lightpad/Pro, Live, Loop, Touch, LUMI, Airwave) | ✅ detected & should work (same protocol, generated from the device) — not yet hardware-confirmed, reports welcome |
 | Multiple BLOCKS (DNA-connected cluster) | ✅ detected; per-block selection |
-| Seaboard **RISE 25/49** (original) / **GRAND** | ⛔ not yet — help add them with one click (see below) · [RISE-GRAND.md](RISE-GRAND.md) · [issue #1](../../issues/1) |
+| Seaboard **RISE 25/49** (original) | 🟡 read-only — settings are shown (same `0x78` dump as the RISE 2, ~90% decoded) but **Save is disabled** until writes are confirmed on that firmware · [RISE-GRAND.md](RISE-GRAND.md) |
+| Seaboard **GRAND** | ⛔ not yet — help add it with one click (see below) · [RISE-GRAND.md](RISE-GRAND.md) · [issue #1](../../issues/1) |
 
 Got an **unsupported** device? Run GRAB, click **Help add device…** → **Run & submit** —
 one click, read-only, and it's how the next devices get added.

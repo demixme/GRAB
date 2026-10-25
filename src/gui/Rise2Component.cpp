@@ -119,6 +119,21 @@ const Dim dims[] = {
 
 bool isCurve (juce::uint32 id) { return id >= kStrikeSens && id <= kLiftSens; }
 
+// On the original RISE (fw 1.x) these decode wrong or point at hardware it doesn't have
+// (the min/max block reads zeros; the fader/XY CCs are RISE 2 controls). Hide them in the
+// read-only view so we don't show misleading values. See RISE-GRAND.md.
+bool isUnreliableOnOldRise (juce::uint32 id)
+{
+    switch (id)
+    {
+        case kStrikeMin: case kStrikeMax: case kPressMin: case kPressMax: case kLiftMin: case kLiftMax:
+        case kFaderLeftCc: case kFaderMiddleCc: case kFaderRightCc: case kXyXCc: case kXyYCc:
+            return true;
+        default:
+            return false;
+    }
+}
+
 constexpr int rowHeight = 30;
 constexpr int sectionHeaderHeight = 30;
 } // namespace
@@ -157,6 +172,43 @@ bool Rise2Component::isConnected()
         if (rise2::isRisePort (d.name))
             return true;
     return false;
+}
+
+void Rise2Component::previewSyntheticState (bool verifiedFirmware)
+{
+    using namespace rise2;
+
+    // No device involved — build a plausible identify reply with plausible values.
+    stopTimer();
+    closePorts();
+    portName = "Seaboard RISE (preview)";
+
+    std::vector<std::uint8_t> raw ((size_t) offset::replySize, 0);
+    raw[0] = 0xf0; raw[1] = 0x00; raw[2] = 0x21; raw[3] = 0x10; raw[4] = 0x78; raw[5] = 0x3a;
+    raw[(size_t) offset::replySize - 1] = 0xf7;
+
+    auto put = [&raw] (int o, const char* s) { for (int i = 0; s[i] != 0; ++i) raw[(size_t) (o + i)] = (std::uint8_t) s[i]; };
+    put (offset::model,    "RISE1.00");
+    put (offset::firmware, verifiedFirmware ? "2.0.2" : "1.1.8");
+    put (offset::serial,   "PREVIEW00000000");   // not a real serial
+
+    raw[offset::firstMember]   = 1;   raw[offset::lastMember] = 15;  raw[offset::masterChannel] = 0;
+    raw[offset::mpeOn]         = 1;   raw[offset::bendRange]  = 48;  raw[offset::octave]        = 4;  // -> 0
+    raw[offset::glideTracking] = 1;   raw[offset::pressTracking] = 1; raw[offset::pedalCc]      = 64;
+    raw[offset::faderLeftCc] = 107; raw[offset::faderMiddleCc] = 109; raw[offset::faderRightCc] = 111;
+    raw[offset::xyXCc] = 113; raw[offset::xyYCc] = 114;
+    raw[offset::glideSens] = 80; raw[offset::slideSens] = 90; raw[offset::pressSens] = 100;
+    raw[offset::strikeSens] = 70; raw[offset::liftSens] = 60;
+    raw[offset::slideTracking] = 1; raw[offset::slideCc] = 74; raw[offset::slideMode] = 2; // Relative Bipolar
+    raw[offset::fixedVelocity] = 0; raw[offset::fixedVelocityValue] = 127;
+    raw[offset::strikeMin] = 8; raw[offset::strikeMax] = 127; raw[offset::pressMin] = 0; raw[offset::pressMax] = 127;
+    raw[offset::liftMin] = 0; raw[offset::liftMax] = 127;
+    raw[offset::transpose] = 64;  // -> 0
+    raw[offset::battery]   = 6;
+
+    State s; s.raw = std::move (raw);
+    awaitingState = true;   // let onState proceed
+    onState (std::move (s));
 }
 
 void Rise2Component::openPorts()
@@ -266,7 +318,7 @@ void Rise2Component::timerCallback()
         stopTimer();
         awaitingState = false;
         setStatus ("No reply from the RISE. Check the cable and that no other app holds the port. "
-                   "Older RISE models are not supported yet, use Capture... or Report... to help add them.");
+                   "Older RISE models aren't fully mapped yet - use Help add device... to send what we need.");
         return;
     }
     send ({ rise2::identify() });
@@ -303,16 +355,39 @@ void Rise2Component::onState (rise2::State s)
                            + "   battery " + juce::String (state.at (off::battery)) + "/7",
                        juce::dontSendNotification);
 
-    // The state layout is only mapped for RISE 2 firmware 2.x. Don't guess on anything else.
-    if (! firmware.startsWith ("2."))
+    // The write protocol is confirmed on RISE 2 (fw 2.x). The original RISE (fw 1.x) returns
+    // the same dump and ~90% of it decodes correctly, so show it read-only. Anything else we
+    // don't guess at.
+    const bool verified = firmware.startsWith ("2.");
+    const bool oldRise  = firmware.startsWith ("1.");   // original RISE 25/49, same 0x78 dump
+
+    if (! verified && ! oldRise)
     {
         setStatus ("'" + portName + "' firmware " + firmware + " is not verified yet, so settings are not shown. "
-                   "Use Capture... or Report... to help add it.");
+                   "Use Help add device... (or Advanced... -> Raw MIDI capture) to help add it.");
         expected.clear();
+        // Clear any rows a prior read built, so nothing stale shows under the message.
+        rows.clear();
+        curveRow.reset();
+        curves.clear();
+        sectionHeaders.clear();
+        layoutOrder.clear();
+        rowHolder.removeAllChildren();
+        saveButton.setEnabled (false);
+        resized();
         return;
     }
 
+    readOnly = oldRise;   // original RISE: display only; writes aren't confirmed on this firmware
     rebuildRows();
+
+    if (readOnly)
+    {
+        setStatus ("Read " + juce::String ((int) rows.size() + (int) curves.size())
+                   + " settings (read-only - firmware " + firmware
+                   + " isn't fully verified, so Save is disabled and a few fields are hidden).");
+        return;
+    }
 
     if (expected.empty())
     {
@@ -370,10 +445,13 @@ void Rise2Component::rebuildRows()
         {
             curveRow = std::make_unique<CurveRow>();
             for (auto& d : dims)
+            {
+                const bool hasMinMax = d.minId != 0 && ! readOnly;   // min/max unreliable on the old RISE
                 curves.push_back (curveRow->add (std::make_unique<CurveComponent> (
                     d.label, juce::Colour (d.colour), d.id, deviceValues[d.id],
-                    d.minId != 0 ? deviceValues[d.minId] : 0, d.maxId != 0 ? deviceValues[d.maxId] : 127, onChange,
-                    d.minId != 0)));
+                    hasMinMax ? deviceValues[d.minId] : 0, hasMinMax ? deviceValues[d.maxId] : 127, onChange,
+                    hasMinMax)));
+            }
             rowHolder.addAndMakeVisible (*curveRow);
             layoutOrder.push_back ({ curveRow.get(), 130 });
         }
@@ -381,6 +459,8 @@ void Rise2Component::rebuildRows()
         for (auto& f : fields())
         {
             if (juce::String (f.group) != g || isCurve (f.id))
+                continue;
+            if (readOnly && isUnreliableOnOldRise (f.id))   // hidden on the original RISE
                 continue;
 
             roli::Block::ConfigMetaData meta (f.id);
@@ -400,6 +480,7 @@ void Rise2Component::rebuildRows()
         }
     }
 
+    rowHolder.setEnabled (! readOnly);   // read-only: show values greyed, no editing
     resized();
     updateEnabled();
 }
@@ -419,6 +500,12 @@ void Rise2Component::onItemChanged (juce::uint32 id, juce::int32 v)
 
 void Rise2Component::updateEnabled()
 {
+    if (readOnly)   // original RISE: writes aren't confirmed, so Save stays off
+    {
+        saveButton.setEnabled (false);
+        return;
+    }
+
     const auto mode = (rise2::Mode) value (kMode);
     for (auto& r : rows)
     {

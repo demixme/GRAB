@@ -69,10 +69,12 @@ public:
 
     void resized() override;
     void paint (juce::Graphics&) override;
+    bool keyPressed (const juce::KeyPress&) override;
 
 private:
     void topologyChanged() override;
     void timerCallback() override;
+    void forceRisePreview();   // secret dev shortcut: show the RISE page with synthetic data
 
     // Live config updates from the device (delivered on the message thread).
     void handleConfigItemChanged (roli::Block&, const roli::Block::ConfigMetaData&, juce::uint32 index) override;
@@ -154,6 +156,7 @@ private:
     std::unique_ptr<juce::FileChooser> chooser;
 
     std::unique_ptr<Rise2Component> rise2Page;  // shown instead of the BLOCKS page for a RISE
+    bool risePreviewVerified = true;            // toggles verified/unverified on the dev preview shortcut
     juce::MidiDeviceListConnection deviceList;  // to pick up a RISE switched on after launch
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
