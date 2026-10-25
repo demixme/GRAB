@@ -1,0 +1,61 @@
+name: build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: windows
+          - os: macos-latest
+            name: macos
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # JUCE is fetched by CMake FetchContent; cache it so later builds are fast.
+      - name: Cache fetched deps (JUCE)
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: ${{ runner.os }}-deps-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: ${{ runner.os }}-deps-
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release --target GRAB seaprobe seadecode --parallel
+
+      - name: Package
+        shell: bash
+        run: |
+          set -e
+          mkdir -p dist
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            find build -name 'GRAB.exe'      -exec cp {} dist/ \;
+            find build -name 'seaprobe.exe'  -exec cp {} dist/ \;
+            find build -name 'seadecode.exe' -exec cp {} dist/ \;
+          else
+            app="$(find build -maxdepth 6 -name 'GRAB.app' -type d | head -1)"
+            [ -n "$app" ] && cp -R "$app" dist/
+            find build -maxdepth 6 -path '*seaprobe_artefacts*' -name 'seaprobe' -type f -exec cp {} dist/ \;
+            find build -maxdepth 4 -name 'seadecode' -type f -exec cp {} dist/ \;
+          fi
+          ls -la dist
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: GRAB-${{ matrix.name }}
+          path: dist
+          if-no-files-found: error
