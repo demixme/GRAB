@@ -1,6 +1,5 @@
 #include "MainComponent.h"
 #include "ContributePanel.h"
-#include "DiagnosticsPanel.h"
 #include "CapturePanel.h"
 #include "ProbePanel.h"
 #include "ExplorePanel.h"
@@ -133,31 +132,7 @@ MainComponent::MainComponent()
     statusLabel.setJustificationType (juce::Justification::centredLeft);
 
     addAndMakeVisible (helpAddBtn);
-    helpAddBtn.onClick = [this]
-    {
-        auto* panel = new ExplorePanel();
-        juce::DialogWindow::LaunchOptions o;
-        o.content.setOwned (panel);
-        o.dialogTitle = "Help add this device";
-        o.dialogBackgroundColour = getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId);
-        o.escapeKeyTriggersCloseButton = true;
-        o.useNativeTitleBar = true;
-        o.resizable = true;
-        o.launchAsync();
-    };
-    addAndMakeVisible (probeBtn);
-    probeBtn.onClick = [this]
-    {
-        auto* panel = new ProbePanel();
-        juce::DialogWindow::LaunchOptions o;
-        o.content.setOwned (panel);
-        o.dialogTitle = "Active probe";
-        o.dialogBackgroundColour = getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId);
-        o.escapeKeyTriggersCloseButton = true;
-        o.useNativeTitleBar = true;
-        o.resizable = true;
-        o.launchAsync();
-    };
+    helpAddBtn.onClick = [this] { openDialog (new ExplorePanel(), "Help add this device"); };
     addAndMakeVisible (reloadButton);
     addAndMakeVisible (saveButton);
     addAndMakeVisible (loadPresetBtn);
@@ -197,20 +172,18 @@ MainComponent::MainComponent()
 
     addAndMakeVisible (contributeBtn);
     contributeBtn.onClick = [this] { contribute(); };
-    addAndMakeVisible (reportBtn);
-    reportBtn.onClick = [this] { reportConnection(); };
-    addAndMakeVisible (captureBtn);
-    captureBtn.onClick = [this]
+    addAndMakeVisible (advancedBtn);
+    advancedBtn.onClick = [this]
     {
-        auto* panel = new CapturePanel();
-        juce::DialogWindow::LaunchOptions o;
-        o.content.setOwned (panel);
-        o.dialogTitle = "Raw MIDI capture";
-        o.dialogBackgroundColour = getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId);
-        o.escapeKeyTriggersCloseButton = true;
-        o.useNativeTitleBar = true;
-        o.resizable = true;
-        o.launchAsync();
+        juce::PopupMenu m;
+        m.addItem (1, "Raw MIDI capture...");
+        m.addItem (2, "Active probe...");
+        m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (advancedBtn),
+            [this] (int r)
+            {
+                if      (r == 1) openDialog (new CapturePanel(), "Raw MIDI capture");
+                else if (r == 2) openDialog (new ProbePanel(),  "Active probe");
+            });
     };
 
     addAndMakeVisible (viewport);
@@ -321,7 +294,7 @@ void MainComponent::connect (seaprobe::Transport transport)
 
 void MainComponent::setBlocksControlsVisible (bool visible)
 {
-    for (auto* c : std::initializer_list<juce::Component*> { &reloadButton, &saveButton, &loadPresetBtn, &savePresetBtn, &probeBtn,
+    for (auto* c : std::initializer_list<juce::Component*> { &reloadButton, &saveButton, &loadPresetBtn, &savePresetBtn,
                                                             &blockLabel, &blockBox, &contributeBtn, &viewport })
         c->setVisible (visible);
 }
@@ -439,19 +412,11 @@ void MainComponent::selectBlock (roli::Block::UID uid)
     }
 }
 
-void MainComponent::contribute()
+void MainComponent::openDialog (juce::Component* panel, const juce::String& title)
 {
-    if (block == nullptr)
-    {
-        setStatus ("Connect a device first, then Contribute.");
-        return;
-    }
-
-    auto* panel = new ContributePanel (block, detector != nullptr ? detector->getActiveTransport()
-                                                                   : juce::String ("unknown"));
     juce::DialogWindow::LaunchOptions o;
     o.content.setOwned (panel);
-    o.dialogTitle = "Contribute device profile";
+    o.dialogTitle = title;
     o.dialogBackgroundColour = getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId);
     o.escapeKeyTriggersCloseButton = true;
     o.useNativeTitleBar = true;
@@ -459,28 +424,16 @@ void MainComponent::contribute()
     o.launchAsync();
 }
 
-void MainComponent::reportConnection()
+void MainComponent::contribute()
 {
-    // Works whether or not a device connected — that's the point (report failures too).
-    juce::String outcome;
-    if (detector == nullptr)                        outcome = "not-started";
-    else if (detector->getSelectedPairs().empty())  outcome = "no-ports";
-    else if (deviceSeen)                            outcome = "connected";
-    else if (connectTimeoutShown)                   outcome = "timeout";
-    else                                            outcome = "connecting";
-
-    auto diag = grab::buildConnectionDiagnostic (detector.get(), block.get(),
-                                                 seaprobe::transportName (requestedTransport), outcome);
-
-    auto* panel = new DiagnosticsPanel (diag);
-    juce::DialogWindow::LaunchOptions o;
-    o.content.setOwned (panel);
-    o.dialogTitle = "Report a connection problem";
-    o.dialogBackgroundColour = getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId);
-    o.escapeKeyTriggersCloseButton = true;
-    o.useNativeTitleBar = true;
-    o.resizable = true;
-    o.launchAsync();
+    if (block == nullptr)
+    {
+        setStatus ("Connect a device first, then Contribute.");
+        return;
+    }
+    openDialog (new ContributePanel (block, detector != nullptr ? detector->getActiveTransport()
+                                                                : juce::String ("unknown")),
+                "Contribute device profile");
 }
 
 void MainComponent::fetchNames (const juce::String& family, const juce::String& type)
@@ -926,14 +879,12 @@ void MainComponent::resized()
     saveButton   .setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
     loadPresetBtn.setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
     savePresetBtn.setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
-    probeBtn     .setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
     if (rise2Page == nullptr)
         r.removeFromTop (6);
 
     auto trow = r.removeFromTop (26);
     contributeBtn.setBounds (trow.removeFromRight (100).reduced (2, 0));
-    reportBtn.setBounds (trow.removeFromRight (78).reduced (2, 0));
-    captureBtn.setBounds (trow.removeFromRight (82).reduced (2, 0));
+    advancedBtn.setBounds (trow.removeFromRight (92).reduced (2, 0));
     trow.removeFromRight (10);
     transportLabel.setBounds (trow.removeFromLeft (66));
     transportBox.setBounds (trow.removeFromLeft (92).reduced (2, 0));

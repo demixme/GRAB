@@ -85,7 +85,7 @@ private:
     void updateBlockList (const roli::BlockTopology& topology);
     void selectBlock (roli::Block::UID uid);
     void contribute();
-    void reportConnection();
+    void openDialog (juce::Component* panel, const juce::String& title); // owns panel in a DialogWindow
     void fetchNames (const juce::String& family, const juce::String& type);
     void onNamesFetched (juce::String type, grab::LearnedMap learned);
     void requestConfig();
@@ -134,11 +134,9 @@ private:
     juce::ComboBox     transportBox;
     juce::Label        blockLabel;
     juce::ComboBox     blockBox;
-    juce::TextButton   captureBtn    { "Capture..." };
-    juce::TextButton   reportBtn     { "Report..." };
+    juce::TextButton   advancedBtn   { "Advanced..." };
     juce::TextButton   contributeBtn { "Contribute..." };
     juce::TextButton   reloadButton  { "Reload from device" };
-    juce::TextButton   probeBtn      { "Probe..." };
     juce::TextButton   helpAddBtn    { "Help add device..." };
     juce::TextButton   saveButton    { "Save to device" };
     juce::TextButton   loadPresetBtn { "Load preset..." };

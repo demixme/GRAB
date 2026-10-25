@@ -13,9 +13,8 @@ exactly what will be sent and offers Save-to-file / Open-issue alternatives.
 |---|---|---|
 | **Help add device…** | one-click: a read-only identity request + short capture (never changes a setting) | `POST /v1/captures` |
 | **Contribute…** | a device **profile** — the config items a connected device reports | `POST /v1/profiles` |
-| **Report…** | a **connection diagnostic** — the MIDI ports seen + how the connect ended | `POST /v1/diagnostics` |
-| **Capture…** | a **raw MIDI capture** — everything a device emits (read-only) | `POST /v1/captures` |
-| **Probe…** | an **active-probe session** — the message(s) sent + the device's reply | `POST /v1/captures` |
+| **Advanced… → Raw MIDI capture** | a **raw MIDI capture** — everything a device emits (read-only) | `POST /v1/captures` |
+| **Advanced… → Active probe** | an **active-probe session** — the message(s) sent + the device's reply | `POST /v1/captures` |
 
 Plus the self-learn **pull** and the maintainer **export**:
 - `GET /v1/names?family=&type=` — the community name map; GRAB merges it to label items

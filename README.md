@@ -132,19 +132,15 @@ Your serial, if included, is hashed; each dialog also offers **Save to file** or
 prefilled GitHub issue** instead of submitting.
 
 - ⭐ **Unsupported device? Click "Help add device…"** → **Run & submit**. The easiest way
-  to help: GRAB auto-picks the device's port, sends one **read-only** "who are you?"
+  to help: GRAB auto-picks the device's port, sends a **read-only** "who are you?"
   request, records the reply + a few seconds of what it emits, and submits it all in one
   go. **It never changes a setting.** This is the one-click path for RISE/GRAND owners.
-- **Report a connection problem** — **Report…** → **Submit**: the MIDI ports GRAB saw +
-  how the attempt ended (anonymized).
 - **Contribute a profile** — if it *did* connect, **Contribute…** → **Submit** (the config
   your device reports).
-- **Capture raw MIDI** — **Capture…** → pick the device's port → **Start** → play/operate
-  it → **Stop** → **Submit**. Read-only; GRAB sends nothing.
-- **Probe it (advanced)** — **Probe…** → set the device's **output** + **input** → choose a
-  message (start with *Identity Request*) → check the bytes → tick **Arm** → **Send** →
-  **Submit**. For confirming an unsupported device's control protocol; firmware/reset
-  messages are blocked.
+- **Advanced… menu** (for the technically-minded): **Raw MIDI capture** (log everything a
+  device emits while you play; read-only) and **Active probe** (send one curated,
+  documented message and log the reply — firmware/reset messages are blocked). Both can
+  Submit, Save, or open a prefilled GitHub issue.
 
 ## What it does
 - **Reads and writes device configuration** over USB-MIDI or BLE-MIDI — all the
@@ -213,13 +209,11 @@ GRAB gets better the more devices people point it at. Several ways to help, all
 - **Contribute a device profile** — **Contribute…** sends an **anonymized** snapshot of
   what your (supported) device reports: config items, ranges, options, values. Your
   **serial is hashed** (never sent raw); review the JSON first, or **Save to file**.
-- **Report a connection problem** — **Report…** sends an anonymized diagnostic (the MIDI
-  ports GRAB saw + how the attempt ended).
-- **Capture raw MIDI** — **Capture…** logs everything a device emits (read-only), then
-  Submit / Save / open an issue.
-- **Probe (advanced)** — **Probe…** sends one *curated, documented* message and logs the
-  reply, to confirm an unsupported device's control protocol; firmware/reset/packed
-  messages are hard-blocked and you must Arm before each send.
+- **Dig deeper (advanced)** — the **Advanced…** menu has two optional tools: **Raw MIDI
+  capture** logs everything a device emits (read-only), and **Active probe** sends one
+  *curated, documented* message and logs the reply, to confirm an unsupported device's
+  control protocol. Both offer Submit / Save / open-an-issue; firmware/reset/packed
+  messages are hard-blocked and you must Arm before each probe send.
 - **Contribute code** — the dashboard/UI and new-device support are open; open a pull
   request. RISE/GRAND is a great start ([RISE-GRAND.md](RISE-GRAND.md) / [issue #1](../../issues/1)).
 

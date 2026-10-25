@@ -21,20 +21,17 @@ your device reports (serial is hashed, never sent raw — see
 store or save to a file to attach to an issue. This is how we learn config ids and
 names across devices (especially unnamed/user items and new hardware).
 
-### 2. Report a connection problem (one click)
-If GRAB can't connect to or detect your device — common for unsupported ones like
-**Seaboard RISE/GRAND** — use **Report…** in the GUI. It sends an anonymized diagnostic
-(the MIDI ports GRAB saw + how the attempt ended), or opens a prefilled GitHub issue.
-This is exactly what tells us how a new device enumerates.
+### 2. Capture or probe a device you want supported
+For a device GRAB can't talk to yet, the **Advanced…** menu in the GUI has two optional
+tools that gather what we need — no extra software:
+- **Raw MIDI capture** — open the device's port and log everything it emits (read-only;
+  it sends nothing). Play it / operate it, then Submit, Save, or open an issue.
+- **Active probe** (advanced) — send one *curated, documented* message to the device and
+  log its reply (the host→device side capture can't see). Firmware/reset/packed messages
+  are hard-blocked; the exact bytes are shown and you must Arm before each send.
 
-### 3. Capture or probe a device you want supported
-For a device GRAB can't talk to yet, two in-app tools (both in the GUI) gather what we
-need — no extra software:
-- **Capture…** — open the device's port and log everything it emits (read-only; it
-  sends nothing). Play it / operate it, then Submit, Save, or open an issue.
-- **Probe…** (advanced) — send one *curated, documented* message to the device and log
-  its reply (the host→device side capture can't see). Firmware/reset/packed messages are
-  hard-blocked; the exact bytes are shown and you must Arm before each send.
+(For most RISE/GRAND owners, the one-click **Help add device…** above already covers
+this — reach for these only if a maintainer asks.)
 
 To capture **ROLI Dashboard talking to the device** (the full host→device protocol),
 the external tools still apply:
@@ -44,7 +41,7 @@ the external tools still apply:
 See [RISE-GRAND.md](RISE-GRAND.md) for the known RISE/GRAND parameters and the
 capture-and-map workflow.
 
-### 4. Code
+### 3. Code
 Build per the [README](README.md). Keep changes small and focused. For protocol
 work:
 - Mark observations as **confirmed-on-device** vs **from-source** (as `PROTOCOL.md` does).

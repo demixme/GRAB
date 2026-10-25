@@ -151,7 +151,7 @@ Vendor `2af4` is shared across ROLI devices (the Seaboard **Block** is `vid_2af4
 the PID identifies the model. The **original RISE 49** is the best starting point — it uses
 the older, documented `0x78` dialect below (vs the RISE 2's compiled-in encoding).
 
-**To capture one:** in GRAB, **Capture…** → pick `Seaboard RISE` → **Start** → play and
+**To capture one:** in GRAB, **Advanced… → Raw MIDI capture** → pick `Seaboard RISE` → **Start** → play and
 operate the device (and change settings on it) → **Save to file** → attach the `.txt` to
 an issue. That recording is the raw material for adding support; the `<param>` encoding
 in the tables below still needs confirming against such a capture.
@@ -173,7 +173,7 @@ so reading/confirming settings requires **active probing** (send a documented re
 observe the reply). On the RISE 2 the identify request returns every setting, see the
 State dump above. GRAB can't use `roli_blocks_basics` for RISE at all.
 
-GRAB has an **Active probe** tool for exactly this (the **Probe…** button): pick the
+GRAB has an **Active probe** tool for exactly this (**Advanced… → Active probe**): pick the
 device's output + input, choose a curated message (the MIDI Identity Request, or one of
 the documented `0x78` writes below with a value), review the exact bytes, tick **Arm**,
 and **Send** — the reply is logged and can be submitted/saved. Firmware/reset/packed
