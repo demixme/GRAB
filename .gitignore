@@ -28,3 +28,7 @@
 
 # Contributed device profiles (local; submit via tool or GitHub)
 /profiles/
+
+# Python bytecode (from mitmproxy running tools/*.py)
+__pycache__/
+*.pyc
