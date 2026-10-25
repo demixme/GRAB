@@ -121,6 +121,18 @@ SysEx log) — see [CONTRIBUTING.md](CONTRIBUTING.md). Adding a whole device fam
 (RISE/GRAND) is a bigger, welcome contribution with a clear starting point in
 [RISE-GRAND.md](RISE-GRAND.md).
 
+## Firmware
+GRAB **reads and reports** the firmware version (shown in the header, included in a
+contributed profile) but does **not** download, flash, or distribute firmware:
+- **No flashing**, ever — a bad write bricks the device (see Safety).
+- **No in-app download.** ROLI's firmware lives behind authenticated endpoints (an
+  `X-API-Key` / account login) and is their copyrighted IP. GRAB is deliberately
+  login-free, so it won't embed ROLI credentials or re-host their binaries.
+- **Personal archival is fine.** If you want to preserve *your own* device's
+  firmware while ROLI's servers are still up, [tools/FIRMWARE-CAPTURE.md](tools/FIRMWARE-CAPTURE.md)
+  shows how (via your own ROLI account). Keep those binaries for yourself — don't
+  upload them to the profile store.
+
 ## Safety
 GRAB only sends read/config MIDI. It **never** sends firmware-update,
 program-upload, factory-reset, or bootloader messages. It uses the selected MIDI
