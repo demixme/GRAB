@@ -21,7 +21,8 @@ reports — here a Seaboard BLOCK on fw 1.4.3 over USB.</sub></p>
 |---|---|
 | Seaboard **Block** | ✅ supported (config read/write, presets) |
 | Seaboard **RISE 2** | ✅ supported (config read/write, firmware 2.x) — own protocol |
-| Other **BLOCKS** (Lightpad/Pro, Live, Loop, Touch, LUMI, Airwave, ROLI Piano 49) | ✅ should work (same protocol, generated from the device) — needs testing/reports |
+| **ROLI Piano** (49) | ✅ confirmed (config read/write, key colours; firmware 1.5.0, Windows) — same BLOCKS protocol · [PIANO.md](PIANO.md) |
+| Other **BLOCKS** (Lightpad/Pro, Live, Loop, Touch, LUMI, Airwave) | ✅ should work (same protocol, generated from the device) — needs testing/reports |
 | Multiple BLOCKS (DNA-connected cluster) | ✅ detected; per-block selection |
 | Seaboard **RISE 25/49** (original) / **GRAND** | ⛔ not yet — help add them with one click (see below) · [RISE-GRAND.md](RISE-GRAND.md) · [issue #1](../../issues/1) |
 
@@ -46,9 +47,9 @@ usable whatever happens to ROLI's software and servers.
 - A drop-in **replacement for ROLI Dashboard.** It deliberately does **not** flash
   firmware, upload Littlefoot programs/apps, or customise lighting — and it doesn't
   reproduce Dashboard's full workflow.
-- Finished or polished — expect rough edges, and **only the Seaboard Block and the
-  Seaboard RISE 2 are confirmed** so far (other BLOCKS should work. The GRAND and the
-  original RISE aren't supported yet).
+- Finished or polished — expect rough edges. **Confirmed on real hardware: the Seaboard
+  Block, the Seaboard RISE 2, and the ROLI Piano 49** so far (other BLOCKS should work.
+  The GRAND and the original RISE aren't supported yet).
 
 If you just want to tweak your device's settings today, it does that. If you'd like it to
 *grow into* a fuller Dashboard alternative, that's exactly why **contributing a profile**
@@ -120,6 +121,9 @@ devices get fixed and added.
 A port opened but the device never answered — usually one of:
 - **Another app holds the port** — ROLI Dashboard/Connect, a DAW, or another MIDI app.
   Quit it and reconnect (GRAB reports a held port rather than fighting for it).
+- **Windows: ROLI's background service holds the port.** If ROLI Connect/Dashboard is
+  installed, the **"ROLI Hardware Driver"** Windows service can keep the port open. Stop
+  that service (or uninstall Connect) and reconnect. GRAB itself needs **no** ROLI driver.
 - **It's a Seaboard RISE or GRAND** — these use a different protocol and **aren't
   supported yet**; GRAB says so in the status line. That's expected — please help add it.
 - Try the other **Transport** option (USB ↔ BLE).
@@ -192,6 +196,7 @@ block. The GUI writes logs to a per-user dir (`%APPDATA%\GRAB\logs` on Windows,
 - [PROTOCOL.md](PROTOCOL.md) — the observed BLOCKS SysEx protocol (framing, checksum,
   config, firmware), each fact marked confirmed-on-device vs from-source.
 - [RISE-GRAND.md](RISE-GRAND.md): the Seaboard RISE 2 protocol and notes for adding the GRAND.
+- [PIANO.md](PIANO.md) — ROLI Piano 49 notes: connecting on Windows + the config items it reports.
 - [DEVICE-PROFILES.md](DEVICE-PROFILES.md) — the opt-in "self-learn" device-profile
   schema (contribute what your device reports, to a store at demix.me).
 - [PATCHES.md](PATCHES.md) — the vendored-library patches.

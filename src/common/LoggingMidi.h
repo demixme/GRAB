@@ -270,14 +270,23 @@ public:
     bool isLockedFromOutside() const override { return false; }
 
 private:
-    // Classify by IDENTIFIER, which is reliable; names are not (e.g. the BLE
-    // Seaboard is just "Seaboard Block 3XU9" with no "BLE" in the name, and a
-    // loose "ble" substring would wrongly match "GS Wavetable Synth").
-    // The Seaboard RISE does not speak the BLOCKS protocol, it has its own page (Rise2Protocol.h).
-    static bool isSeaboard (const juce::MidiDeviceInfo& d)
+    // Is this a device that speaks the BLOCKS protocol (0x77), i.e. one GRAB can
+    // connect to and read/write config on? Seaboard Block, Lightpad/pad blocks,
+    // the ROLI Piano (49), etc. The Seaboard RISE is excluded — it uses its own
+    // dialect and has its own page (Rise2Protocol.h).
+    //
+    // Classify by IDENTIFIER where possible, which is reliable; names are not (e.g.
+    // the BLE Seaboard is just "Seaboard Block 3XU9" with no "BLE" in the name, and
+    // a loose "ble" substring would wrongly match "GS Wavetable Synth"). The ROLI
+    // vendor id 2af4 is shared across the range, so match the Piano by its specific
+    // product id (0f00) — matching vid_2af4 alone would also catch the RISE.
+    static bool isBlocksDevice (const juce::MidiDeviceInfo& d)
     {
         return (d.name.containsIgnoreCase ("seaboard") && ! d.name.containsIgnoreCase ("seaboard rise"))
-            || d.identifier.containsIgnoreCase ("seaboardblock");
+            || d.name.containsIgnoreCase ("roli piano")
+            || d.identifier.containsIgnoreCase ("seaboardblock")
+            || d.identifier.containsIgnoreCase ("pianofortynine")          // ROLI driver port id
+            || d.identifier.containsIgnoreCase ("vid_2af4&pid_0f00");       // Windows in-box driver (Piano 49)
     }
 
     static bool isBle (const juce::MidiDeviceInfo& d)
@@ -318,19 +327,19 @@ private:
         logger.line ("=== MIDI inputs (" + juce::String (inputs.size()) + ") ===");
         for (auto& d : inputs)
         {
-            allPorts.push_back ({ d, true, isSeaboard (d), isBle (d), transportTag (d) });
+            allPorts.push_back ({ d, true, isBlocksDevice (d), isBle (d), transportTag (d) });
             logger.line ("  IN   [" + juce::String (transportTag (d)).paddedRight (' ', 5) + "] name='"
                          + d.name + "'  id=[" + d.identifier + "]"
-                         + (isSeaboard (d) ? "  <seaboard>" : ""));
+                         + (isBlocksDevice (d) ? "  <blocks>" : ""));
         }
 
         logger.line ("=== MIDI outputs (" + juce::String (outputs.size()) + ") ===");
         for (auto& d : outputs)
         {
-            allPorts.push_back ({ d, false, isSeaboard (d), isBle (d), transportTag (d) });
+            allPorts.push_back ({ d, false, isBlocksDevice (d), isBle (d), transportTag (d) });
             logger.line ("  OUT  [" + juce::String (transportTag (d)).paddedRight (' ', 5) + "] name='"
                          + d.name + "'  id=[" + d.identifier + "]"
-                         + (isSeaboard (d) ? "  <seaboard>" : ""));
+                         + (isBlocksDevice (d) ? "  <blocks>" : ""));
         }
 
         // Build candidate pairs for each transport (in/out share an identifier).
@@ -352,7 +361,7 @@ private:
             else                    { selectedPairs = blePairs; activeTransport = "BLE (auto)"; }
         }
 
-        logger.line ("=== Selected " + activeTransport + " Seaboard pairs ("
+        logger.line ("=== Selected " + activeTransport + " BLOCKS pairs ("
                      + juce::String ((int) selectedPairs.size()) + ")  [requested: "
                      + transportName (transport) + ";  USB avail=" + juce::String ((int) usbPairs.size())
                      + ", BLE avail=" + juce::String ((int) blePairs.size()) + "] ===");
@@ -368,7 +377,7 @@ private:
         std::vector<Pair> pairs;
         for (auto& in : inputs)
         {
-            if (! isSeaboard (in) || isBle (in) != wantBle)
+            if (! isBlocksDevice (in) || isBle (in) != wantBle)
                 continue;
             if (! wantBle && ! isUsb (in))   // USB must positively look like USB
                 continue;
