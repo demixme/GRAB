@@ -151,7 +151,7 @@ MainComponent::MainComponent()
     };
 
     addAndMakeVisible (blockLabel);
-    blockLabel.setText ("Block:", juce::dontSendNotification);
+    blockLabel.setText ("ROLI device:", juce::dontSendNotification);
     blockLabel.setJustificationType (juce::Justification::centredRight);
     addAndMakeVisible (blockBox);
     blockBox.onChange = [this]
@@ -686,7 +686,7 @@ void MainComponent::resized()
     transportLabel.setBounds (trow.removeFromLeft (72));
     transportBox.setBounds (trow.removeFromLeft (110).reduced (2, 0));
     trow.removeFromLeft (12);
-    blockLabel.setBounds (trow.removeFromLeft (46));
+    blockLabel.setBounds (trow.removeFromLeft (90));
     blockBox.setBounds (trow.reduced (2, 0));
     r.removeFromTop (6);
 
