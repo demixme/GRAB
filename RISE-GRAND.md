@@ -54,6 +54,18 @@ operate the device (and change settings on it) → **Save to file** → attach t
 an issue. That recording is the raw material for adding support; the `<param>` encoding
 in the tables below still needs confirming against such a capture.
 
+## Confirmed from a capture (RISE 2, playing): performance = plain MPE
+A 1323-message capture of a Seaboard RISE being played contained **only standard
+channel-voice MIDI — no SysEx at all**:
+- Note On = strike, per-channel **pitch bend** = glide, **CC 74** = slide (Y),
+  **channel pressure** = press (Z), spread across MPE member channels.
+
+So (unlike a BLOCK, which also streams the `0x77` packed touch protocol) the RISE
+emits **plain MPE** for performance, and **no config SysEx while playing**. Config is
+therefore **host-initiated only** (the `0x78` dialect) — the device won't volunteer it,
+so reading/confirming settings requires **active probing** (send a documented request,
+observe the reply). GRAB can't use `roli_blocks_basics` for RISE at all.
+
 ## Config parameters (from ROLI Dashboard's preset files)
 These are taken from ROLI Dashboard's `.mode` preset files
 (`…/ROLI Dashboard/Littlefoot/{Rise,Grand}.littlefootModes/*.mode`). They are the
