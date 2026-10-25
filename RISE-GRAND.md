@@ -20,6 +20,20 @@ scripts in `tools/`) is reusable; what's missing is the RISE/GRAND wire encoding
   it's plain SysEx (not bit-packed), capturing/decoding is *easier* than for a
   Block.
 
+## Dashboard UI layout (observed on a RISE 2)
+ROLI Dashboard has a separate **RISE / GRAND** tab. Its editor is the *same shape* as
+the BLOCKS editor GRAB already builds — **5D Touch** curves, **MIDI Settings**, **Pitch**
+— plus one section BLOCKS devices don't have: **MIDI CC Assignments**. That extra
+section maps the RISE/GRAND's additional left-hand hardware controllers to CC numbers:
+- three touch **faders** → `TouchFader1/2/3CC` (seen on a RISE 2: 107 / 109 / 111),
+- the **XY pad** → `XYPadXaxisCC` / `XYPadYaxisCC` (113 / 114),
+- the **pedal input(s)** → `PedalInputCC*` (64 Sustain Pedal).
+
+So adding RISE/GRAND to GRAB is largely **the existing generated layout + a new "MIDI
+CC Assignments" section** for those controllers. The screenshot values match the
+`.mode`-derived table below, so those defaults are confirmed against a live device's
+UI — what still needs a capture is the on-wire `<param>` encoding.
+
 ## Config parameters (from ROLI Dashboard's preset files)
 These are taken from ROLI Dashboard's `.mode` preset files
 (`…/ROLI Dashboard/Littlefoot/{Rise,Grand}.littlefootModes/*.mode`). They are the

@@ -62,6 +62,9 @@ and [CONTRIBUTING.md](CONTRIBUTING.md).
   settings ROLI Dashboard exposes (5D sensitivities, MIDI mode/channels, pitch,
   tracking, pedal, …), generated from what the device reports rather than hard-coded.
 - **Writes persist** to flash (plain `setConfig` — the same thing Dashboard does).
+- **Live UI** — controls update as the device reports changes (from the device itself
+  or another app), and the control set adapts when a setting like MIDI Mode changes
+  which parameters are available — no manual refresh needed. Unsaved edits are kept.
 - **JSON presets**, multi-device (daisy-chained BLOCKS), transport auto-select (USB/BLE).
 - **Decodes the protocol offline** from hex dumps or USBPcap/Wireshark/BLE captures.
 
