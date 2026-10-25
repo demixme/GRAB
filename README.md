@@ -83,6 +83,53 @@ run → **Artifacts** (needs a GitHub login, expires after 90 days — prefer a 
 otherwise). *Want to build or improve GRAB?* See [Building from source](#building-from-source)
 and [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Troubleshooting — my device won't connect
+GRAB auto-detects on launch; the **status line at the top** says what it found. Work
+through whichever case matches, then (if it's still stuck) send a report — that's how
+devices get fixed and added.
+
+**Nothing detected ("No … Seaboard found")**
+- **USB:** plug the device in directly — no driver needed; try another cable/port. ROLI
+  devices are class-compliant, so it should appear right away.
+- Use the **Transport** dropdown (top row: Auto / USB / BLE) to force USB or BLE instead
+  of Auto, then press **Reload from device**.
+
+**Bluetooth won't connect**
+- **macOS:** BLE-MIDI devices do *not* appear in System Settings → Bluetooth. Connect
+  once via **Audio MIDI Setup → Window → Show MIDI Studio → the Bluetooth icon → Connect**.
+  After that it's a normal MIDI port — set **Transport → BLE** (or Auto) and **Reload from device**.
+- **Windows:** pair the device first in **Settings → Bluetooth & devices**.
+- A ROLI device **bonds to one computer at a time** — if it won't advertise, turn
+  Bluetooth **off** on any other machine (or in ROLI software) holding it, then
+  power-cycle the device and try again.
+
+**Stuck on "Connecting…" or "no BLOCKS device replied"**
+A port opened but the device never answered — usually one of:
+- **Another app holds the port** — ROLI Dashboard/Connect, a DAW, or another MIDI app.
+  Quit it and reconnect (GRAB reports a held port rather than fighting for it).
+- **It's a Seaboard RISE or GRAND** — these use a different protocol and **aren't
+  supported yet**; GRAB says so in the status line. That's expected — please help add it.
+- Try the other **Transport** option (USB ↔ BLE).
+
+**Connected, but a setting looks missing / unnamed / wrong** — contribute a profile
+(below); the shared name map improves it for everyone.
+
+### How to help or report — one click, all opt-in
+Each of these shows exactly what will be sent and lets you **Save to file** or **Open a
+prefilled GitHub issue** instead of submitting. Your serial, if included, is hashed.
+
+- **Report a connection problem** — click **Report…** (top row), review, then **Submit**.
+  Sends the MIDI ports GRAB saw + how the attempt ended (anonymized). This is what tells
+  us how a new/unsupported device enumerates. *Use this when it won't connect.*
+- **Contribute a profile** — if it *did* connect, click **Contribute…** → **Submit** (the
+  config your device reports).
+- **Capture what an unsupported device emits** — **Capture…** → pick the device's port →
+  **Start** → play/operate it → **Stop** → **Submit**. Read-only; GRAB sends nothing.
+- **Probe it (advanced)** — **Probe…** (button row) → set the device's **output** + **input**
+  → choose a message (start with *Identity Request*) → check the bytes → tick **Arm** →
+  **Send** → **Submit**. For working out an unsupported device's control protocol;
+  firmware/reset messages are blocked.
+
 ## What it does
 - **Reads and writes device configuration** over USB-MIDI or BLE-MIDI — all the
   settings ROLI Dashboard exposes (5D sensitivities, MIDI mode/channels, pitch,
