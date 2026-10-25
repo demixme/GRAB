@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(GRAB VERSION 0.1.0 LANGUAGES C CXX)
+project(GRAB VERSION 0.1.3 LANGUAGES C CXX)  # bump with each release; tag vX.Y.Z to match
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -95,7 +95,8 @@ target_compile_definitions(GRAB PRIVATE
     JUCE_WEB_BROWSER=0
     JUCE_MODAL_LOOPS_PERMITTED=0
     DONT_SET_USING_JUCE_NAMESPACE=1
-    LOG_BLOCKS_CONNECTIVITY=1)
+    LOG_BLOCKS_CONNECTIVITY=1
+    GRAB_VERSION="${PROJECT_VERSION}")
 
 target_link_libraries(GRAB PRIVATE
     sea_sysex

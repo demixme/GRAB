@@ -13,9 +13,15 @@
 namespace grab
 {
 
+// GRAB_VERSION is injected from the CMake project version (single source of truth);
+// fall back to a dev marker for any build that doesn't define it.
+#ifndef GRAB_VERSION
+ #define GRAB_VERSION "0.0.0-dev"
+#endif
+
 inline juce::String profileSchemaVersion() { return "1"; }
 inline juce::String toolName()             { return "GRAB"; }
-inline juce::String toolVersion()          { return "0.1.0"; }
+inline juce::String toolVersion()          { return GRAB_VERSION; }
 
 inline juce::String hashSerial (const juce::String& serial)
 {
