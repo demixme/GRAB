@@ -16,6 +16,32 @@ instruments configurable and self-documents their protocol.
 <p align="center"><sub>Controls are generated from what the connected device
 reports — here a Seaboard BLOCK on fw 1.4.3 over USB.</sub></p>
 
+## What GRAB is — and isn't
+**GRAB is a protocol-preservation effort first, a configuration tool second.** With
+ROLI winding down, the near-term goal is to reverse-engineer and *document* how these
+instruments are configured over MIDI, and to gather that knowledge across the whole
+device range — while the hardware and know-how are still around — so ROLI devices stay
+usable whatever happens to ROLI's software and servers.
+
+**It is:**
+- An open, no-login, no-driver tool that reads and writes a device's **core settings**
+  over MIDI SysEx — the things on Dashboard's config panel (5D sensitivities, MIDI
+  mode/channels, pitch, tracking, play mode), generated live from what the device reports.
+- A growing, community-built **map of the protocol** (the opt-in self-learn store, see
+  [DEVICE-PROFILES.md](DEVICE-PROFILES.md)) and an offline **decoder** for captured traffic.
+
+**It is *not* (yet):**
+- A drop-in **replacement for ROLI Dashboard.** It deliberately does **not** flash
+  firmware, upload Littlefoot programs/apps, or customise lighting — and it doesn't
+  reproduce Dashboard's full workflow.
+- Finished or polished — expect rough edges, and **only the Seaboard Block is confirmed**
+  so far (other BLOCKS should work; RISE/GRAND aren't supported yet).
+
+If you just want to tweak your device's settings today, it does that. If you'd like it to
+*grow into* a fuller Dashboard alternative, that's exactly why **contributing a profile**
+(one click) matters now: the more devices we capture while we still can, the better any
+future tool can be.
+
 ## Quick start — download and use it (no building, no ROLI software)
 You don't need to build anything or install any ROLI software — just download,
 connect, and run.
