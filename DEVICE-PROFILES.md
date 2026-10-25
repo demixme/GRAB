@@ -38,7 +38,7 @@ Plus the self-learn **pull** and the maintainer **export**:
 {
   "schemaVersion": 1,
   "submittedAt": "2026-10-25T12:00:00Z",
-  "tool": { "name": "GRAB", "version": "0.1.7" },
+  "tool": { "name": "GRAB", "version": "0.1.11" },
   "device": {
     "family": "BLOCKS",                 // BLOCKS | RISE | GRAND
     "type": "Seaboard",                 // Block::Type name, or RISE/GRAND model

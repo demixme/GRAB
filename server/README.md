@@ -41,7 +41,7 @@ the Contribute dialog (it's remembered).
 # POST a sample profile
 curl -i -X POST https://demix.me/grab/v1/profiles \
   -H 'Content-Type: application/json' \
-  --data '{"schemaVersion":1,"tool":{"name":"GRAB","version":"0.1.0"},
+  --data '{"schemaVersion":1,"tool":{"name":"GRAB","version":"0.1.11"},
            "device":{"family":"BLOCKS","type":"Seaboard","description":"test",
            "firmware":"1.4.3","transport":"USB","serialHash":"sha256:test","isMaster":true},
            "configItems":[{"id":13,"name":"Pressure Sensitivity","value":0,"min":0,"max":127,
