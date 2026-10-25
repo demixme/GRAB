@@ -22,13 +22,25 @@ reports — here a Seaboard BLOCK on fw 1.4.3 over USB.</sub></p>
 | Seaboard **Block** | ✅ supported (config read/write, presets) |
 | Seaboard **RISE 2** | ✅ supported (config read/write, firmware 2.x) — own protocol |
 | **ROLI Piano** (49) | ✅ confirmed (config read/write, key colours; firmware 1.5.0, Windows) — same BLOCKS protocol · [PIANO.md](PIANO.md) |
-| Other **BLOCKS** (Lightpad/Pro, Live, Loop, Touch, LUMI, Airwave) | 🟡 partial — they connect and GRAB shows the config items they report, but **app/mode-specific features aren't covered yet** (e.g. a Lightpad's Fader Block: per-fader CC#, colours, min/max, bank modes). Not yet hardware-confirmed — **reports welcome** |
+| **LUMI Keys** | 🟡 keyboard-family — connects and shows its basic shared settings; full support (scales, lighting) not done yet — **contributions welcome** |
+| Pad & control **BLOCKS** (Lightpad/Pad, Live, Loop, Touch) · **Airwave** | ◻️ out of scope *for now* — they connect and GRAB shows their basic shared settings, but ROLI's per-app/mode config (Note Grid, Fader Block, Drum Block, …) isn't managed by GRAB (see **Scope** below). **Contributions to add them are welcome** |
 | Multiple BLOCKS (DNA-connected cluster) | ✅ detected; per-block selection |
 | Seaboard **RISE 25/49** (original) | 🟡 read-only — settings are shown (same `0x78` dump as the RISE 2, ~90% decoded) but **Save is disabled** until writes are confirmed on that firmware · [RISE-GRAND.md](RISE-GRAND.md) |
 | Seaboard **GRAND** | ⛔ not yet — help add it with one click (see below) · [RISE-GRAND.md](RISE-GRAND.md) · [issue #1](../../issues/1) |
 
 Got an **unsupported** device? Run GRAB, click **Help add device…** → **Run & submit** —
 one click, read-only, and it's how the next devices get added.
+
+**Scope.** GRAB focuses on ROLI's **keyboard-family instruments** — the Seaboard Block,
+Seaboard RISE / RISE 2, and ROLI Piano (with LUMI Keys a natural next addition) — where a
+device's configuration is a fixed parameter set GRAB reads and writes in full. The **pad
+and control BLOCKS** (Lightpad/Pad, Live, Loop, Touch) run ROLI's Littlefoot **app** system,
+where each app (Note Grid, Fader Block, Drum Block, …) has its own layout and most settings
+live; GRAB can read their basic shared settings but doesn't manage apps/modes, and it never
+uploads programs. That's where the current scope ends — **not where it has to**: if you'd
+like your block fully supported, **contributions are very welcome**. The **Help add
+device…** and **Advanced…** capture tools gather exactly what's needed to start, and
+[CONTRIBUTING.md](CONTRIBUTING.md) has the details.
 
 ## What GRAB is — and isn't
 **GRAB is a protocol-preservation effort first, a configuration tool second.** With
