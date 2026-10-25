@@ -22,7 +22,7 @@ reports — here a Seaboard BLOCK on fw 1.4.3 over USB.</sub></p>
 | Seaboard **Block** | ✅ supported (config read/write, presets) |
 | Seaboard **RISE 2** | ✅ supported (config read/write, firmware 2.x) — own protocol |
 | **ROLI Piano** (49) | ✅ confirmed (config read/write, key colours; firmware 1.5.0, Windows) — same BLOCKS protocol · [PIANO.md](PIANO.md) |
-| Other **BLOCKS** (Lightpad/Pro, Live, Loop, Touch, LUMI, Airwave) | ✅ detected & should work (same protocol, generated from the device) — not yet hardware-confirmed, reports welcome |
+| Other **BLOCKS** (Lightpad/Pro, Live, Loop, Touch, LUMI, Airwave) | 🟡 partial — they connect and GRAB shows the config items they report, but **app/mode-specific features aren't covered yet** (e.g. a Lightpad's Fader Block: per-fader CC#, colours, min/max, bank modes). Not yet hardware-confirmed — **reports welcome** |
 | Multiple BLOCKS (DNA-connected cluster) | ✅ detected; per-block selection |
 | Seaboard **RISE 25/49** (original) | 🟡 read-only — settings are shown (same `0x78` dump as the RISE 2, ~90% decoded) but **Save is disabled** until writes are confirmed on that firmware · [RISE-GRAND.md](RISE-GRAND.md) |
 | Seaboard **GRAND** | ⛔ not yet — help add it with one click (see below) · [RISE-GRAND.md](RISE-GRAND.md) · [issue #1](../../issues/1) |
@@ -49,9 +49,11 @@ usable whatever happens to ROLI's software and servers.
   firmware, upload Littlefoot programs/apps, or customise lighting — and it doesn't
   reproduce Dashboard's full workflow.
 - Finished or polished — expect rough edges. **Confirmed on real hardware: the Seaboard
-  Block, the Seaboard RISE 2, and the ROLI Piano 49** so far (other BLOCKS should work).
-  The **original Seaboard RISE** shows its settings **read-only** (writes not confirmed on
-  that firmware yet); the **GRAND** isn't supported yet.
+  Block, the Seaboard RISE 2, and the ROLI Piano 49** so far. Other BLOCKS (Lightpad, Live,
+  Loop, Touch, LUMI, Airwave) connect and show the config they report, but **app- and
+  mode-specific features aren't covered yet** (e.g. a Lightpad's Fader Block setup) — those
+  need more reports. The **original Seaboard RISE** shows its settings **read-only** (writes
+  not confirmed on that firmware yet); the **GRAND** isn't supported yet.
 
 If you just want to tweak your device's settings today, it does that. If you'd like it to
 *grow into* a fuller Dashboard alternative, that's exactly why **contributing a profile**
