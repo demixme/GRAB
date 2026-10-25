@@ -16,6 +16,42 @@ instruments configurable and self-documents their protocol.
 <p align="center"><sub>Controls are generated from what the connected device
 reports — here a Seaboard BLOCK on fw 1.4.3 over USB.</sub></p>
 
+## Quick start — just use it (no building, no ROLI software)
+If you own a ROLI device and simply want to see and change its settings — and help
+the project — you don't need to build anything or install any ROLI software.
+
+1. **Download** the build for your computer from the
+   [**latest release**](../../releases/latest):
+   - **Windows** → `GRAB-<version>-windows.zip`
+   - **macOS** → `GRAB-<version>-macos.zip` (runs on both Apple Silicon and Intel)
+2. **Unzip it**, then let your OS open the app the first time (the builds are
+   unsigned — no paid certificates):
+   - **Windows:** double-click `GRAB.exe`; if SmartScreen warns → **More info** →
+     **Run anyway**.
+   - **macOS:** in Terminal, from the unzipped folder, run
+     `xattr -dr com.apple.quarantine GRAB.app`, then double-click **GRAB.app**
+     (or right-click → **Open** the first time).
+3. **Connect your ROLI device:**
+   - **USB** — just plug it in; no driver needed.
+   - **Bluetooth** (optional) — on macOS connect it once via **Audio MIDI Setup →
+     Window → Show MIDI Studio → Bluetooth**. A device pairs to one computer at a
+     time, so turn Bluetooth **off** on any other machine that's holding it.
+4. **Launch GRAB.** It auto-detects your device and shows its settings — 5D
+   sensitivity curves, MIDI mode/channel, pitch, play mode, and more. Change
+   whatever you like, then click **Save to device** to write it. Nothing is written
+   until you press Save.
+5. **Help the project — click "Contribute…".** It sends an **anonymized** snapshot
+   of what your device reports (your serial number is **hashed**, never sent in the
+   clear) so GRAB can learn and label settings for everyone. You can read the exact
+   data first, or **Save to file** instead. Entirely optional.
+
+GRAB only ever reads and writes the same settings ROLI Dashboard does — it **never**
+sends firmware, reset, or program-upload messages (see [Safety](#safety)).
+
+> **Want to help build GRAB itself?** Clone the repo and build with CMake — see
+> [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## What GRAB is built with
 Built with **JUCE 8** + **CMake** (no Projucer), developed on Windows 10/11 x64
 (MSVC). The code is kept portable; the decoder library has no JUCE dependency.
 
