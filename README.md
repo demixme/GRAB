@@ -145,13 +145,28 @@ block. The GUI writes logs to a per-user dir (`%APPDATA%\GRAB\logs` on Windows,
 - [PATCHES.md](PATCHES.md) — the vendored-library patches.
 - [CONTRIBUTING.md](CONTRIBUTING.md) — how to help, especially with new devices.
 
-## Contributing
-GRAB grows by people with different ROLI hardware reporting what their device does.
-The easiest contribution is a **device profile** — one click (**Contribute…**) in the
-GUI, or a captured SysEx log. Adding a whole device family (**RISE / GRAND**) is a
-bigger, welcome contribution with a clear starting point in
-[RISE-GRAND.md](RISE-GRAND.md) / [issue #1](../../issues/1). See
-[CONTRIBUTING.md](CONTRIBUTING.md).
+## Contributing — and how the "self-learn" store works
+GRAB gets better the more devices people point it at. Three easy ways to help, all
+**optional** and shown to you before anything is sent:
+
+- **Contribute a device profile** — one click (**Contribute…**) in the GUI. It sends an
+  **anonymized** snapshot of exactly what your device reports: its config items, ranges,
+  option lists and current values. Your **serial is hashed** (never sent raw); you can
+  review the exact JSON first, or **Save to file** instead of sending.
+- **Report a connection problem** — **Report…** sends an anonymized diagnostic of the
+  MIDI ports GRAB saw and how the connect attempt ended (or opens a prefilled GitHub
+  issue). This is how unsupported devices — **Seaboard RISE/GRAND** especially — get the
+  data needed to add them.
+- **Contribute code** — the dashboard/UI and new-device support are open; open a pull
+  request. RISE/GRAND is a great start ([RISE-GRAND.md](RISE-GRAND.md) / [issue #1](../../issues/1)).
+
+**What it's for.** With ROLI winding down, the aim is to build a **community map of the
+protocol** across the whole range while we still can. Submissions go to a small store at
+demix.me, and GRAB then **pulls the community-learned names back** to label settings your
+device reports but doesn't name — so everyone's copy of the tool gets smarter as more
+people contribute. GRAB never sends audio or anything you play, and nothing it collects
+identifies you. See [DEVICE-PROFILES.md](DEVICE-PROFILES.md) for the schema and the exact
+data, and [CONTRIBUTING.md](CONTRIBUTING.md) to get involved.
 
 ## Safety and firmware
 GRAB only sends read/config MIDI over the one selected port. It **never** sends
