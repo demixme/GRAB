@@ -185,12 +185,12 @@ silence — is the decision point: if the RISE answers SysEx there's a query cha
 explore; if it's silent, config is likely via **RPN** (standard CCs, see the old-RISE
 notes below) or only visible by capturing ROLI Dashboard, not by probing.
 
-## Config parameters (from ROLI Dashboard's preset files)
-These are taken from ROLI Dashboard's `.mode` preset files
-(`…/ROLI Dashboard/Littlefoot/{Rise,Grand}.littlefootModes/*.mode`). They are the
-host-side variable names + per-preset defaults — the semantic set to implement.
-For the RISE 2 the on-wire encoding is confirmed above. For the GRAND it still needs a
-capture.
+## Config parameters — reference (from ROLI Dashboard's preset files)
+> **For the RISE 2, the confirmed on-wire protocol is the "Seaboard RISE 2 protocol"
+> section above — use that.** The tables below are the host-side variable names + defaults
+> from Dashboard's `.mode` files, kept as the *semantic* set and as a starting point for
+> the devices **not yet confirmed**: the **GRAND** and the **original RISE 25/49** (older
+> firmware, the `0x78` dialect in "Known old-RISE SysEx" further down).
 
 ### Seaboard RISE (RISE 2)
 | Dashboard variable | Example value | Equivalent BLOCKS config id |
