@@ -24,13 +24,19 @@ the project — you don't need to build anything or install any ROLI software.
    [**latest release**](../../releases/latest):
    - **Windows** → `GRAB-<version>-windows.zip`
    - **macOS** → `GRAB-<version>-macos.zip` (runs on both Apple Silicon and Intel)
-2. **Unzip it**, then let your OS open the app the first time (the builds are
-   unsigned — no paid certificates):
-   - **Windows:** double-click `GRAB.exe`; if SmartScreen warns → **More info** →
-     **Run anyway**.
-   - **macOS:** in Terminal, from the unzipped folder, run
-     `xattr -dr com.apple.quarantine GRAB.app`, then double-click **GRAB.app**
-     (or right-click → **Open** the first time).
+2. **Unzip it**, then clear the "downloaded from the internet" flag so your OS will
+   open the unsigned app (the builds have no paid signing certificates):
+   - **Windows:** right-click `GRAB.exe` → **Properties** → tick **Unblock** → OK.
+     Or in PowerShell, from the unzipped folder:
+     ```powershell
+     Unblock-File .\GRAB.exe
+     ```
+     Then double-click it; if SmartScreen still warns → **More info** → **Run anyway**.
+   - **macOS:** in Terminal, from the unzipped folder:
+     ```sh
+     xattr -dr com.apple.quarantine GRAB.app
+     ```
+     Then double-click **GRAB.app** (or right-click → **Open** the first time).
 3. **Connect your ROLI device:**
    - **USB** — just plug it in; no driver needed.
    - **Bluetooth** (optional) — on macOS connect it once via **Audio MIDI Setup →
@@ -78,11 +84,12 @@ For the very latest commit instead, CI builds every push: **Actions** tab → la
 and expire after 90 days, so prefer a Release unless you want the bleeding edge.
 
 The binaries are **unsigned** (ROLI-independent, no paid signing certs), so the OS
-warns on first launch:
-- **Windows:** SmartScreen → "More info" → "Run anyway".
-- **macOS:** Gatekeeper blocks unsigned downloads. After unzipping, clear the
-  quarantine flag once: `xattr -dr com.apple.quarantine GRAB.app`, then open it
-  (or right-click → Open the first time).
+flags them on first launch — clear the "downloaded from the internet" mark once:
+- **Windows:** right-click `GRAB.exe` → Properties → **Unblock**, or
+  `Unblock-File .\GRAB.exe` in PowerShell. (If SmartScreen still warns →
+  "More info" → "Run anyway".)
+- **macOS:** `xattr -dr com.apple.quarantine GRAB.app`, then open it (or
+  right-click → Open the first time).
 
 ## Connecting (no ROLI software or driver needed)
 ROLI devices are **class-compliant USB-MIDI**, so no driver and none of ROLI's
