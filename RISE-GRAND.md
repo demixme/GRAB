@@ -66,6 +66,13 @@ therefore **host-initiated only** (the `0x78` dialect) — the device won't volu
 so reading/confirming settings requires **active probing** (send a documented request,
 observe the reply). GRAB can't use `roli_blocks_basics` for RISE at all.
 
+GRAB has an **Active probe** tool for exactly this (the **Probe…** button): pick the
+device's output + input, choose a curated message (the MIDI Identity Request, or one of
+the documented `0x78` writes below with a value), review the exact bytes, tick **Arm**,
+and **Send** — the reply is logged and can be submitted/saved. Firmware/reset/packed
+messages are hard-blocked. Confirming each `0x78` `<param>` this way is how RISE support
+gets built.
+
 ## Config parameters (from ROLI Dashboard's preset files)
 These are taken from ROLI Dashboard's `.mode` preset files
 (`…/ROLI Dashboard/Littlefoot/{Rise,Grand}.littlefootModes/*.mode`). They are the

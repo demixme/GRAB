@@ -2,6 +2,7 @@
 #include "ContributePanel.h"
 #include "DiagnosticsPanel.h"
 #include "CapturePanel.h"
+#include "ProbePanel.h"
 
 #include <algorithm>
 #include <map>
@@ -130,6 +131,19 @@ MainComponent::MainComponent()
     addAndMakeVisible (statusLabel);
     statusLabel.setJustificationType (juce::Justification::centredLeft);
 
+    addAndMakeVisible (probeBtn);
+    probeBtn.onClick = [this]
+    {
+        auto* panel = new ProbePanel();
+        juce::DialogWindow::LaunchOptions o;
+        o.content.setOwned (panel);
+        o.dialogTitle = "Active probe";
+        o.dialogBackgroundColour = getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId);
+        o.escapeKeyTriggersCloseButton = true;
+        o.useNativeTitleBar = true;
+        o.resizable = true;
+        o.launchAsync();
+    };
     addAndMakeVisible (reloadButton);
     addAndMakeVisible (saveButton);
     addAndMakeVisible (loadPresetBtn);
@@ -861,11 +875,12 @@ void MainComponent::resized()
     r.removeFromTop (4);
 
     auto buttons = r.removeFromTop (30);
-    const int bw = 165;
+    const int bw = 137;
     reloadButton .setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
     saveButton   .setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
     loadPresetBtn.setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
     savePresetBtn.setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
+    probeBtn     .setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
     r.removeFromTop (6);
 
     auto trow = r.removeFromTop (26);
