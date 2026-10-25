@@ -10,6 +10,7 @@ return [
     'user'       => 'your_db_user',
     'pass'       => 'CHANGE_ME',
     'writeToken' => '',               // optional X-Grab-Token to require on POSTs
+    'exportToken' => '',              // set a long random secret to enable GET /export
 ];
 
 // (B) Reuse your existing private credentials so no secrets live in the web root.
@@ -21,10 +22,14 @@ return [
 //   return [
 //       'host'       => DB_HOST,
 //       'dbname'     => DB_NAME,   // the GRAB tables can live in this database
-//       'user'       => DB_USER,
-//       'pass'       => DB_PASS,
-//       'writeToken' => '',
+//       'user'        => DB_USER,
+//       'pass'        => DB_PASS,
+//       'writeToken'  => '',
+//       'exportToken' => 'a-long-random-secret', // enables GET /export
 //   ];
+//
+//   (Or, if your private config defines constants, add
+//    define('GRAB_EXPORT_TOKEN', 'a-long-random-secret'); and db.php picks it up.)
 //
 //   If instead it returns an array, map that array's keys the same way.
 //

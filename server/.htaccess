@@ -3,6 +3,7 @@
 RewriteEngine On
 RewriteRule ^profiles/?$ profiles.php [L]
 RewriteRule ^names/?$     names.php    [L]
+RewriteRule ^export/?$    export.php   [L]
 
 # Never serve the DB credentials.
 <Files "config.php">

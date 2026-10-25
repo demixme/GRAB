@@ -47,6 +47,26 @@ curl -s 'https://demix.me/grab/v1/names?family=BLOCKS&type=Seaboard'
 # -> {"schemaVersion":1,"names":{"13":{"name":"Pressure Sensitivity","type":"int"}}}
 ```
 
+## Export your data (maintainer only)
+`GET /grab/v1/export` returns the **full raw profiles** as JSON, so you can develop
+GRAB for new devices from real contributions. It's gated by an **export token** that
+lives only in your server config (never in the app), and **fails closed** — until you
+set a token, the endpoint returns 403.
+
+Set the token (any long random string), e.g. in your config array `'exportToken' => '…'`
+or `define('GRAB_EXPORT_TOKEN', '…')` in your private config. Then:
+```sh
+# everything (send the token as a header so it doesn't land in access logs)
+curl -H 'X-Grab-Token: YOURTOKEN' 'https://www.demix.me/grab/v1/export'
+
+# just one device type, newline-delimited JSON (one profile per line)
+curl -H 'X-Grab-Token: YOURTOKEN' \
+  'https://www.demix.me/grab/v1/export?type=RISE&format=ndjson'
+```
+Params: `family=`, `type=`, `format=json|ndjson`, `limit=` (default 5000). Each item is
+`{ "id", "receivedAt", "profile": { …the full submitted profile… } }`. Nothing
+de-anonymizes the data — serials are already hashed by the client.
+
 ## Notes
 - Requires PHP 7.4+ (8.x fine) with PDO MySQL, and MySQL 5.7+/MariaDB 10.2+ for the
   `JSON` columns (swap to `LONGTEXT` in `schema.sql` if your host is older).

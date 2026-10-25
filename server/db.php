@@ -32,11 +32,12 @@ function grab_config(): array
             // Your existing config.php defines DB_* constants — use them as-is.
             // Optionally define GRAB_DB_NAME / GRAB_WRITE_TOKEN to override.
             $cfg = [
-                'host'       => DB_HOST,
-                'dbname'     => defined('GRAB_DB_NAME') ? GRAB_DB_NAME : (defined('DB_NAME') ? DB_NAME : ''),
-                'user'       => DB_USER,
-                'pass'       => DB_PASS,
-                'writeToken' => defined('GRAB_WRITE_TOKEN') ? GRAB_WRITE_TOKEN : '',
+                'host'        => DB_HOST,
+                'dbname'      => defined('GRAB_DB_NAME') ? GRAB_DB_NAME : (defined('DB_NAME') ? DB_NAME : ''),
+                'user'        => DB_USER,
+                'pass'        => DB_PASS,
+                'writeToken'  => defined('GRAB_WRITE_TOKEN')  ? GRAB_WRITE_TOKEN  : '',
+                'exportToken' => defined('GRAB_EXPORT_TOKEN') ? GRAB_EXPORT_TOKEN : '',
             ];
         } else {
             $cfg = require __DIR__ . '/config.sample.php';
