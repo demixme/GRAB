@@ -1,9 +1,12 @@
 # Seaboard RISE / GRAND — protocol notes for contributors
 
 **Status: Seaboard RISE 2 is supported** (config read and write, verified on a RISE 2
-with firmware 2.0.2 on macOS). The original RISE 25/49 and the GRAND are not supported
-yet. The RISE 2 protocol below is confirmed on that device, the rest of this document
-collects what is known so far for the other models.
+with firmware 2.0.2 on macOS). The **original RISE 49** (firmware 1.1.8) is now confirmed
+to answer the identify request with the **same 224-byte state dump**, most fields decoding
+correctly against the RISE 2 layout (see "Original RISE 49 answers with the same dump"
+below) — so it is close to working, not starting from scratch. The RISE 25 and the GRAND
+are still unconfirmed. The RISE 2 protocol below is confirmed on that device; the rest of
+this document collects what is known so far for the other models.
 
 ## How RISE/GRAND differ from BLOCKS
 - `roli_blocks_basics` (the library this tool is built on) has **no RISE/GRAND
@@ -104,6 +107,28 @@ state on connect. Offsets count from `F0`, values are stored as sent.
 | 209 | battery level 0..7 (same as `3C 28`) |
 
 Single Channel mode shows as first = last = master. Multi Channel only clears 82.
+
+#### Original RISE 49 answers with the same dump (confirmed, fw 1.1.8)
+
+A contributed capture of an **original Seaboard RISE 49** (2016, firmware **1.1.8**,
+serial `R49…`) answering `F0 00 21 10 78 3F F7` shows it returns the **same 224-byte
+`3A` dump as the RISE 2**, and most offsets above decode correctly against it:
+
+- ✅ model `RISE1.00`, firmware `1.1.8` (the main image matches ROLI's `MAIN_1.1.8.syx`),
+  MAC, serial, MPE block (79–82), bend range (83), octave (84), glide/press tracking
+  (85/86), pedal CC (88), sensitivities (105–108/148), slide CC/mode (150/151), fixed
+  velocity (152/153), transpose (207), battery (209).
+- ⚠️ **Min/max block (154–159) reads all zeros** — either not stored on this firmware or
+  at a different offset; don't trust those six on an original RISE.
+- ⚠️ **Fader CCs (92/96/100) and XY CCs (102/103)** point at the RISE 2's extra left-hand
+  faders, which the original RISE doesn't have — values there are not meaningful controls.
+- There is an extra version string (`1.1.0`) at offset 14 that a RISE 2 leaves blank; it
+  does **not** shift the settings region (every offset from 22 on still lines up).
+
+Because the port is named `ROLI Seaboard RISE 49`, `rise2::isRisePort()` already matches
+it, so GRAB (≥ 0.1.9) routes it to the RISE page rather than the BLOCKS path. The decode
+should therefore populate mostly-correct values today; the min/max and fader fields are
+the known rough edges to fix once mapped on the original firmware.
 
 ### Battery
 Battery level 0..7 comes from the Bluetooth module (an ASCII `BAT <n>` message inside the
