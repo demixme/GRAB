@@ -38,7 +38,7 @@ try {
     $pdo->beginTransaction();
 
     $ins = $pdo->prepare(
-        'INSERT INTO profiles
+        'INSERT INTO grab_profiles
          (received_at, family, type, firmware, transport, serial_hash, tool_name, tool_version, notes, raw_json)
          VALUES (UTC_TIMESTAMP(), ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     );
@@ -52,7 +52,7 @@ try {
     $pid = (int) $pdo->lastInsertId();
 
     $obs = $pdo->prepare(
-        'INSERT INTO config_observations
+        'INSERT INTO grab_config_observations
          (profile_id, family, type, config_id, name, value, min_val, max_val, ctype, grp, options)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     );

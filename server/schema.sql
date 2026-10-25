@@ -3,7 +3,7 @@
 --
 --   mysql -u <user> -p <dbname> < schema.sql
 
-CREATE TABLE IF NOT EXISTS profiles (
+CREATE TABLE IF NOT EXISTS grab_profiles (
   id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   received_at  DATETIME        NOT NULL,
   family       VARCHAR(16)     NOT NULL,
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   INDEX idx_serial (serial_hash, firmware)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS config_observations (
+CREATE TABLE IF NOT EXISTS grab_config_observations (
   id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   profile_id BIGINT UNSIGNED NOT NULL,
   family     VARCHAR(16)     NOT NULL,
@@ -32,6 +32,6 @@ CREATE TABLE IF NOT EXISTS config_observations (
   ctype      VARCHAR(16)     NULL,
   grp        VARCHAR(64)     NULL,
   options    JSON            NULL,
-  FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE,
+  FOREIGN KEY (profile_id) REFERENCES grab_profiles(id) ON DELETE CASCADE,
   INDEX idx_obs (family, type, config_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

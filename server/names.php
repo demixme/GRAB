@@ -18,7 +18,7 @@ try {
     // take the most common non-empty one (plus a representative type/options).
     $stmt = $pdo->prepare(
         'SELECT config_id, name, ctype, options, COUNT(*) AS c
-         FROM config_observations
+         FROM grab_config_observations
          WHERE family = ? AND type = ? AND name IS NOT NULL AND name <> \'\'
          GROUP BY config_id, name, ctype, options
          ORDER BY config_id ASC, c DESC'
