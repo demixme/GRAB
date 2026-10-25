@@ -21,7 +21,11 @@ ConfigRow::ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value
             break;
 
         case ConfigType::options:
-            for (int i = 0; i < roli::Block::ConfigMetaData::numOptionNames; ++i)
+            // Only offer options that map to an in-range value. optionNames[i] maps to
+            // value range.start + i, so valid i is 0..range.getLength(). Some items
+            // (e.g. Glide/Slide Tracking: range 1..4) carry a trailing name ("Disabled")
+            // beyond max; showing it would let the user write an out-of-range value.
+            for (int i = 0; i <= range.getLength() && i < roli::Block::ConfigMetaData::numOptionNames; ++i)
                 if (meta.optionNames[i].isNotEmpty())
                     combo.addItem (meta.optionNames[i], i + 1); // itemId = optionIndex + 1
             combo.setSelectedId ((value - range.getStart()) + 1, juce::dontSendNotification);

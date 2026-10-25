@@ -77,7 +77,7 @@ inline juce::var buildDeviceProfile (roli::Block& block, const juce::String& tra
     dev->setProperty ("type", blockTypeName (block.getType()));
     dev->setProperty ("description", block.getDeviceDescription());
     dev->setProperty ("firmware", block.versionNumber);
-    dev->setProperty ("transport", transport);
+    dev->setProperty ("transport", transport.upToFirstOccurrenceOf (" (", false, false)); // "BLE (auto)" -> "BLE"
     dev->setProperty ("serialHash", hashSerial (block.serialNumber));
     dev->setProperty ("isMaster", block.isMasterBlock());
     root->setProperty ("device", juce::var (dev));
@@ -106,7 +106,12 @@ inline juce::var buildDeviceProfile (roli::Block& block, const juce::String& tra
         if (meta.type == roli::Block::ConfigMetaData::ConfigType::options)
         {
             juce::Array<juce::var> opts;
-            for (int o = 0; o < roli::Block::ConfigMetaData::numOptionNames; ++o)
+            // Only in-range options: optionNames[o] maps to value range.start + o, so
+            // valid o is 0..range.getLength(). Trailing names beyond max (e.g. a stray
+            // "Disabled" on Glide/Slide Tracking, range 1..4) are not valid values and
+            // must not be learned by the store.
+            const int inRange = meta.range.getLength() + 1;
+            for (int o = 0; o < inRange && o < roli::Block::ConfigMetaData::numOptionNames; ++o)
                 if (meta.optionNames[o].isNotEmpty())
                     opts.add (meta.optionNames[o]);
             it->setProperty ("options", opts);
