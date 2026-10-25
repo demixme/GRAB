@@ -31,7 +31,15 @@ jobs:
           restore-keys: ${{ runner.os }}-deps-
 
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        shell: bash
+        run: |
+          args=(-S . -B build -DCMAKE_BUILD_TYPE=Release)
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            # Universal binary so one .app runs on both Apple Silicon and Intel Macs.
+            args+=(-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64")
+            args+=(-DCMAKE_OSX_DEPLOYMENT_TARGET=10.15)
+          fi
+          cmake "${args[@]}"
 
       - name: Build
         run: cmake --build build --config Release --target GRAB seaprobe seadecode --parallel
