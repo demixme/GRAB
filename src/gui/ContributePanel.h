@@ -14,8 +14,10 @@
 class ContributePanel  : public juce::Component
 {
 public:
-    ContributePanel (roli::Block& blockToUse, const juce::String& transportToUse)
-        : block (blockToUse), transport (transportToUse)
+    // Holds a ref-counted Block::Ptr so the device stays alive for the dialog's
+    // lifetime even if the topology changes (battery heartbeat fires constantly).
+    ContributePanel (roli::Block::Ptr blockToUse, const juce::String& transportToUse)
+        : block (std::move (blockToUse)), transport (transportToUse)
     {
         title.setText ("This sends an anonymized profile of what your device reports. "
                        "Your serial is hashed, never sent raw.", juce::dontSendNotification);
@@ -109,7 +111,7 @@ private:
 
     void rebuildJson()
     {
-        profile = grab::buildDeviceProfile (block, transport, notesField.getText());
+        profile = grab::buildDeviceProfile (*block, transport, notesField.getText());
         json = grab::profileToJson (profile);
         jsonView.setText (json, juce::dontSendNotification);
     }
@@ -121,8 +123,8 @@ private:
         rebuildJson();
         auto dir = juce::File::getCurrentWorkingDirectory().getChildFile ("profiles");
         dir.createDirectory();
-        auto f = dir.getChildFile (juce::String (grab::blockTypeName (block.getType()))
-                                   + "-" + block.versionNumber + "-"
+        auto f = dir.getChildFile (juce::String (grab::blockTypeName (block->getType()))
+                                   + "-" + block->versionNumber + "-"
                                    + juce::Time::getCurrentTime().formatted ("%Y%m%d-%H%M%S") + ".json");
         if (f.replaceWithText (json))
             setStatus ("Saved: " + f.getFileName());
@@ -154,6 +156,7 @@ private:
                 url = url.withPOSTData (body);
                 juce::WebInputStream web (url, true);
                 web.withExtraHeaders ("Content-Type: application/json");
+                web.withConnectionTimeout (15000); // never hang the submit indefinitely
                 if (web.connect (nullptr))
                     code = web.getStatusCode();
                 else
@@ -178,7 +181,7 @@ private:
             setStatus ("Server returned HTTP " + juce::String (code) + ". Try Save to file.");
     }
 
-    roli::Block& block;
+    roli::Block::Ptr block;
     juce::String transport;
     juce::var profile;
     juce::String json;

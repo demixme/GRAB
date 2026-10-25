@@ -349,8 +349,8 @@ void MainComponent::contribute()
         return;
     }
 
-    auto* panel = new ContributePanel (*block, detector != nullptr ? detector->getActiveTransport()
-                                                                    : juce::String ("unknown"));
+    auto* panel = new ContributePanel (block, detector != nullptr ? detector->getActiveTransport()
+                                                                   : juce::String ("unknown"));
     juce::DialogWindow::LaunchOptions o;
     o.content.setOwned (panel);
     o.dialogTitle = "Contribute device profile";
