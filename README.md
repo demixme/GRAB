@@ -22,6 +22,13 @@ Built with **JUCE 8** + **CMake** (no Projucer), developed on Windows 10/11 x64
 - **Decodes the protocol offline** from hex dumps or USBPcap/Wireshark/BLE captures.
 - Never sends anything destructive (no firmware/reset/program-upload/bootloader).
 
+## Downloads
+Prebuilt Windows and macOS binaries are produced by CI for every commit: open the
+repo's **Actions** tab → latest `build` run → **Artifacts** (`GRAB-windows` /
+`GRAB-macos`). They're **unsigned**, so the OS will warn on first launch
+(Windows SmartScreen → "More info" → Run anyway; macOS Gatekeeper → right-click →
+Open). Tagged releases with attached binaries will come once things settle.
+
 ## Supported devices
 | Device | Status |
 |---|---|
@@ -66,6 +73,15 @@ Logs are written to `logs/`.
   schema (contribute what your device reports, to a store at demix.me).
 - [PATCHES.md](PATCHES.md) — the vendored-library patches.
 - [CONTRIBUTING.md](CONTRIBUTING.md) — how to help, especially new devices.
+
+## Help wanted / known limitations
+- **macOS device detection.** GRAB builds and runs on macOS, but transport
+  selection uses Windows-style MIDI identifiers (`usb#`, `blemidi`, …). macOS
+  CoreMIDI uses different identifiers, so auto-detect needs mac-tuned heuristics
+  (in `src/common/LoggingMidi.h`). Great first contribution for a Mac owner.
+- **Other BLOCKS** (Lightpad/Pro, Live, Loop, Touch, LUMI, Airwave, ROLI Piano 49)
+  should work via the same protocol but need testing — reports/profiles welcome.
+- **Seaboard RISE / GRAND** support — see [RISE-GRAND.md](RISE-GRAND.md).
 
 ## Contributing
 GRAB grows by people with different ROLI hardware reporting what their device does.
