@@ -270,23 +270,35 @@ public:
     bool isLockedFromOutside() const override { return false; }
 
 private:
-    // Is this a device that speaks the BLOCKS protocol (0x77), i.e. one GRAB can
-    // connect to and read/write config on? Seaboard Block, Lightpad/pad blocks,
-    // the ROLI Piano (49), etc. The Seaboard RISE is excluded — it uses its own
-    // dialect and has its own page (Rise2Protocol.h).
+    // Is this a device GRAB should try to connect to over the BLOCKS protocol
+    // (0x77)? The whole ROLI family speaks it — Seaboard Block, Lightpad/Pad/Pro,
+    // Live/Loop/Touch, LUMI, Airwave, the ROLI Piano (49) — so match ROLI gear
+    // broadly rather than allowlisting each product.
     //
-    // Classify by IDENTIFIER where possible, which is reliable; names are not (e.g.
-    // the BLE Seaboard is just "Seaboard Block 3XU9" with no "BLE" in the name, and
-    // a loose "ble" substring would wrongly match "GS Wavetable Synth"). The ROLI
-    // vendor id 2af4 is shared across the range, so match the Piano by its specific
-    // product id (0f00) — matching vid_2af4 alone would also catch the RISE.
+    // The Seaboard RISE is the one exception: it uses its own dialect and has its
+    // own page (Rise2Component). Exclude it exactly as rise2::isRisePort() claims
+    // it (name contains "Seaboard RISE"), so the two paths never fight over the
+    // same device. (The GRAND has no "rise" in its name, so it falls through here,
+    // gets tried, and is caught by the connect-timeout "help add it" message.)
+    //
+    // Match by the ROLI USB vendor id (2af4, shared across the range) on Windows,
+    // where identifiers encode vid/pid; elsewhere (macOS/BLE identifiers are an
+    // opaque UID) fall back to family names. A loose "ble"-style substring is
+    // avoided — these tokens are specific enough not to catch unrelated ports.
     static bool isBlocksDevice (const juce::MidiDeviceInfo& d)
     {
-        return (d.name.containsIgnoreCase ("seaboard") && ! d.name.containsIgnoreCase ("seaboard rise"))
-            || d.name.containsIgnoreCase ("roli piano")
+        if (d.name.containsIgnoreCase ("seaboard rise"))   // RISE: handled by Rise2Component
+            return false;
+
+        return d.identifier.containsIgnoreCase ("vid_2af4")        // ROLI USB vendor id (Windows)
             || d.identifier.containsIgnoreCase ("seaboardblock")
-            || d.identifier.containsIgnoreCase ("pianofortynine")          // ROLI driver port id
-            || d.identifier.containsIgnoreCase ("vid_2af4&pid_0f00");       // Windows in-box driver (Piano 49)
+            || d.identifier.containsIgnoreCase ("pianofortynine")
+            || d.name.containsIgnoreCase ("roli")
+            || d.name.containsIgnoreCase ("seaboard")
+            || d.name.containsIgnoreCase ("lightpad")
+            || d.name.containsIgnoreCase ("lumi")
+            || d.name.containsIgnoreCase ("airwave")
+            || d.name.containsIgnoreCase ("block");                // Lightpad/Live/Loop/Touch "… Block"
     }
 
     static bool isBle (const juce::MidiDeviceInfo& d)
