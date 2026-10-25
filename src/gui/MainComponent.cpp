@@ -205,10 +205,13 @@ void MainComponent::connect (seaprobe::Transport transport)
     blockOrder.clear();
     blockBox.clear (juce::dontSendNotification);
     rows.clear();
+    curveRows.clear();
+    curves.clear();
     sectionHeaders.clear();
     layoutOrder.clear();
     rowHolder.removeAllChildren();
     deviceValues.clear();
+    pendingValues.clear();
     configRequested = false;
     rowsBuilt = false;
     saveButton.setEnabled (false);
@@ -252,9 +255,12 @@ void MainComponent::topologyChanged()
         rowsBuilt = false;
         configRequested = false;
         rows.clear();
+        curveRows.clear();
+        curves.clear();
         sectionHeaders.clear();
         layoutOrder.clear();
         rowHolder.removeAllChildren();
+        pendingValues.clear();
         saveButton.setEnabled (false);
         setStatus ("Seaboard disconnected.");
         return;
@@ -308,10 +314,13 @@ void MainComponent::selectBlock (roli::Block::UID uid)
 
     // Reset per-block config state and re-read for the newly selected block.
     rows.clear();
+    curveRows.clear();
+    curves.clear();
     sectionHeaders.clear();
     layoutOrder.clear();
     rowHolder.removeAllChildren();
     deviceValues.clear();
+    pendingValues.clear();
     configRequested = false;
     rowsBuilt = false;
     saveButton.setEnabled (false);
@@ -366,30 +375,18 @@ void MainComponent::timerCallback()
 void MainComponent::rebuildRows()
 {
     rows.clear();
+    curveRows.clear();
+    curves.clear();
     sectionHeaders.clear();
     layoutOrder.clear();
     rowHolder.removeAllChildren();
     deviceValues.clear();
+    pendingValues.clear();
 
     if (block == nullptr)
         return;
 
-    const auto changeFn = [this] (juce::uint32 changedId, juce::int32 v)
-    {
-        auto it = deviceValues.find (changedId);
-        const bool differs = (it != deviceValues.end() && it->second != v);
-        for (auto& r : rows)
-            if (r->getId() == changedId)
-                r->setChangedFromDevice (differs);
-        bool anyChanged = false;
-        for (auto& r : rows)
-        {
-            auto di = deviceValues.find (r->getId());
-            if (di != deviceValues.end() && di->second != r->getValue())
-                anyChanged = true;
-        }
-        saveButton.setEnabled (anyChanged);
-    };
+    const auto onChange = [this] (juce::uint32 id, juce::int32 v) { onItemChanged (id, v); };
 
     // Collect active items grouped by their device-reported group, preserving id
     // order within a group and first-seen order of groups.
@@ -407,6 +404,7 @@ void MainComponent::rebuildRows()
 
         const auto value = block->getLocalConfigValue (id);
         deviceValues[id] = value;
+        pendingValues[id] = value;
 
         auto g = meta.group;
         if (std::find (groupOrder.begin(), groupOrder.end(), g) == groupOrder.end())
@@ -418,11 +416,26 @@ void MainComponent::rebuildRows()
     std::stable_sort (groupOrder.begin(), groupOrder.end(),
                       [] (const juce::String& a, const juce::String& b) { return groupRank (a) < groupRank (b); });
 
+    // The 5D sensitivity config ids -> curve panels (Strike/Glide/Slide/Press/Lift).
+    struct Dim { juce::uint32 id; const char* label; juce::uint32 colour; int minId; int maxId; };
+    static const Dim dims[] = {
+        { 10, "Strike", 0xff4fc3f7, 50, 51 }, { 11, "Glide", 0xff66d36e, -1, -1 },
+        { 12, "Slide",  0xffe15fd0, -1, -1 }, { 13, "Press", 0xff4fd6c9, 52, 53 },
+        { 14, "Lift",   0xffe6c24a, 54, 55 } };
+
+    auto emitRow = [&] (const Item& item)
+    {
+        auto row = std::make_unique<ConfigRow> (item.meta, item.value, onChange);
+        rowHolder.addAndMakeVisible (*row);
+        layoutOrder.push_back ({ row.get(), rowHeight });
+        rows.push_back (std::move (row));
+    };
+
     for (const auto& g : groupOrder)
     {
         auto header = std::make_unique<juce::Label>();
         header->setText (g.isEmpty() ? "Other" : g, juce::dontSendNotification);
-        header->setFont (juce::Font (16.0f, juce::Font::bold));
+        header->setFont (juce::Font (juce::FontOptions (16.0f, juce::Font::bold)));
         header->setColour (juce::Label::textColourId, juce::Colour (0xff6fd3d6));
         header->setColour (juce::Label::backgroundColourId, juce::Colour (0x22ffffff));
         header->setJustificationType (juce::Justification::centredLeft);
@@ -430,12 +443,35 @@ void MainComponent::rebuildRows()
         layoutOrder.push_back ({ header.get(), sectionHeaderHeight });
         sectionHeaders.push_back (std::move (header));
 
-        for (auto& item : groups[g])
+        if (g == "Sensitivity")
         {
-            auto row = std::make_unique<ConfigRow> (item.meta, item.value, changeFn);
-            rowHolder.addAndMakeVisible (*row);
-            layoutOrder.push_back ({ row.get(), rowHeight });
-            rows.push_back (std::move (row));
+            // 5D curves across the top of the section; remaining items (min/max,
+            // fixed velocity) as rows below.
+            auto cr = std::make_unique<CurveRow>();
+            for (const auto& d : dims)
+            {
+                if (deviceValues.find (d.id) == deviceValues.end())
+                    continue;
+                const int mn = (d.minId >= 0 && deviceValues.count ((juce::uint32) d.minId)) ? deviceValues[(juce::uint32) d.minId] : 0;
+                const int mx = (d.maxId >= 0 && deviceValues.count ((juce::uint32) d.maxId)) ? deviceValues[(juce::uint32) d.maxId] : 127;
+                auto* c = cr->add (std::make_unique<CurveComponent> (d.label, juce::Colour (d.colour),
+                                        d.id, deviceValues[d.id], mn, mx, onChange));
+                curves.push_back (c);
+            }
+            if (! cr->curves.empty())
+            {
+                rowHolder.addAndMakeVisible (*cr);
+                layoutOrder.push_back ({ cr.get(), 130 });
+                curveRows.push_back (std::move (cr));
+            }
+            for (const auto& item : groups[g])
+                if (item.meta.item < 10 || item.meta.item > 14) // not a curve dimension
+                    emitRow (item);
+        }
+        else
+        {
+            for (const auto& item : groups[g])
+                emitRow (item);
         }
     }
 
@@ -445,20 +481,43 @@ void MainComponent::rebuildRows()
                + " items in " + juce::String ((int) groupOrder.size()) + " sections");
 }
 
+void MainComponent::onItemChanged (juce::uint32 id, juce::int32 value)
+{
+    pendingValues[id] = value;
+    const bool differs = deviceValues.count (id) && deviceValues[id] != value;
+    for (auto& r : rows)
+        if (r->getId() == id)
+            r->setChangedFromDevice (differs);
+    for (auto* c : curves)
+        if (c->getId() == id)
+            c->setChanged (differs);
+    updateSaveEnabled();
+}
+
+void MainComponent::updateSaveEnabled()
+{
+    bool any = false;
+    for (auto& kv : pendingValues)
+    {
+        auto d = deviceValues.find (kv.first);
+        if (d != deviceValues.end() && d->second != kv.second)
+            any = true;
+    }
+    saveButton.setEnabled (any);
+}
+
 void MainComponent::saveToDevice()
 {
     if (block == nullptr)
         return;
 
     int written = 0;
-    for (auto& r : rows)
+    for (auto& kv : pendingValues)
     {
-        const auto id = r->getId();
-        const auto v  = r->getValue();
-        auto it = deviceValues.find (id);
-        if (it != deviceValues.end() && it->second != v)
+        auto it = deviceValues.find (kv.first);
+        if (it != deviceValues.end() && it->second != kv.second)
         {
-            block->setLocalConfigValue (id, v); // setConfig write (persists on fw 1.4.3)
+            block->setLocalConfigValue (kv.first, kv.second); // setConfig write (persists on fw 1.4.3)
             ++written;
         }
     }
@@ -500,8 +559,8 @@ void MainComponent::savePreset()
                 obj->setProperty ("firmware", block->versionNumber);
             }
             auto* values = new juce::DynamicObject();
-            for (auto& r : rows)
-                values->setProperty (juce::String ((int) r->getId()), r->getValue());
+            for (auto& kv : pendingValues) // all items incl. the 5D curve dimensions
+                values->setProperty (juce::String ((int) kv.first), kv.second);
             obj->setProperty ("values", juce::var (values));
 
             file.replaceWithText (juce::JSON::toString (juce::var (obj)));
@@ -534,28 +593,22 @@ void MainComponent::loadPreset()
             }
 
             int applied = 0;
-            for (auto& r : rows)
+            for (const auto& prop : values->getProperties())
             {
-                const auto key = juce::String ((int) r->getId());
-                if (values->hasProperty (key))
-                {
-                    const auto v = (juce::int32) (int) values->getProperty (key);
-                    r->setValue (v);
-                    auto it = deviceValues.find (r->getId());
-                    r->setChangedFromDevice (it != deviceValues.end() && it->second != v);
-                    ++applied;
-                }
+                const auto id = (juce::uint32) prop.name.toString().getIntValue();
+                if (pendingValues.find (id) == pendingValues.end())
+                    continue; // only items this device actually has
+                const auto v = (juce::int32) (int) prop.value;
+                pendingValues[id] = v;
+                const bool differs = deviceValues.count (id) && deviceValues[id] != v;
+                for (auto& r : rows)
+                    if (r->getId() == id) { r->setValue (v); r->setChangedFromDevice (differs); }
+                for (auto* c : curves)
+                    if (c->getId() == id) { c->setSensitivity (v); c->setChanged (differs); }
+                ++applied;
             }
 
-            // Enable Save if the loaded preset differs from the device anywhere.
-            bool anyChanged = false;
-            for (auto& r : rows)
-            {
-                auto di = deviceValues.find (r->getId());
-                if (di != deviceValues.end() && di->second != r->getValue())
-                    anyChanged = true;
-            }
-            saveButton.setEnabled (anyChanged);
+            updateSaveEnabled();
             setStatus ("Preset loaded (" + juce::String (applied) + " items). Review, then Save to device.");
         });
 }

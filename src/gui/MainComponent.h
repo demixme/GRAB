@@ -11,6 +11,7 @@
 
 #include "LoggingMidi.h"
 #include "ConfigOverrides.h"
+#include "CurveComponent.h"
 
 #include <map>
 #include <vector>
@@ -80,6 +81,8 @@ private:
     void reloadFromDevice();
     void loadPreset();
     void savePreset();
+    void onItemChanged (juce::uint32 id, juce::int32 value); // from a row or a curve
+    void updateSaveEnabled();
     void setStatus (const juce::String&);
 
     // Session
@@ -95,7 +98,8 @@ private:
     double configRequestedAtMs = 0.0;
     bool   rowsBuilt = false;
 
-    std::map<juce::uint32, juce::int32> deviceValues; // last values read from device
+    std::map<juce::uint32, juce::int32> deviceValues;  // last values read from device
+    std::map<juce::uint32, juce::int32> pendingValues; // edited (unsaved) values, rows + curves
 
     // UI
     juce::Label        statusLabel;
@@ -111,6 +115,8 @@ private:
     juce::Viewport     viewport;
     juce::Component    rowHolder;
     std::vector<std::unique_ptr<ConfigRow>> rows;
+    std::vector<std::unique_ptr<CurveRow>> curveRows;   // 5D curve panels
+    std::vector<CurveComponent*> curves;                // non-owning, for id lookup
     std::vector<std::unique_ptr<juce::Label>> sectionHeaders;
     // Ordered list of what to stack in rowHolder: section headers and rows, each
     // with its height. Drives both rebuildRows() and resized().
