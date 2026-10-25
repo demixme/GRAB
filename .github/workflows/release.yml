@@ -1,0 +1,85 @@
+name: release
+
+# Publishes downloadable, no-login, non-expiring binaries to a GitHub Release.
+# Trigger by pushing a version tag:   git tag v0.1.0 && git push origin v0.1.0
+# or run manually (Actions -> release -> Run workflow) giving the tag name.
+
+on:
+  push:
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to create/publish (e.g. v0.1.0)'
+        required: true
+
+permissions:
+  contents: write   # required to create the release and upload assets
+
+jobs:
+  release:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: windows
+          - os: macos-latest
+            name: macos
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache fetched deps (JUCE)
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: ${{ runner.os }}-deps-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: ${{ runner.os }}-deps-
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release --target GRAB seaprobe seadecode --parallel
+
+      - name: Package
+        shell: bash
+        run: |
+          set -e
+          tag="${{ github.event.inputs.tag || github.ref_name }}"
+          mkdir -p stage dist
+          cp README.md LICENSE stage/ 2>/dev/null || true
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            find build -name 'GRAB.exe'      -exec cp {} stage/ \;
+            find build -name 'seaprobe.exe'  -exec cp {} stage/ \;
+            find build -name 'seadecode.exe' -exec cp {} stage/ \;
+            7z a "dist/GRAB-${tag}-windows.zip" ./stage/*
+          else
+            app="$(find build -maxdepth 6 -name 'GRAB.app' -type d | head -1)"
+            if [ -n "$app" ]; then
+              # Ad-hoc signature so the app has a stable identity (not notarized).
+              codesign --force --deep -s - "$app" || true
+              cp -R "$app" stage/
+            fi
+            find build -maxdepth 6 -path '*seaprobe_artefacts*' -name 'seaprobe' -type f -exec cp {} stage/ \;
+            find build -maxdepth 4 -name 'seadecode' -type f -exec cp {} stage/ \;
+            # ditto preserves the .app bundle + resource forks inside the zip.
+            ditto -c -k --sequesterRsrc --keepParent stage "dist/GRAB-${tag}-macos.zip"
+          fi
+          ls -la dist
+
+      - name: Publish to GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          tag="${{ github.event.inputs.tag || github.ref_name }}"
+          # First matrix job creates the release; the other just uploads to it.
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create "$tag" --repo "$GITHUB_REPOSITORY" \
+                 --title "$tag" --generate-notes || true
+          gh release upload "$tag" dist/* --repo "$GITHUB_REPOSITORY" --clobber

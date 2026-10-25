@@ -23,11 +23,22 @@ Built with **JUCE 8** + **CMake** (no Projucer), developed on Windows 10/11 x64
 - Never sends anything destructive (no firmware/reset/program-upload/bootloader).
 
 ## Downloads
-Prebuilt Windows and macOS binaries are produced by CI for every commit: open the
-repo's **Actions** tab → latest `build` run → **Artifacts** (`GRAB-windows` /
-`GRAB-macos`). They're **unsigned**, so the OS will warn on first launch
-(Windows SmartScreen → "More info" → Run anyway; macOS Gatekeeper → right-click →
-Open). Tagged releases with attached binaries will come once things settle.
+**Just want to run it?** Grab a prebuilt Windows or macOS build from the
+[**Releases**](../../releases/latest) page — no GitHub login needed, and the links
+don't expire. Each release has `GRAB-<version>-windows.zip` and
+`GRAB-<version>-macos.zip` (each contains the GRAB app plus the `seaprobe` /
+`seadecode` command-line tools).
+
+For the very latest commit instead, CI builds every push: **Actions** tab → latest
+`build` run → **Artifacts** (`GRAB-windows` / `GRAB-macos`). Artifacts need a login
+and expire after 90 days, so prefer a Release unless you want the bleeding edge.
+
+The binaries are **unsigned** (ROLI-independent, no paid signing certs), so the OS
+warns on first launch:
+- **Windows:** SmartScreen → "More info" → "Run anyway".
+- **macOS:** Gatekeeper blocks unsigned downloads. After unzipping, clear the
+  quarantine flag once: `xattr -dr com.apple.quarantine GRAB.app`, then open it
+  (or right-click → Open the first time).
 
 ## Supported devices
 | Device | Status |
