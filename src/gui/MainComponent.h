@@ -137,6 +137,7 @@ private:
     juce::TextButton   contributeBtn { "Contribute..." };
     juce::TextButton   reloadButton  { "Reload from device" };
     juce::TextButton   probeBtn      { "Probe..." };
+    juce::TextButton   helpAddBtn    { "Help add device..." };
     juce::TextButton   saveButton    { "Save to device" };
     juce::TextButton   loadPresetBtn { "Load preset..." };
     juce::TextButton   savePresetBtn { "Save preset..." };

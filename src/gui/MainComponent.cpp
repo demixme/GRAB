@@ -3,6 +3,7 @@
 #include "DiagnosticsPanel.h"
 #include "CapturePanel.h"
 #include "ProbePanel.h"
+#include "ExplorePanel.h"
 
 #include <algorithm>
 #include <map>
@@ -131,6 +132,19 @@ MainComponent::MainComponent()
     addAndMakeVisible (statusLabel);
     statusLabel.setJustificationType (juce::Justification::centredLeft);
 
+    addAndMakeVisible (helpAddBtn);
+    helpAddBtn.onClick = [this]
+    {
+        auto* panel = new ExplorePanel();
+        juce::DialogWindow::LaunchOptions o;
+        o.content.setOwned (panel);
+        o.dialogTitle = "Help add this device";
+        o.dialogBackgroundColour = getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId);
+        o.escapeKeyTriggersCloseButton = true;
+        o.useNativeTitleBar = true;
+        o.resizable = true;
+        o.launchAsync();
+    };
     addAndMakeVisible (probeBtn);
     probeBtn.onClick = [this]
     {
@@ -203,7 +217,7 @@ MainComponent::MainComponent()
     viewport.setViewedComponent (&rowHolder, false);
     viewport.setScrollBarsShown (true, false);
 
-    setSize (720, 680);
+    setSize (900, 680);
 
     // Logs go to a stable per-user dir (same base as settings.properties), not the
     // current working directory — a Finder/Explorer-launched app has an unpredictable
@@ -534,10 +548,10 @@ void MainComponent::checkConnectTimeout()
 
     if (riseGrand)
         setStatus ("Found '" + name + "' but it isn't a BLOCKS device. Seaboard RISE/GRAND use a "
-                   "different protocol GRAB doesn't support yet — click Report… to help add it.");
+                   "different protocol GRAB doesn't support yet — click 'Help add device…' to pitch in.");
     else
         setStatus ("Opened '" + name + "' but no ROLI BLOCKS device replied. Could be a RISE/GRAND "
-                   "(unsupported) or the port is held by another app — try the other Transport, or click Report…");
+                   "(unsupported) or the port is held by another app — try the other Transport, or 'Help add device…'");
 
     // Full guidance (incl. the log path to attach to a report) goes to the log.
     logger->line ("CONNECT TIMEOUT: opened '" + name + "' but received no BLOCKS topology in 6s."
@@ -875,7 +889,10 @@ void MainComponent::resized()
     r.removeFromTop (4);
 
     auto buttons = r.removeFromTop (30);
-    const int bw = 137;
+    // "Help add device..." sits first (the one-click action for unsupported devices).
+    helpAddBtn   .setBounds (buttons.removeFromLeft (150).reduced (2, 0));
+    buttons.removeFromLeft (8);
+    const int bw = 142;
     reloadButton .setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
     saveButton   .setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
     loadPresetBtn.setBounds (buttons.removeFromLeft (bw).reduced (2, 0));

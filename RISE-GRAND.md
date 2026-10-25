@@ -54,11 +54,15 @@ operate the device (and change settings on it) → **Save to file** → attach t
 an issue. That recording is the raw material for adding support; the `<param>` encoding
 in the tables below still needs confirming against such a capture.
 
-## Confirmed from a capture (RISE 2, playing): performance = plain MPE
-A 1323-message capture of a Seaboard RISE being played contained **only standard
+## Confirmed from captures (RISE 25 **and** RISE 2, playing): performance = plain MPE
+Captures of both a **RISE 25** and a **RISE 2** being played contained **only standard
 channel-voice MIDI — no SysEx at all**:
 - Note On = strike, per-channel **pitch bend** = glide, **CC 74** = slide (Y),
   **channel pressure** = press (Z), spread across MPE member channels.
+
+This means a RISE already works as an MPE controller in any host **without GRAB** — there
+is nothing to reverse-engineer on the performance side. GRAB's value for RISE is purely
+**configuration** (the host-initiated side below).
 
 So (unlike a BLOCK, which also streams the `0x77` packed touch protocol) the RISE
 emits **plain MPE** for performance, and **no config SysEx while playing**. Config is
@@ -72,6 +76,11 @@ the documented `0x78` writes below with a value), review the exact bytes, tick *
 and **Send** — the reply is logged and can be submitted/saved. Firmware/reset/packed
 messages are hard-blocked. Confirming each `0x78` `<param>` this way is how RISE support
 gets built.
+
+**Start with the Identity Request** (the default, read-only probe). Its reply — or
+silence — is the decision point: if the RISE answers SysEx there's a query channel to
+explore; if it's silent, config is likely via **RPN** (standard CCs, see the old-RISE
+notes below) or only visible by capturing ROLI Dashboard, not by probing.
 
 ## Config parameters (from ROLI Dashboard's preset files)
 These are taken from ROLI Dashboard's `.mode` preset files
