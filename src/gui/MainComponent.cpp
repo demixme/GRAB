@@ -1,4 +1,5 @@
 #include "MainComponent.h"
+#include "ContributePanel.h"
 
 #include <algorithm>
 #include <map>
@@ -160,6 +161,9 @@ MainComponent::MainComponent()
             selectBlock (blockOrder[(size_t) idx]);
     };
 
+    addAndMakeVisible (contributeBtn);
+    contributeBtn.onClick = [this] { contribute(); };
+
     addAndMakeVisible (viewport);
     viewport.setViewedComponent (&rowHolder, false);
     viewport.setScrollBarsShown (true, false);
@@ -317,6 +321,26 @@ void MainComponent::selectBlock (roli::Block::UID uid)
         setStatus ("Reading " + block->serialNumber + "...");
         requestConfig();
     }
+}
+
+void MainComponent::contribute()
+{
+    if (block == nullptr)
+    {
+        setStatus ("Connect a device first, then Contribute.");
+        return;
+    }
+
+    auto* panel = new ContributePanel (*block, detector != nullptr ? detector->getActiveTransport()
+                                                                    : juce::String ("unknown"));
+    juce::DialogWindow::LaunchOptions o;
+    o.content.setOwned (panel);
+    o.dialogTitle = "Contribute device profile";
+    o.dialogBackgroundColour = getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId);
+    o.escapeKeyTriggersCloseButton = true;
+    o.useNativeTitleBar = true;
+    o.resizable = true;
+    o.launchAsync();
 }
 
 void MainComponent::requestConfig()
@@ -551,10 +575,12 @@ void MainComponent::resized()
     r.removeFromTop (6);
 
     auto trow = r.removeFromTop (26);
-    transportLabel.setBounds (trow.removeFromLeft (80));
-    transportBox.setBounds (trow.removeFromLeft (120).reduced (2, 0));
-    trow.removeFromLeft (16);
-    blockLabel.setBounds (trow.removeFromLeft (52));
+    contributeBtn.setBounds (trow.removeFromRight (120).reduced (2, 0));
+    trow.removeFromRight (10);
+    transportLabel.setBounds (trow.removeFromLeft (72));
+    transportBox.setBounds (trow.removeFromLeft (110).reduced (2, 0));
+    trow.removeFromLeft (12);
+    blockLabel.setBounds (trow.removeFromLeft (46));
     blockBox.setBounds (trow.reduced (2, 0));
     r.removeFromTop (6);
 

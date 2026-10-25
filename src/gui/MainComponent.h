@@ -73,6 +73,7 @@ private:
     void connect (seaprobe::Transport transport);
     void updateBlockList (const roli::BlockTopology& topology);
     void selectBlock (roli::Block::UID uid);
+    void contribute();
     void requestConfig();
     void rebuildRows();
     void saveToDevice();
@@ -102,6 +103,7 @@ private:
     juce::ComboBox     transportBox;
     juce::Label        blockLabel;
     juce::ComboBox     blockBox;
+    juce::TextButton   contributeBtn { "Contribute..." };
     juce::TextButton   reloadButton  { "Reload from device" };
     juce::TextButton   saveButton    { "Save to device" };
     juce::TextButton   loadPresetBtn { "Load preset..." };

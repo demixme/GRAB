@@ -68,7 +68,27 @@ This lets the tool label config items it shipped without names, once the communi
 has identified them — without a new release.
 
 ## Endpoint you build (demix.me)
-Minimal contract — a flat JSON store is fine:
+The client just speaks **HTTP + JSON**, so the storage behind it is your choice —
+a flat JSON store works, and **MySQL is a better fit** (query config ids per device
+type, dedupe by `serialHash`, and build the `/names` map with SQL). A minimal
+MySQL shape:
+```sql
+CREATE TABLE profiles (
+  id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+  received_at DATETIME,
+  family      VARCHAR(16), type VARCHAR(64), firmware VARCHAR(32),
+  transport   VARCHAR(8),  serial_hash VARCHAR(80),
+  raw_json    JSON
+);
+CREATE TABLE config_observations (
+  profile_id  BIGINT, config_id INT, name VARCHAR(128),
+  value INT, min_val INT, max_val INT, type VARCHAR(16), grp VARCHAR(64),
+  INDEX (family_type_id)  -- or (type, config_id)
+);
+-- names map from curated/aggregated observations drives GET /v1/names
+```
+
+Minimal contract (same regardless of backend):
 - `POST /v1/profiles` — append the posted JSON to a store (one file/record per
   submission, or keyed by `serialHash`+`firmware`). Return 201.
 - `GET  /v1/names?family=&type=` — return the aggregated/curated name map above.
@@ -83,7 +103,9 @@ Minimal contract — a flat JSON store is fine:
 upload it to demix.me manually.
 
 ## Status
-Schema + endpoint contract defined here (this document). Still to build: the GUI
-client ("Contribute device profile" action — build JSON, hash serial, review
-dialog, POST/save-to-file) and, later, the pull/merge step. The demix.me endpoint
-is yours to host.
+Schema + endpoint contract defined here. The **GUI client is built**: the GRAB
+GUI's **Contribute...** button opens a dialog that builds this JSON from the
+connected device (serial hashed), shows exactly what will be sent, lets you set the
+endpoint + notes, and **Submit**s (POST) or **Save**s to a file. Still to build: the
+`GET /v1/names` pull/merge step (so the tool learns names from the store). The
+demix.me endpoint (MySQL-backed) is yours to host.
