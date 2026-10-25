@@ -1,5 +1,6 @@
 #include "MainComponent.h"
 #include "ContributePanel.h"
+#include "DiagnosticsPanel.h"
 
 #include <algorithm>
 #include <map>
@@ -167,6 +168,8 @@ MainComponent::MainComponent()
 
     addAndMakeVisible (contributeBtn);
     contributeBtn.onClick = [this] { contribute(); };
+    addAndMakeVisible (reportBtn);
+    reportBtn.onClick = [this] { reportConnection(); };
 
     addAndMakeVisible (viewport);
     viewport.setViewedComponent (&rowHolder, false);
@@ -203,6 +206,8 @@ MainComponent::~MainComponent()
 
 void MainComponent::connect (seaprobe::Transport transport)
 {
+    requestedTransport = transport;
+
     // Tear down any existing session.
     stopTimer();
     setListeningBlock (nullptr);
@@ -387,6 +392,30 @@ void MainComponent::contribute()
     o.launchAsync();
 }
 
+void MainComponent::reportConnection()
+{
+    // Works whether or not a device connected — that's the point (report failures too).
+    juce::String outcome;
+    if (detector == nullptr)                        outcome = "not-started";
+    else if (detector->getSelectedPairs().empty())  outcome = "no-ports";
+    else if (deviceSeen)                            outcome = "connected";
+    else if (connectTimeoutShown)                   outcome = "timeout";
+    else                                            outcome = "connecting";
+
+    auto diag = grab::buildConnectionDiagnostic (detector.get(), block.get(),
+                                                 seaprobe::transportName (requestedTransport), outcome);
+
+    auto* panel = new DiagnosticsPanel (diag);
+    juce::DialogWindow::LaunchOptions o;
+    o.content.setOwned (panel);
+    o.dialogTitle = "Report a connection problem";
+    o.dialogBackgroundColour = getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId);
+    o.escapeKeyTriggersCloseButton = true;
+    o.useNativeTitleBar = true;
+    o.resizable = true;
+    o.launchAsync();
+}
+
 void MainComponent::fetchNames (const juce::String& family, const juce::String& type)
 {
     learnedForType = type; // mark attempted so topology churn doesn't refetch
@@ -476,12 +505,11 @@ void MainComponent::checkConnectTimeout()
     const auto path = logFolder.getFullPathName();
 
     if (riseGrand)
-        setStatus ("Found '" + name + "' but it isn't a BLOCKS device. Seaboard RISE/GRAND "
-                   "use a different protocol GRAB doesn't support yet — see github.com/demixme/GRAB/issues/1 to help add it.");
+        setStatus ("Found '" + name + "' but it isn't a BLOCKS device. Seaboard RISE/GRAND use a "
+                   "different protocol GRAB doesn't support yet — click Report… to help add it.");
     else
-        setStatus ("Opened '" + name + "' but no ROLI BLOCKS device replied. If it's a Seaboard "
-                   "RISE/GRAND it isn't supported yet (issue #1); otherwise the port may be held by "
-                   "another app — try the other Transport.");
+        setStatus ("Opened '" + name + "' but no ROLI BLOCKS device replied. Could be a RISE/GRAND "
+                   "(unsupported) or the port is held by another app — try the other Transport, or click Report…");
 
     // Full guidance (incl. the log path to attach to a report) goes to the log.
     logger->line ("CONNECT TIMEOUT: opened '" + name + "' but received no BLOCKS topology in 6s."
@@ -827,12 +855,13 @@ void MainComponent::resized()
     r.removeFromTop (6);
 
     auto trow = r.removeFromTop (26);
-    contributeBtn.setBounds (trow.removeFromRight (120).reduced (2, 0));
+    contributeBtn.setBounds (trow.removeFromRight (110).reduced (2, 0));
+    reportBtn.setBounds (trow.removeFromRight (90).reduced (2, 0));
     trow.removeFromRight (10);
     transportLabel.setBounds (trow.removeFromLeft (72));
-    transportBox.setBounds (trow.removeFromLeft (110).reduced (2, 0));
-    trow.removeFromLeft (12);
-    blockLabel.setBounds (trow.removeFromLeft (90));
+    transportBox.setBounds (trow.removeFromLeft (100).reduced (2, 0));
+    trow.removeFromLeft (10);
+    blockLabel.setBounds (trow.removeFromLeft (84));
     blockBox.setBounds (trow.reduced (2, 0));
     r.removeFromTop (6);
 

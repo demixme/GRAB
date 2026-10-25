@@ -4,6 +4,10 @@ A tiny PHP + MySQL backend for the device-profile "self-learn" store, implementi
 the contract in [../DEVICE-PROFILES.md](../DEVICE-PROFILES.md):
 - `POST /grab/v1/profiles` — accept a device profile.
 - `GET  /grab/v1/names?family=&type=` — return the learned name map.
+- `POST /grab/v1/diagnostics` — accept an anonymized connection diagnostic (ports
+  seen + connect outcome; opt-in, for diagnosing/adding device support).
+- `GET  /grab/v1/export` — maintainer-only export of raw profiles **or** diagnostics
+  (`?kind=diagnostics`), token-gated (see below).
 
 ## Setup (shared hosting / cPanel style)
 1. **Database:** create a MySQL database + user, then load the schema:
@@ -59,13 +63,17 @@ or `define('GRAB_EXPORT_TOKEN', '…')` in your private config. Then:
 # everything (send the token as a header so it doesn't land in access logs)
 curl -H 'X-Grab-Token: YOURTOKEN' 'https://www.demix.me/grab/v1/export'
 
-# just one device type, newline-delimited JSON (one profile per line)
+# just one device type, newline-delimited JSON (one record per line)
 curl -H 'X-Grab-Token: YOURTOKEN' \
   'https://www.demix.me/grab/v1/export?type=RISE&format=ndjson'
+
+# the connection diagnostics instead of profiles
+curl -H 'X-Grab-Token: YOURTOKEN' 'https://www.demix.me/grab/v1/export?kind=diagnostics'
 ```
-Params: `family=`, `type=`, `format=json|ndjson`, `limit=` (default 5000). Each item is
-`{ "id", "receivedAt", "profile": { …the full submitted profile… } }`. Nothing
-de-anonymizes the data — serials are already hashed by the client.
+Params: `kind=profiles|diagnostics`, `family=` (profiles), `type=`, `format=json|ndjson`,
+`limit=` (default 5000). JSON form is `{ "kind", "count", "records": [ { "id",
+"receivedAt", "record": { …the full submitted JSON… } } ] }`. Nothing de-anonymizes
+the data — serials are already hashed by the client.
 
 ## Notes
 - Requires PHP 7.4+ (8.x fine) with PDO MySQL, and MySQL 5.7+/MariaDB 10.2+ for the

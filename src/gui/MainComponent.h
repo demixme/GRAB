@@ -84,6 +84,7 @@ private:
     void updateBlockList (const roli::BlockTopology& topology);
     void selectBlock (roli::Block::UID uid);
     void contribute();
+    void reportConnection();
     void fetchNames (const juce::String& family, const juce::String& type);
     void onNamesFetched (juce::String type, grab::LearnedMap learned);
     void requestConfig();
@@ -123,6 +124,7 @@ private:
 
     grab::LearnedMap learnedNames;      // names pulled from the store for the current type
     juce::String     learnedForType;    // which device type learnedNames is for (avoid refetch)
+    seaprobe::Transport requestedTransport = seaprobe::Transport::Auto; // for diagnostics
 
     // UI
     juce::Label        statusLabel;
@@ -130,6 +132,7 @@ private:
     juce::ComboBox     transportBox;
     juce::Label        blockLabel;
     juce::ComboBox     blockBox;
+    juce::TextButton   reportBtn     { "Report..." };
     juce::TextButton   contributeBtn { "Contribute..." };
     juce::TextButton   reloadButton  { "Reload from device" };
     juce::TextButton   saveButton    { "Save to device" };

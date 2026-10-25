@@ -12,10 +12,11 @@ require __DIR__ . '/db.php';
 // Query params:
 //   token=   the export token (or send it as the X-Grab-Token header — preferred,
 //            since a URL token can land in server access logs)
-//   family=  optional filter (e.g. BLOCKS)
+//   kind=    profiles (default) | diagnostics   (which collection to export)
+//   family=  optional filter (profiles only; e.g. BLOCKS)
 //   type=    optional filter (e.g. Seaboard, RISE, GRAND)
-//   format=  json (default) | ndjson  (ndjson = one profile per line, streams)
-//   limit=   max profiles (default 5000, capped at 100000)
+//   format=  json (default) | ndjson  (ndjson = one record per line, streams)
+//   limit=   max records (default 5000, capped at 100000)
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
     grab_json(405, ['error' => 'GET only']);
@@ -31,6 +32,8 @@ if (!is_string($given) || !hash_equals($token, $given)) {
     grab_json(401, ['error' => 'bad token']);
 }
 
+$kind   = (($_GET['kind'] ?? 'profiles') === 'diagnostics') ? 'diagnostics' : 'profiles';
+$table  = ($kind === 'diagnostics') ? 'grab_diagnostics' : 'grab_profiles';
 $family = isset($_GET['family']) ? grab_str($_GET['family'], 16) : '';
 $type   = isset($_GET['type'])   ? grab_str($_GET['type'], 64)   : '';
 $format = (($_GET['format'] ?? 'json') === 'ndjson') ? 'ndjson' : 'json';
@@ -38,20 +41,21 @@ $limit  = isset($_GET['limit']) ? max(1, min(100000, (int) $_GET['limit'])) : 50
 
 $where = [];
 $args  = [];
-if ($family !== '') { $where[] = 'family = ?'; $args[] = $family; }
-if ($type   !== '') { $where[] = 'type = ?';   $args[] = $type; }
+// grab_diagnostics has no family column; only filter by it for profiles.
+if ($family !== '' && $kind === 'profiles') { $where[] = 'family = ?'; $args[] = $family; }
+if ($type   !== '') { $where[] = 'type = ?'; $args[] = $type; }
 
-$sql = 'SELECT id, received_at, raw_json FROM grab_profiles'
+$sql = 'SELECT id, received_at, raw_json FROM ' . $table // $table is from a fixed whitelist
      . ($where ? ' WHERE ' . implode(' AND ', $where) : '')
      . ' ORDER BY received_at DESC LIMIT ' . $limit; // $limit is an int, safe
 
-/** Decode a stored row into {id, receivedAt, profile}. */
+/** Decode a stored row into {id, receivedAt, record}. */
 function grab_export_row(array $row): array {
-    $profile = json_decode((string) $row['raw_json'], true);
+    $rec = json_decode((string) $row['raw_json'], true);
     return [
         'id'         => (int) $row['id'],
         'receivedAt' => $row['received_at'],
-        'profile'    => is_array($profile) ? $profile : null,
+        'record'     => is_array($rec) ? $rec : null,
     ];
 }
 
@@ -72,7 +76,7 @@ try {
     while ($row = $stmt->fetch()) {
         $out[] = grab_export_row($row);
     }
-    grab_json(200, ['count' => count($out), 'profiles' => $out]);
+    grab_json(200, ['kind' => $kind, 'count' => count($out), 'records' => $out]);
 } catch (Throwable $e) {
     error_log('grab export.php: ' . $e->getMessage());
     grab_json(500, ['error' => 'server error']);

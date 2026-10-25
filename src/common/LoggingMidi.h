@@ -202,6 +202,7 @@ public:
         bool isInput = false;
         bool looksLikeSeaboard = false;
         bool looksLikeBle = false;
+        juce::String transport;   // "USB" | "BLE" | "other"
     };
 
     struct Pair
@@ -218,6 +219,9 @@ public:
 
     const std::vector<Pair>& getSelectedPairs() const { return selectedPairs; }
     juce::String getActiveTransport() const { return activeTransport; }
+
+    /** Every MIDI port seen at the last enumeration (for diagnostics/reports). */
+    const std::vector<Port>& getAllPorts() const { return allPorts; }
 
     /** The most recently opened connection (owned by the library; valid while the
         topology source is active). */
@@ -309,17 +313,24 @@ private:
         const auto inputs  = juce::MidiInput::getAvailableDevices();
         const auto outputs = juce::MidiOutput::getAvailableDevices();
 
+        allPorts.clear();
         logger.line ("=== MIDI inputs (" + juce::String (inputs.size()) + ") ===");
         for (auto& d : inputs)
+        {
+            allPorts.push_back ({ d, true, isSeaboard (d), isBle (d), transportTag (d) });
             logger.line ("  IN   [" + juce::String (transportTag (d)).paddedRight (' ', 5) + "] name='"
                          + d.name + "'  id=[" + d.identifier + "]"
                          + (isSeaboard (d) ? "  <seaboard>" : ""));
+        }
 
         logger.line ("=== MIDI outputs (" + juce::String (outputs.size()) + ") ===");
         for (auto& d : outputs)
+        {
+            allPorts.push_back ({ d, false, isSeaboard (d), isBle (d), transportTag (d) });
             logger.line ("  OUT  [" + juce::String (transportTag (d)).paddedRight (' ', 5) + "] name='"
                          + d.name + "'  id=[" + d.identifier + "]"
                          + (isSeaboard (d) ? "  <seaboard>" : ""));
+        }
 
         // Build candidate pairs for each transport (in/out share an identifier).
         const auto usbPairs = buildPairs (inputs, outputs, /*wantBle*/ false);
@@ -379,6 +390,7 @@ private:
     Transport transport = Transport::Auto;
     juce::String activeTransport { "none" };
     std::vector<Pair> selectedPairs;
+    std::vector<Port> allPorts;
     LoggingDeviceConnection* lastConnection = nullptr;
 };
 
