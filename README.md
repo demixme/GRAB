@@ -1,77 +1,85 @@
-# SeaboardConfig
+# GRAB
 
-A standalone tool to read and write ROLI Seaboard Block settings directly over
-MIDI SysEx, with no dependency on ROLI Dashboard, ROLI Connect, the ROLI
-hardware driver, or any login.
+**GRAB** — a standalone, open tool to configure **ROLI** MPE devices directly over
+MIDI SysEx, with **no dependency on ROLI Dashboard, ROLI Connect, the ROLI hardware
+driver, or any login/servers.** With ROLI winding down, GRAB keeps these
+instruments configurable and self-documents their protocol.
 
-Built with **JUCE 8** + **CMake** (no Projucer), targeting Windows 10/11 x64
-(MSVC). Code is kept portable.
+> The name nods to the devices it targets: **G**rand, **R**ise, **A**irwave,
+> **B**lock (and the rest of the BLOCKS family).
 
-## Status
-- **Phase 1 — Build:** CMake project fetches JUCE 8 and builds `roli_blocks_basics`
-  as a JUCE module. _(done)_
-- **Phase 2 — Read-only probe (`seaprobe`):** lists MIDI ports (USB selected, BLE
-  skipped), dumps raw SysEx with timestamps, and decodes topology (type, serial,
-  firmware, battery) + all config items via the library over a custom logging
-  transport. Observations recorded in `PROTOCOL.md`. _(done)_
-- **Phase 3 — Single approved write (`seaprobe set`):** wrote one config value
-  (`setConfig`), read it back, and confirmed it persists across a power cycle on
-  fw 1.4.3. Dry-run by default; `--commit` to transmit. _(done)_
-- **Phase 4 — Minimal GUI (`SeaboardConfig`):** JUCE desktop app showing connection
-  status and one control per device-reported config item (sliders/toggles/combos,
-  generated — not hard-coded), with Save to device and JSON preset load/save. _(done)_
+Built with **JUCE 8** + **CMake** (no Projucer), developed on Windows 10/11 x64
+(MSVC). The code is kept portable; the decoder library has no JUCE dependency.
 
-## Run the probe
+## What it does
+- **Reads and writes device configuration** over USB-MIDI or BLE-MIDI — all the
+  settings ROLI Dashboard exposes (5D sensitivities, MIDI mode/channels, pitch,
+  tracking, pedal, etc.), generated from what the device reports rather than
+  hard-coded.
+- **Writes persist** (plain `setConfig`; confirmed to flash on fw 1.4.3 — the same
+  thing Dashboard does).
+- **JSON presets**, multi-device (daisy-chained BLOCKS), transport auto-select.
+- **Decodes the protocol offline** from hex dumps or USBPcap/Wireshark/BLE captures.
+- Never sends anything destructive (no firmware/reset/program-upload/bootloader).
+
+## Supported devices
+| Device | Status |
+|---|---|
+| Seaboard **Block** | ✅ supported (config read/write, presets) |
+| Other **BLOCKS** (Lightpad/Pro, Live, Loop, Touch, LUMI, Airwave, ROLI Piano 49) | ✅ should work (same protocol; config is generated from the device) — needs testing/reports |
+| Multiple BLOCKS (DNA-connected cluster) | ✅ detected; per-block selection |
+| Seaboard **RISE** / **GRAND** | ⛔ not yet — different protocol; see [RISE-GRAND.md](RISE-GRAND.md) (contributions welcome) |
+
+## Quick start (Windows, VS 2022/2026 + MSVC)
 ```sh
+cmake -S . -B build -G "Visual Studio 18 2026" -A x64   # first run fetches JUCE 8
+# GUI:
+cmake --build build --config Debug --target GRAB
+./build/GRAB_artefacts/Debug/GRAB.exe
+# CLI probe / writer:
 cmake --build build --config Debug --target seaprobe
-./build/seaprobe_artefacts/Debug/seaprobe.exe list        # enumerate ports only
-./build/seaprobe_artefacts/Debug/seaprobe.exe raw   15     # raw SysEx hex dump, 15s
-./build/seaprobe_artefacts/Debug/seaprobe.exe blocks       # decode topology + config
-./build/seaprobe_artefacts/Debug/seaprobe.exe set 13 64 --commit   # write one value
-```
-Transport: add `--transport usb|ble|auto` (default **auto** = prefer USB, fall
-back to BLE). The ROLI protocol is identical over both. Logs → `logs/seaprobe-<time>.log`.
-
-Multiple blocks (connected via DNA connectors) are all detected; `blocks` dumps
-each one's config, and `set` targets a specific block with `--serial <S>` (defaults
-to the first block).
-
-## Run the GUI
-```sh
-cmake --build build --config Debug --target SeaboardConfig
-./build/SeaboardConfig_artefacts/Debug/SeaboardConfig.exe
-```
-Shows connection status and one control per device-reported config item. Edits are
-local (changed rows are highlighted) until **Save to device**. Presets load/save as
-JSON. A **Transport** dropdown selects Auto / USB / BLE (Auto prefers USB, falls
-back to BLE); changing it reconnects. A **Block** dropdown selects which connected
-block to view/edit when more than one is attached.
-
-## Offline decoder (`seadecode`)
-Portable CLI (no JUCE) that decodes ROLI SysEx — hex dumps or USB-MIDI captures —
-into framing, direction, checksum result, and decoded messages.
-```sh
+./build/seaprobe_artefacts/Debug/seaprobe.exe blocks            # read config
+./build/seaprobe_artefacts/Debug/seaprobe.exe set 13 64 --commit # write one value
+# offline decoder:
 cmake --build build --config Debug --target seadecode
-./build/Debug/seadecode.exe F0 00 21 10 77 00 01 01 00 5D F7     # decode hex
-./build/Debug/seadecode.exe --usbmidi --file usbcapdata.hex       # a USB-MIDI capture
-tshark -r cap.pcapng -Y usb.capdata -T fields -e usb.capdata | ./build/Debug/seadecode.exe --usbmidi -
+./build/Debug/seadecode.exe F0 00 21 10 77 00 01 01 00 5D F7
 ```
-Validated against real device bytes (reproduces serial, firmware, battery, and the
-full config set). Checksum algorithm and bit layouts are in `PROTOCOL.md`.
+`--transport usb|ble|auto` and `--serial <S>` select transport / a specific block.
+Logs are written to `logs/`.
 
-## Layout
-- `third_party/roli_blocks_basics/` — vendored, patched for JUCE 8 (see `PATCHES.md`).
-- `third_party/blocksd/`, `third_party/myblocks/` — reference implementations, gitignored.
-- `src/seaprobe/` — console probe (Phase 1 stub; Phase 2 real logic).
+## Components
+- **`GRAB`** — the desktop GUI: connection status, transport + block selectors, one
+  control per device config item grouped into sections, Save to device, JSON presets.
+- **`seaprobe`** — console tool: list ports, dump raw SysEx, decode topology/config,
+  and the gated single-value writer (dry-run by default).
+- **`seadecode`** — portable (no-JUCE) offline decoder for ROLI SysEx, USB-MIDI and
+  BLE-MIDI captures.
+- **`libs/sea_sysex`** — the portable framing/checksum/bit-unpacking decoder library.
+- **`third_party/roli_blocks_basics`** — ROLI's open BLOCKS stack, vendored and
+  patched for JUCE 8 (see [PATCHES.md](PATCHES.md)).
 
-## Build (Windows, VS 2026 / MSVC)
-```sh
-cmake -S . -B build -G "Visual Studio 18 2026" -A x64
-cmake --build build --config Debug --target seaprobe
-```
-The first configure downloads and builds JUCE 8 (`JUCE_TAG`, default 8.0.15).
+## Documentation
+- [PROTOCOL.md](PROTOCOL.md) — the observed BLOCKS SysEx protocol (framing, checksum,
+  config, firmware), each fact marked confirmed-on-device vs from-source.
+- [RISE-GRAND.md](RISE-GRAND.md) — notes for adding Seaboard RISE/GRAND support.
+- [DEVICE-PROFILES.md](DEVICE-PROFILES.md) — the opt-in "self-learn" device-profile
+  schema (contribute what your device reports, to a store at demix.me).
+- [PATCHES.md](PATCHES.md) — the vendored-library patches.
+- [CONTRIBUTING.md](CONTRIBUTING.md) — how to help, especially new devices.
+
+## Contributing
+GRAB grows by people with different ROLI hardware reporting what their device does.
+The easiest contribution is a **device profile** (one click in the GUI, or a captured
+SysEx log) — see [CONTRIBUTING.md](CONTRIBUTING.md). Adding a whole device family
+(RISE/GRAND) is a bigger, welcome contribution with a clear starting point in
+[RISE-GRAND.md](RISE-GRAND.md).
 
 ## Safety
-Phases 1–2 are strictly read-only. The tool never sends firmware-update,
-program-upload, factory-reset or bootloader messages. It uses the **USB** MIDI
-port only and deliberately skips the BLE MIDI port.
+GRAB only sends read/config MIDI. It **never** sends firmware-update,
+program-upload, factory-reset, or bootloader messages. It uses the selected MIDI
+port exclusively (USB or BLE) and reports — rather than works around — a port held
+by another app.
+
+## License
+MIT — see [LICENSE](LICENSE). Vendored `roli_blocks_basics` is ISC (ROLI Ltd); JUCE
+is fetched at build time under its own license.

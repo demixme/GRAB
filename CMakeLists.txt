@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(SeaboardConfig VERSION 0.1.0 LANGUAGES C CXX)
+project(GRAB VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -78,26 +78,26 @@ target_link_libraries(seaprobe PRIVATE
     juce::juce_recommended_warning_flags)
 
 # ---------------------------------------------------------------------------
-# Phase 4 target: SeaboardConfig (minimal JUCE GUI)
+# Phase 4 target: GRAB (minimal JUCE GUI)
 #   One control per device-reported config item; Save to device; JSON presets.
 # ---------------------------------------------------------------------------
-juce_add_gui_app(SeaboardConfig
-    PRODUCT_NAME "SeaboardConfig")
+juce_add_gui_app(GRAB
+    PRODUCT_NAME "GRAB")
 
-target_sources(SeaboardConfig PRIVATE
+target_sources(GRAB PRIVATE
     src/gui/Main.cpp
     src/gui/MainComponent.cpp)
 
-target_include_directories(SeaboardConfig PRIVATE src/common src/gui)
+target_include_directories(GRAB PRIVATE src/common src/gui)
 
-target_compile_definitions(SeaboardConfig PRIVATE
+target_compile_definitions(GRAB PRIVATE
     JUCE_USE_CURL=0
     JUCE_WEB_BROWSER=0
     JUCE_MODAL_LOOPS_PERMITTED=0
     DONT_SET_USING_JUCE_NAMESPACE=1
     LOG_BLOCKS_CONNECTIVITY=1)
 
-target_link_libraries(SeaboardConfig PRIVATE
+target_link_libraries(GRAB PRIVATE
     sea_sysex
     roli_blocks_basics
     juce::juce_gui_extra

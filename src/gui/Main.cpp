@@ -1,15 +1,15 @@
-// SeaboardConfig — JUCE GUI application entry point.
+// GRAB — JUCE GUI application entry point.
 
 #include <juce_gui_extra/juce_gui_extra.h>
 
 #include "MainComponent.h"
 
-class SeaboardConfigApplication  : public juce::JUCEApplication
+class GRABApplication  : public juce::JUCEApplication
 {
 public:
-    SeaboardConfigApplication() = default;
+    GRABApplication() = default;
 
-    const juce::String getApplicationName() override    { return "SeaboardConfig"; }
+    const juce::String getApplicationName() override    { return "GRAB"; }
     const juce::String getApplicationVersion() override { return "0.1.0"; }
     bool moreThanOneInstanceAllowed() override          { return false; }
 
@@ -52,4 +52,4 @@ private:
     std::unique_ptr<MainWindow> mainWindow;
 };
 
-START_JUCE_APPLICATION (SeaboardConfigApplication)
+START_JUCE_APPLICATION (GRABApplication)

@@ -1,4 +1,4 @@
-// SeaboardConfig — minimal JUCE GUI to read/write Seaboard Block config.
+// GRAB — minimal JUCE GUI to read/write Seaboard Block config.
 //
 // Controls are generated from what the device reports (active config items only),
 // not hard-coded. Edits stay local until "Save to device" is pressed, which writes

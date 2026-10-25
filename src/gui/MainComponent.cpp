@@ -168,7 +168,7 @@ MainComponent::MainComponent()
 
     const auto logFile = juce::File::getCurrentWorkingDirectory()
                              .getChildFile ("logs")
-                             .getChildFile ("SeaboardConfig-"
+                             .getChildFile ("GRAB-"
                                  + juce::Time::getCurrentTime().formatted ("%Y%m%d-%H%M%S") + ".log");
     logger = std::make_unique<seaprobe::RawLogger> (logFile);
 
@@ -469,7 +469,7 @@ void MainComponent::savePreset()
                 return;
 
             auto* obj = new juce::DynamicObject();
-            obj->setProperty ("tool", "SeaboardConfig");
+            obj->setProperty ("tool", "GRAB");
             if (block != nullptr)
             {
                 obj->setProperty ("serial", block->serialNumber);
