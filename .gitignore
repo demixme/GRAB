@@ -25,3 +25,6 @@
 # Wireshark/USBPcap captures (local only)
 /captures/
 *.pcapng
+
+# Contributed device profiles (local; submit via tool or GitHub)
+/profiles/
