@@ -22,6 +22,7 @@
 
 #include "LoggingMidi.h"
 #include "ConfigOverrides.h"
+#include "Rise2.h"
 
 #include <iostream>
 
@@ -453,9 +454,13 @@ int main (int argc, char* argv[])
             rc = runSet (logger, transport, serial, id, value, commit);
         }
     }
+    else if (mode == "rise2")
+    {
+        rc = seaprobe::rise2::run (logger, pos, commit);
+    }
     else
     {
-        std::cerr << "Unknown mode '" << mode << "'. Use: list | raw [s] | blocks [s] | set <id> <value> [--commit]\n";
+        std::cerr << "Unknown mode '" << mode << "'. Use: list | raw [s] | blocks [s] | set <id> <value> [--commit] | rise2 ...\n";
         rc = 2;
     }
 

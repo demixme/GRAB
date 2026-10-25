@@ -233,6 +233,12 @@ MainComponent::MainComponent()
     logFolder = logFile.getParentDirectory();
 
     connect (seaprobe::Transport::Auto);
+
+    deviceList = juce::MidiDeviceListConnection::make ([this]
+    {
+        if (source == nullptr && rise2Page == nullptr && Rise2Component::isConnected())
+            connect (seaprobe::Transport::Auto);
+    });
 }
 
 MainComponent::~MainComponent()
@@ -260,6 +266,8 @@ void MainComponent::connect (seaprobe::Transport transport)
         source.reset();
     }
     detector.reset();
+    rise2Page.reset();
+    setBlocksControlsVisible (true);
     block = nullptr;
     selectedBlockUid = 0;
     learnedForType = {};
@@ -285,6 +293,16 @@ void MainComponent::connect (seaprobe::Transport transport)
 
     detector = std::make_unique<seaprobe::LoggingDeviceDetector> (*logger, transport);
 
+    if (detector->getSelectedPairs().empty() && Rise2Component::isConnected())
+    {
+        setStatus ("Seaboard RISE found.");
+        rise2Page = std::make_unique<Rise2Component> (*logger);
+        addAndMakeVisible (*rise2Page);
+        setBlocksControlsVisible (false);
+        resized();
+        return;
+    }
+
     if (detector->getSelectedPairs().empty())
     {
         setStatus ("No " + juce::String (seaprobe::transportName (transport)) + " Seaboard found. "
@@ -299,6 +317,13 @@ void MainComponent::connect (seaprobe::Transport transport)
     source->setActive (true);
     sourceActiveAtMs = juce::Time::getMillisecondCounterHiRes(); // start the connect timeout
     startTimer (250);
+}
+
+void MainComponent::setBlocksControlsVisible (bool visible)
+{
+    for (auto* c : std::initializer_list<juce::Component*> { &reloadButton, &saveButton, &loadPresetBtn, &savePresetBtn, &probeBtn,
+                                                            &blockLabel, &blockBox, &contributeBtn, &viewport })
+        c->setVisible (visible);
 }
 
 void MainComponent::setStatus (const juce::String& s)
@@ -547,11 +572,11 @@ void MainComponent::checkConnectTimeout()
     const auto path = logFolder.getFullPathName();
 
     if (riseGrand)
-        setStatus ("Found '" + name + "' but it isn't a BLOCKS device. Seaboard RISE/GRAND use a "
+        setStatus ("Found '" + name + "' but it isn't a BLOCKS device. The Seaboard GRAND uses a "
                    "different protocol GRAB doesn't support yet — click 'Help add device…' to pitch in.");
     else
-        setStatus ("Opened '" + name + "' but no ROLI BLOCKS device replied. Could be a RISE/GRAND "
-                   "(unsupported) or the port is held by another app — try the other Transport, or 'Help add device…'");
+        setStatus ("Opened '" + name + "' but no ROLI BLOCKS device replied. It may be an unsupported "
+                   "device, or the port is held by another app — try the other Transport, or 'Help add device…'");
 
     // Full guidance (incl. the log path to attach to a report) goes to the log.
     logger->line ("CONNECT TIMEOUT: opened '" + name + "' but received no BLOCKS topology in 6s."
@@ -724,7 +749,7 @@ void MainComponent::rebuildRows()
                 const int mn = (d.minId >= 0 && deviceValues.count ((juce::uint32) d.minId)) ? deviceValues[(juce::uint32) d.minId] : 0;
                 const int mx = (d.maxId >= 0 && deviceValues.count ((juce::uint32) d.maxId)) ? deviceValues[(juce::uint32) d.maxId] : 127;
                 auto* c = cr->add (std::make_unique<CurveComponent> (d.label, juce::Colour (d.colour),
-                                        d.id, deviceValues[d.id], mn, mx, onChange));
+                                        d.id, deviceValues[d.id], mn, mx, onChange, d.minId >= 0));
                 curves.push_back (c);
             }
             if (! cr->curves.empty())
@@ -888,17 +913,22 @@ void MainComponent::resized()
     statusLabel.setBounds (r.removeFromTop (28));
     r.removeFromTop (4);
 
-    auto buttons = r.removeFromTop (30);
-    // "Help add device..." sits first (the one-click action for unsupported devices).
-    helpAddBtn   .setBounds (buttons.removeFromLeft (150).reduced (2, 0));
-    buttons.removeFromLeft (8);
-    const int bw = 142;
+    // The RISE page has its own controls, so skip the BLOCKS button row when it's shown.
+    auto buttons = rise2Page != nullptr ? juce::Rectangle<int>() : r.removeFromTop (30);
+    if (rise2Page == nullptr)
+    {
+        // "Help add device..." sits first (the one-click action for unsupported devices).
+        helpAddBtn.setBounds (buttons.removeFromLeft (150).reduced (2, 0));
+        buttons.removeFromLeft (8);
+    }
+    const int bw = 137;
     reloadButton .setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
     saveButton   .setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
     loadPresetBtn.setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
     savePresetBtn.setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
     probeBtn     .setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
-    r.removeFromTop (6);
+    if (rise2Page == nullptr)
+        r.removeFromTop (6);
 
     auto trow = r.removeFromTop (26);
     contributeBtn.setBounds (trow.removeFromRight (100).reduced (2, 0));
@@ -911,6 +941,12 @@ void MainComponent::resized()
     blockLabel.setBounds (trow.removeFromLeft (84));
     blockBox.setBounds (trow.reduced (2, 0));
     r.removeFromTop (6);
+
+    if (rise2Page != nullptr)
+    {
+        rise2Page->setBounds (r);
+        return;
+    }
 
     viewport.setBounds (r);
     const int w = juce::jmax (200, viewport.getWidth() - 12);

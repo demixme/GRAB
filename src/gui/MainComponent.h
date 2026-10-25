@@ -13,6 +13,7 @@
 #include "ConfigOverrides.h"
 #include "LearnedNames.h"
 #include "CurveComponent.h"
+#include "Rise2Component.h"
 
 #include <map>
 #include <vector>
@@ -96,6 +97,7 @@ private:
     void onItemChanged (juce::uint32 id, juce::int32 value); // from a row or a curve
     void updateSaveEnabled();
     void setStatus (const juce::String&);
+    void setBlocksControlsVisible (bool);
 
     // Session
     std::unique_ptr<seaprobe::RawLogger>            logger;
@@ -152,6 +154,9 @@ private:
     std::vector<std::pair<juce::Component*, int>> layoutOrder;
 
     std::unique_ptr<juce::FileChooser> chooser;
+
+    std::unique_ptr<Rise2Component> rise2Page;  // shown instead of the BLOCKS page for a RISE
+    juce::MidiDeviceListConnection deviceList;  // to pick up a RISE switched on after launch
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
 };
