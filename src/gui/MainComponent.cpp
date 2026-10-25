@@ -1,6 +1,7 @@
 #include "MainComponent.h"
 #include "ContributePanel.h"
 #include "DiagnosticsPanel.h"
+#include "CapturePanel.h"
 
 #include <algorithm>
 #include <map>
@@ -170,6 +171,19 @@ MainComponent::MainComponent()
     contributeBtn.onClick = [this] { contribute(); };
     addAndMakeVisible (reportBtn);
     reportBtn.onClick = [this] { reportConnection(); };
+    addAndMakeVisible (captureBtn);
+    captureBtn.onClick = [this]
+    {
+        auto* panel = new CapturePanel();
+        juce::DialogWindow::LaunchOptions o;
+        o.content.setOwned (panel);
+        o.dialogTitle = "Raw MIDI capture";
+        o.dialogBackgroundColour = getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId);
+        o.escapeKeyTriggersCloseButton = true;
+        o.useNativeTitleBar = true;
+        o.resizable = true;
+        o.launchAsync();
+    };
 
     addAndMakeVisible (viewport);
     viewport.setViewedComponent (&rowHolder, false);
@@ -855,11 +869,12 @@ void MainComponent::resized()
     r.removeFromTop (6);
 
     auto trow = r.removeFromTop (26);
-    contributeBtn.setBounds (trow.removeFromRight (110).reduced (2, 0));
-    reportBtn.setBounds (trow.removeFromRight (90).reduced (2, 0));
+    contributeBtn.setBounds (trow.removeFromRight (100).reduced (2, 0));
+    reportBtn.setBounds (trow.removeFromRight (78).reduced (2, 0));
+    captureBtn.setBounds (trow.removeFromRight (82).reduced (2, 0));
     trow.removeFromRight (10);
-    transportLabel.setBounds (trow.removeFromLeft (72));
-    transportBox.setBounds (trow.removeFromLeft (100).reduced (2, 0));
+    transportLabel.setBounds (trow.removeFromLeft (66));
+    transportBox.setBounds (trow.removeFromLeft (92).reduced (2, 0));
     trow.removeFromLeft (10);
     blockLabel.setBounds (trow.removeFromLeft (84));
     blockBox.setBounds (trow.reduced (2, 0));

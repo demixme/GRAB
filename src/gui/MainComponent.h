@@ -132,6 +132,7 @@ private:
     juce::ComboBox     transportBox;
     juce::Label        blockLabel;
     juce::ComboBox     blockBox;
+    juce::TextButton   captureBtn    { "Capture..." };
     juce::TextButton   reportBtn     { "Report..." };
     juce::TextButton   contributeBtn { "Contribute..." };
     juce::TextButton   reloadButton  { "Reload from device" };

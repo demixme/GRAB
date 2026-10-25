@@ -34,6 +34,17 @@ CC Assignments" section** for those controllers. The screenshot values match the
 `.mode`-derived table below, so those defaults are confirmed against a live device's
 UI — what still needs a capture is the on-wire `<param>` encoding.
 
+## Confirmed from a live device (first report, Oct 2026)
+A **Seaboard RISE** enumerates as a **class-compliant USB-MIDI** port named exactly
+`Seaboard RISE` — both an input and an output — on macOS (no driver). GRAB detects it,
+flags it as RISE/GRAND, and times out with guidance (it isn't a BLOCKS device). It has a
+MIDI **output** too, so active probing (host → device) is possible as well as listening.
+
+**To capture one:** in GRAB, **Capture…** → pick `Seaboard RISE` → **Start** → play and
+operate the device (and change settings on it) → **Save to file** → attach the `.txt` to
+an issue. That recording is the raw material for adding support; the `<param>` encoding
+in the tables below still needs confirming against such a capture.
+
 ## Config parameters (from ROLI Dashboard's preset files)
 These are taken from ROLI Dashboard's `.mode` preset files
 (`…/ROLI Dashboard/Littlefoot/{Rise,Grand}.littlefootModes/*.mode`). They are the
