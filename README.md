@@ -16,6 +16,18 @@ instruments configurable and self-documents their protocol.
 <p align="center"><sub>Controls are generated from what the connected device
 reports — here a Seaboard BLOCK on fw 1.4.3 over USB.</sub></p>
 
+## Supported devices
+| Device | Status |
+|---|---|
+| Seaboard **Block** | ✅ supported (config read/write, presets) |
+| Seaboard **RISE 2** | ✅ supported (config read/write, firmware 2.x) — own protocol |
+| Other **BLOCKS** (Lightpad/Pro, Live, Loop, Touch, LUMI, Airwave, ROLI Piano 49) | ✅ should work (same protocol, generated from the device) — needs testing/reports |
+| Multiple BLOCKS (DNA-connected cluster) | ✅ detected; per-block selection |
+| Seaboard **RISE 25/49** (original) / **GRAND** | ⛔ not yet — help add them with one click (see below) · [RISE-GRAND.md](RISE-GRAND.md) · [issue #1](../../issues/1) |
+
+Got an **unsupported** device? Run GRAB, click **Help add device…** → **Run & submit** —
+one click, read-only, and it's how the next devices get added.
+
 ## What GRAB is — and isn't
 **GRAB is a protocol-preservation effort first, a configuration tool second.** With
 ROLI winding down, the near-term goal is to reverse-engineer and *document* how these
@@ -144,15 +156,6 @@ prefilled GitHub issue** instead of submitting.
   which parameters are available — no manual refresh needed. Unsaved edits are kept.
 - **JSON presets**, multi-device (daisy-chained BLOCKS), transport auto-select (USB/BLE).
 - **Decodes the protocol offline** from hex dumps or USBPcap/Wireshark/BLE captures.
-
-## Supported devices
-| Device | Status |
-|---|---|
-| Seaboard **Block** | ✅ supported (config read/write, presets) |
-| Other **BLOCKS** (Lightpad/Pro, Live, Loop, Touch, LUMI, Airwave, ROLI Piano 49) | ✅ should work (same protocol; config is generated from the device) — needs testing/reports |
-| Multiple BLOCKS (DNA-connected cluster) | ✅ detected; per-block selection |
-| Seaboard **RISE 2** | ✅ supported (config read/write, firmware 2.0.2), own protocol, see [RISE-GRAND.md](RISE-GRAND.md) |
-| Seaboard **RISE 25/49** (original) / **GRAND** | ⛔ not yet, see [RISE-GRAND.md](RISE-GRAND.md) and [issue #1](../../issues/1) |
 
 ## Building from source
 Windows, Visual Studio 2022/2026 + MSVC. Built with **JUCE 8** + **CMake** (no
