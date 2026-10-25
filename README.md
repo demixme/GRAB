@@ -114,21 +114,24 @@ A port opened but the device never answered — usually one of:
 **Connected, but a setting looks missing / unnamed / wrong** — contribute a profile
 (below); the shared name map improves it for everyone.
 
-### How to help or report — one click, all opt-in
-Each of these shows exactly what will be sent and lets you **Save to file** or **Open a
-prefilled GitHub issue** instead of submitting. Your serial, if included, is hashed.
+### How to help or report — all opt-in, shown before anything is sent
+Your serial, if included, is hashed; each dialog also offers **Save to file** or **Open a
+prefilled GitHub issue** instead of submitting.
 
-- **Report a connection problem** — click **Report…** (top row), review, then **Submit**.
-  Sends the MIDI ports GRAB saw + how the attempt ended (anonymized). This is what tells
-  us how a new/unsupported device enumerates. *Use this when it won't connect.*
-- **Contribute a profile** — if it *did* connect, click **Contribute…** → **Submit** (the
-  config your device reports).
-- **Capture what an unsupported device emits** — **Capture…** → pick the device's port →
-  **Start** → play/operate it → **Stop** → **Submit**. Read-only; GRAB sends nothing.
-- **Probe it (advanced)** — **Probe…** (button row) → set the device's **output** + **input**
-  → choose a message (start with *Identity Request*) → check the bytes → tick **Arm** →
-  **Send** → **Submit**. For working out an unsupported device's control protocol;
-  firmware/reset messages are blocked.
+- ⭐ **Unsupported device? Click "Help add device…"** → **Run & submit**. The easiest way
+  to help: GRAB auto-picks the device's port, sends one **read-only** "who are you?"
+  request, records the reply + a few seconds of what it emits, and submits it all in one
+  go. **It never changes a setting.** This is the one-click path for RISE/GRAND owners.
+- **Report a connection problem** — **Report…** → **Submit**: the MIDI ports GRAB saw +
+  how the attempt ended (anonymized).
+- **Contribute a profile** — if it *did* connect, **Contribute…** → **Submit** (the config
+  your device reports).
+- **Capture raw MIDI** — **Capture…** → pick the device's port → **Start** → play/operate
+  it → **Stop** → **Submit**. Read-only; GRAB sends nothing.
+- **Probe it (advanced)** — **Probe…** → set the device's **output** + **input** → choose a
+  message (start with *Identity Request*) → check the bytes → tick **Arm** → **Send** →
+  **Submit**. For confirming an unsupported device's control protocol; firmware/reset
+  messages are blocked.
 
 ## What it does
 - **Reads and writes device configuration** over USB-MIDI or BLE-MIDI — all the
@@ -193,20 +196,24 @@ block. The GUI writes logs to a per-user dir (`%APPDATA%\GRAB\logs` on Windows,
 - [CONTRIBUTING.md](CONTRIBUTING.md) — how to help, especially with new devices.
 
 ## Contributing — and how the "self-learn" store works
-GRAB gets better the more devices people point it at. Three easy ways to help, all
+GRAB gets better the more devices people point it at. Several ways to help, all
 **optional** and shown to you before anything is sent:
 
-- **Contribute a device profile** — one click (**Contribute…**) in the GUI. It sends an
-  **anonymized** snapshot of exactly what your device reports: its config items, ranges,
-  option lists and current values. Your **serial is hashed** (never sent raw); you can
-  review the exact JSON first, or **Save to file** instead of sending.
-- **Report a connection problem** — **Report…** sends an anonymized diagnostic of the
-  MIDI ports GRAB saw and how the connect attempt ended (or opens a prefilled GitHub
-  issue). This is how unsupported devices — **Seaboard RISE/GRAND** especially — get the
-  data needed to add them.
-- **Capture raw MIDI** — **Capture…** opens any port and logs everything a device emits
-  (read-only — it sends nothing), then **Submit** it to the store, save it, or open an
-  issue. The best way to help reverse-engineer a device GRAB can't talk to yet.
+- ⭐ **Help add an unsupported device — one click.** If GRAB says your device isn't
+  supported (RISE/GRAND), click **Help add device…** → **Run & submit**. GRAB auto-picks
+  the port, sends one **read-only** identity request, records the reply + a few seconds of
+  what the device emits, and submits it — **without changing any setting**. The simplest
+  possible contribution.
+- **Contribute a device profile** — **Contribute…** sends an **anonymized** snapshot of
+  what your (supported) device reports: config items, ranges, options, values. Your
+  **serial is hashed** (never sent raw); review the JSON first, or **Save to file**.
+- **Report a connection problem** — **Report…** sends an anonymized diagnostic (the MIDI
+  ports GRAB saw + how the attempt ended).
+- **Capture raw MIDI** — **Capture…** logs everything a device emits (read-only), then
+  Submit / Save / open an issue.
+- **Probe (advanced)** — **Probe…** sends one *curated, documented* message and logs the
+  reply, to confirm an unsupported device's control protocol; firmware/reset/packed
+  messages are hard-blocked and you must Arm before each send.
 - **Contribute code** — the dashboard/UI and new-device support are open; open a pull
   request. RISE/GRAND is a great start ([RISE-GRAND.md](RISE-GRAND.md) / [issue #1](../../issues/1)).
 

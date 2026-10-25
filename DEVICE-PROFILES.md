@@ -11,6 +11,7 @@ exactly what will be sent and offers Save-to-file / Open-issue alternatives.
 ## What can be contributed (all from the GUI)
 | Button | What it sends | Endpoint |
 |---|---|---|
+| **Help add device…** | one-click: a read-only identity request + short capture (never changes a setting) | `POST /v1/captures` |
 | **Contribute…** | a device **profile** — the config items a connected device reports | `POST /v1/profiles` |
 | **Report…** | a **connection diagnostic** — the MIDI ports seen + how the connect ended | `POST /v1/diagnostics` |
 | **Capture…** | a **raw MIDI capture** — everything a device emits (read-only) | `POST /v1/captures` |

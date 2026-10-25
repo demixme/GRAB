@@ -6,6 +6,13 @@ useful. Thanks for pitching in.
 
 ## Ways to contribute (easiest first)
 
+### 0. Help add an unsupported device (one click)
+If GRAB says your device isn't supported (e.g. **Seaboard RISE/GRAND**), click
+**Help add device…** → **Run & submit**. GRAB auto-picks the port, sends one read-only
+identity request, records the reply + a few seconds of what the device emits, and
+submits it — **without changing any setting**. This is the single easiest way to help
+a new device get added.
+
 ### 1. Submit a device profile (one click)
 If you have any ROLI BLOCKS device, run the GUI, connect it, and use
 **Contribute device profile**. It builds an anonymized JSON of the config items
