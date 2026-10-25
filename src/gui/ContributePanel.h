@@ -96,7 +96,7 @@ private:
     {
         juce::PropertiesFile::Options o; o.millisecondsBeforeSaving = 0;
         juce::PropertiesFile props (settingsFile(), o);
-        return props.getValue ("profileEndpoint", "https://demix.me/grab/v1/profiles");
+        return props.getValue ("profileEndpoint", "https://www.demix.me/grab/v1/profiles");
     }
 
     void saveEndpoint (const juce::String& ep)
