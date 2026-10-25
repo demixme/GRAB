@@ -35,3 +35,7 @@ __pycache__/
 
 # Server DB credentials (copy config.sample.php -> config.php)
 /server/config.php
+
+# Maintainer-only export token (never commit)
+/.grab-export-token
+*.token
