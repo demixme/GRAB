@@ -54,8 +54,11 @@ software (Dashboard / Connect / hardware service) is required:
 - **Windows:** plug in over USB and GRAB detects it — nothing to install.
 - **macOS:** plug in over USB and GRAB detects it — CoreMIDI handles it natively,
   confirmed working with no ROLI software installed.
-- **BLE-MIDI** works too (the OS's own Bluetooth-MIDI support). Windows is
-  confirmed; macOS BLE is being brought up.
+- **BLE-MIDI** works too (the OS's own Bluetooth-MIDI support), confirmed on both
+  Windows and macOS. On macOS you first connect the device once via **Audio MIDI
+  Setup → Window → Show MIDI Studio → Bluetooth**; after that it's a normal MIDI
+  port. A ROLI device bonds to one host at a time, so turn Bluetooth off on any
+  other machine that's holding it.
 
 Just connect the device and launch GRAB. If a port won't open, another app
 (a DAW, or leftover ROLI software) is holding it — GRAB tells you rather than
@@ -107,10 +110,6 @@ Logs are written to `logs/`.
 - [CONTRIBUTING.md](CONTRIBUTING.md) — how to help, especially new devices.
 
 ## Help wanted / known limitations
-- **macOS device detection.** GRAB builds and runs on macOS, but transport
-  selection uses Windows-style MIDI identifiers (`usb#`, `blemidi`, …). macOS
-  CoreMIDI uses different identifiers, so auto-detect needs mac-tuned heuristics
-  (in `src/common/LoggingMidi.h`). Great first contribution for a Mac owner.
 - **Other BLOCKS** (Lightpad/Pro, Live, Loop, Touch, LUMI, Airwave, ROLI Piano 49)
   should work via the same protocol but need testing — reports/profiles welcome.
 - **Seaboard RISE / GRAND** support — see [RISE-GRAND.md](RISE-GRAND.md).
