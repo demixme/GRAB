@@ -59,6 +59,7 @@ private:
 //==============================================================================
 class MainComponent  : public juce::Component,
                        private roli::TopologySource::Listener,
+                       private roli::Block::ConfigItemListener,
                        private juce::Timer
 {
 public:
@@ -71,6 +72,13 @@ public:
 private:
     void topologyChanged() override;
     void timerCallback() override;
+
+    // Live config updates from the device (delivered on the message thread).
+    void handleConfigItemChanged (roli::Block&, const roli::Block::ConfigMetaData&, juce::uint32 index) override;
+    void handleConfigSyncEnded   (roli::Block&) override;
+    void setListeningBlock (roli::Block::Ptr b);  // (un)register the config listener
+    void applyLiveConfigChange (const roli::Block::ConfigMetaData& meta, juce::uint32 index);
+    bool controlExistsFor (juce::uint32 id) const;
 
     void connect (seaprobe::Transport transport);
     void updateBlockList (const roli::BlockTopology& topology);
@@ -93,6 +101,7 @@ private:
     std::unique_ptr<seaprobe::LoggingDeviceDetector> detector;
     std::unique_ptr<roli::PhysicalTopologySource>    source;
     roli::Block::Ptr block;                 // currently selected block
+    roli::Block::Ptr listeningBlock;        // block we've registered the config listener on
     roli::Block::UID selectedBlockUid = 0;  // kept across topology updates
     std::vector<roli::Block::UID> blockOrder; // combo index -> uid
 

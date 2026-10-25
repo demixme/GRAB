@@ -192,6 +192,7 @@ MainComponent::MainComponent()
 MainComponent::~MainComponent()
 {
     stopTimer();
+    setListeningBlock (nullptr);
     if (source != nullptr)
     {
         source->removeListener (this);
@@ -203,6 +204,7 @@ void MainComponent::connect (seaprobe::Transport transport)
 {
     // Tear down any existing session.
     stopTimer();
+    setListeningBlock (nullptr);
     if (source != nullptr)
     {
         source->removeListener (this);
@@ -260,6 +262,7 @@ void MainComponent::topologyChanged()
 
     if (topo.blocks.isEmpty())
     {
+        setListeningBlock (nullptr);
         block = nullptr;
         selectedBlockUid = 0;
         blockOrder.clear();
@@ -305,6 +308,7 @@ void MainComponent::updateBlockList (const roli::BlockTopology& topo)
 
     const bool blockChanged = (block == nullptr) || (block->uid != selectedBlockUid);
     block = topo.getBlockWithUID (selectedBlockUid);
+    setListeningBlock (block); // live config updates for the selected block
 
     setStatus ("Connected (" + (detector != nullptr ? detector->getActiveTransport() : juce::String())
                + "): " + juce::String (topo.blocks.size()) + " block(s)"
@@ -330,6 +334,7 @@ void MainComponent::selectBlock (roli::Block::UID uid)
         return;
 
     block = source->getCurrentTopology().getBlockWithUID (uid);
+    setListeningBlock (block);
 
     // Reset per-block config state and re-read for the newly selected block.
     rows.clear();
@@ -426,12 +431,95 @@ void MainComponent::requestConfig()
 
 void MainComponent::timerCallback()
 {
+    // Fallback only: normally handleConfigSyncEnded() builds the rows the moment the
+    // device signals the config dump is complete. This covers the case where that
+    // message never arrives (so the UI still appears after a short wait).
     if (block != nullptr && configRequested && ! rowsBuilt
         && juce::Time::getMillisecondCounterHiRes() - configRequestedAtMs > 2500.0)
     {
         rebuildRows();
         rowsBuilt = true;
     }
+}
+
+void MainComponent::setListeningBlock (roli::Block::Ptr b)
+{
+    if (listeningBlock == b)
+        return;
+    if (listeningBlock != nullptr)
+        listeningBlock->removeConfigItemListener (this);
+    listeningBlock = b;
+    if (listeningBlock != nullptr)
+        listeningBlock->addConfigItemListener (this);
+}
+
+void MainComponent::handleConfigSyncEnded (roli::Block& b)
+{
+    // The device finished dumping its config (after requestFactoryConfigSync). Build
+    // from the complete, current set — reliable, and picks up any change in which items
+    // are active (e.g. switching MIDI Mode changes the available controls).
+    if (block == nullptr || &b != block.get())
+        return;
+    rebuildRows();
+    rowsBuilt = true;
+    configRequested = false;
+}
+
+void MainComponent::handleConfigItemChanged (roli::Block& b, const roli::Block::ConfigMetaData&,
+                                             juce::uint32 index)
+{
+    if (block == nullptr || &b != block.get())
+        return;
+    if (! rowsBuilt)
+        return; // still syncing; handleConfigSyncEnded() builds the full set
+    applyLiveConfigChange (block->getLocalConfigMetaData (index), index);
+}
+
+bool MainComponent::controlExistsFor (juce::uint32 id) const
+{
+    for (auto& r : rows)   if (r->getId() == id) return true;
+    for (auto* c : curves) if (c->getId() == id) return true;
+    return false;
+}
+
+void MainComponent::applyLiveConfigChange (const roli::Block::ConfigMetaData& meta, juce::uint32 index)
+{
+    if (block == nullptr)
+        return;
+
+    // If an item just became active or inactive, the set of visible controls changed
+    // (e.g. a mode switch) — rebuild the whole thing so new controls appear / go away.
+    if (meta.isActive != controlExistsFor (index))
+    {
+        rebuildRows();
+        rowsBuilt = true;
+        return;
+    }
+    if (! meta.isActive)
+        return;
+
+    // Value-only change: mirror it into the control, but never clobber an unsaved edit.
+    const auto v   = block->getLocalConfigValue (index);
+    const auto dv  = deviceValues.find (index);
+    const bool userEdited = dv != deviceValues.end()
+                            && pendingValues.count (index)
+                            && pendingValues[index] != dv->second;
+    deviceValues[index] = v;
+
+    if (! userEdited)
+    {
+        pendingValues[index] = v;
+        for (auto& r : rows)   if (r->getId() == index) { r->setValue (v);       r->setChangedFromDevice (false); }
+        for (auto* c : curves) if (c->getId() == index) { c->setSensitivity (v); c->setChanged (false); }
+    }
+    else
+    {
+        const bool stillDiffers = pendingValues[index] != v;
+        for (auto& r : rows)   if (r->getId() == index) r->setChangedFromDevice (stillDiffers);
+        for (auto* c : curves) if (c->getId() == index) c->setChanged (stillDiffers);
+    }
+
+    updateSaveEnabled();
 }
 
 void MainComponent::rebuildRows()
