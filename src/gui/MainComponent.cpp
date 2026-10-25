@@ -202,6 +202,8 @@ void MainComponent::connect (seaprobe::Transport transport)
     detector.reset();
     block = nullptr;
     selectedBlockUid = 0;
+    learnedForType = {};
+    learnedNames.clear();
     blockOrder.clear();
     blockBox.clear (juce::dontSendNotification);
     rows.clear();
@@ -300,6 +302,13 @@ void MainComponent::updateBlockList (const roli::BlockTopology& topo)
                                        + " battery " + juce::String (juce::roundToInt (block->getBatteryLevel() * 100.0f)) + "%"
                                      : juce::String()));
 
+    if (block != nullptr)
+    {
+        const auto type = juce::String (grab::blockTypeName (block->getType()));
+        if (learnedForType != type)
+            fetchNames ("BLOCKS", type); // self-learn: pull names for this device type
+    }
+
     if (block != nullptr && (blockChanged || ! configRequested))
         requestConfig();
 }
@@ -352,6 +361,49 @@ void MainComponent::contribute()
     o.launchAsync();
 }
 
+void MainComponent::fetchNames (const juce::String& family, const juce::String& type)
+{
+    learnedForType = type; // mark attempted so topology churn doesn't refetch
+
+    // Derive the names URL from the saved contribute endpoint (.../profiles -> .../names).
+    juce::PropertiesFile::Options po; po.millisecondsBeforeSaving = 0;
+    juce::PropertiesFile props (juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                                    .getChildFile ("GRAB").getChildFile ("settings.properties"), po);
+    const auto base = props.getValue ("profileEndpoint", "https://www.demix.me/grab/v1/profiles");
+
+    juce::URL url (base.replace ("profiles", "names"));
+    url = url.withParameter ("family", family).withParameter ("type", type);
+
+    juce::Component::SafePointer<MainComponent> safe (this);
+    std::thread ([safe, url, type]
+    {
+        juce::String resp;
+        {
+            juce::WebInputStream web (url, false);
+            web.withConnectionTimeout (10000);
+            if (web.connect (nullptr) && web.getStatusCode() == 200)
+                resp = web.readEntireStreamAsString();
+        }
+        auto map = grab::parseNamesJson (resp);
+        juce::MessageManager::callAsync ([safe, type, map]
+        {
+            if (auto* p = safe.getComponent())
+                p->onNamesFetched (type, map);
+        });
+    }).detach();
+}
+
+void MainComponent::onNamesFetched (juce::String type, grab::LearnedMap learned)
+{
+    if (block == nullptr || juce::String (grab::blockTypeName (block->getType())) != type)
+        return; // the selected device changed since we asked
+    if (learned.empty())
+        return;
+    learnedNames = std::move (learned);
+    if (rowsBuilt)
+        rebuildRows(); // re-label items with the learned names
+}
+
 void MainComponent::requestConfig()
 {
     if (block == nullptr)
@@ -400,7 +452,8 @@ void MainComponent::rebuildRows()
         auto meta = block->getLocalConfigMetaData (id);
         if (! meta.isActive)            // only items the device actually reports
             continue;
-        seaprobe::applyConfigOverrides (meta); // e.g. render Chord as a named dropdown
+        seaprobe::applyConfigOverrides (meta);        // built-in overrides (e.g. Chord)
+        grab::applyLearnedNames (meta, learnedNames);  // names pulled from the store
 
         const auto value = block->getLocalConfigValue (id);
         deviceValues[id] = value;
