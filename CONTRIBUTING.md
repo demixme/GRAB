@@ -40,7 +40,8 @@ work:
 ## Hard safety rules (non-negotiable)
 GRAB must **never** send firmware-update, program-upload (Littlefoot), factory-reset,
 or bootloader messages — a bad write can brick a device. Config writes use
-`setConfig` only. Don't add a firmware flasher. If you're capturing, it's
+`setConfig` only (on the RISE 2, the `0x78 3D` set-parameter, NRPN and RPN messages
+Dashboard itself sends for settings). Don't add a firmware flasher. If you're capturing, it's
 observe-only.
 
 ## When reporting protocol values

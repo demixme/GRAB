@@ -273,9 +273,10 @@ private:
     // Classify by IDENTIFIER, which is reliable; names are not (e.g. the BLE
     // Seaboard is just "Seaboard Block 3XU9" with no "BLE" in the name, and a
     // loose "ble" substring would wrongly match "GS Wavetable Synth").
+    // The Seaboard RISE does not speak the BLOCKS protocol, it has its own page (Rise2Protocol.h).
     static bool isSeaboard (const juce::MidiDeviceInfo& d)
     {
-        return d.name.containsIgnoreCase ("seaboard")
+        return (d.name.containsIgnoreCase ("seaboard") && ! d.name.containsIgnoreCase ("seaboard rise"))
             || d.identifier.containsIgnoreCase ("seaboardblock");
     }
 

@@ -34,8 +34,9 @@ usable whatever happens to ROLI's software and servers.
 - A drop-in **replacement for ROLI Dashboard.** It deliberately does **not** flash
   firmware, upload Littlefoot programs/apps, or customise lighting — and it doesn't
   reproduce Dashboard's full workflow.
-- Finished or polished — expect rough edges, and **only the Seaboard Block is confirmed**
-  so far (other BLOCKS should work; RISE/GRAND aren't supported yet).
+- Finished or polished — expect rough edges, and **only the Seaboard Block and the
+  Seaboard RISE 2 are confirmed** so far (other BLOCKS should work. The GRAND and the
+  original RISE aren't supported yet).
 
 If you just want to tweak your device's settings today, it does that. If you'd like it to
 *grow into* a fuller Dashboard alternative, that's exactly why **contributing a profile**
@@ -100,7 +101,8 @@ and [CONTRIBUTING.md](CONTRIBUTING.md).
 | Seaboard **Block** | ✅ supported (config read/write, presets) |
 | Other **BLOCKS** (Lightpad/Pro, Live, Loop, Touch, LUMI, Airwave, ROLI Piano 49) | ✅ should work (same protocol; config is generated from the device) — needs testing/reports |
 | Multiple BLOCKS (DNA-connected cluster) | ✅ detected; per-block selection |
-| Seaboard **RISE** / **GRAND** | ⛔ not yet — different protocol; see [RISE-GRAND.md](RISE-GRAND.md) and [issue #1](../../issues/1) |
+| Seaboard **RISE 2** | ✅ supported (config read/write, firmware 2.0.2), own protocol, see [RISE-GRAND.md](RISE-GRAND.md) |
+| Seaboard **RISE 25/49** (original) / **GRAND** | ⛔ not yet, see [RISE-GRAND.md](RISE-GRAND.md) and [issue #1](../../issues/1) |
 
 ## Building from source
 Windows, Visual Studio 2022/2026 + MSVC. Built with **JUCE 8** + **CMake** (no
@@ -129,7 +131,8 @@ block. The GUI writes logs to a per-user dir (`%APPDATA%\GRAB\logs` on Windows,
 - **`GRAB`** — the desktop GUI: connection status, transport + device selectors, one
   control per device config item grouped into sections, Save to device, JSON presets.
 - **`seaprobe`** — console tool: list ports, dump raw SysEx, decode topology/config,
-  and the gated single-value writer (dry-run by default).
+  and the gated single-value writer (dry-run by default). `seaprobe rise2 ...` does the
+  same for a Seaboard RISE 2.
 - **`seadecode`** — portable (no-JUCE) offline decoder for ROLI SysEx, USB-MIDI and
   BLE-MIDI captures.
 - **`libs/sea_sysex`** — the portable framing/checksum/bit-unpacking decoder library.
@@ -139,7 +142,7 @@ block. The GUI writes logs to a per-user dir (`%APPDATA%\GRAB\logs` on Windows,
 ## Documentation
 - [PROTOCOL.md](PROTOCOL.md) — the observed BLOCKS SysEx protocol (framing, checksum,
   config, firmware), each fact marked confirmed-on-device vs from-source.
-- [RISE-GRAND.md](RISE-GRAND.md) — notes for adding Seaboard RISE/GRAND support.
+- [RISE-GRAND.md](RISE-GRAND.md): the Seaboard RISE 2 protocol and notes for adding the GRAND.
 - [DEVICE-PROFILES.md](DEVICE-PROFILES.md) — the opt-in "self-learn" device-profile
   schema (contribute what your device reports, to a store at demix.me).
 - [PATCHES.md](PATCHES.md) — the vendored-library patches.

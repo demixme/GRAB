@@ -86,7 +86,8 @@ juce_add_gui_app(GRAB
 
 target_sources(GRAB PRIVATE
     src/gui/Main.cpp
-    src/gui/MainComponent.cpp)
+    src/gui/MainComponent.cpp
+    src/gui/Rise2Component.cpp)
 
 target_include_directories(GRAB PRIVATE src/common src/gui)
 
@@ -102,6 +103,7 @@ target_link_libraries(GRAB PRIVATE
     sea_sysex
     roli_blocks_basics
     juce::juce_gui_extra
+    juce::juce_audio_devices
     juce::juce_cryptography
     juce::juce_recommended_config_flags
     juce::juce_recommended_warning_flags)
