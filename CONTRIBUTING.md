@@ -14,17 +14,26 @@ your device reports (serial is hashed, never sent raw — see
 store or save to a file to attach to an issue. This is how we learn config ids and
 names across devices (especially unnamed/user items and new hardware).
 
-### 2. Report a device that works / doesn't
-Open an issue with: device model, firmware version, transport (USB/BLE), and what
-happened. If config reads back but some items are unnamed or wrong, attach a
-device-profile JSON.
+### 2. Report a connection problem (one click)
+If GRAB can't connect to or detect your device — common for unsupported ones like
+**Seaboard RISE/GRAND** — use **Report…** in the GUI. It sends an anonymized diagnostic
+(the MIDI ports GRAB saw + how the attempt ended), or opens a prefilled GitHub issue.
+This is exactly what tells us how a new device enumerates.
 
-### 3. Capture a protocol you want supported
-For settings GRAB doesn't understand yet — or whole families like **RISE/GRAND** —
-capture ROLI Dashboard talking to the device and share the decode:
+### 3. Capture or probe a device you want supported
+For a device GRAB can't talk to yet, two in-app tools (both in the GUI) gather what we
+need — no extra software:
+- **Capture…** — open the device's port and log everything it emits (read-only; it
+  sends nothing). Play it / operate it, then Submit, Save, or open an issue.
+- **Probe…** (advanced) — send one *curated, documented* message to the device and log
+  its reply (the host→device side capture can't see). Firmware/reset/packed messages are
+  hard-blocked; the exact bytes are shown and you must Arm before each send.
+
+To capture **ROLI Dashboard talking to the device** (the full host→device protocol),
+the external tools still apply:
 - `tools/capture-dashboard.ps1` / `capture-usb-replug.ps1` (USBPcap, run elevated),
-- `tools/decode-capture.sh` (auto-detects USB vs BLE and runs `seadecode`),
-- or any MIDI monitor for the plain-SysEx RISE/GRAND.
+- `tools/decode-capture.sh` (auto-detects USB vs BLE and runs `seadecode`).
+
 See [RISE-GRAND.md](RISE-GRAND.md) for the known RISE/GRAND parameters and the
 capture-and-map workflow.
 
