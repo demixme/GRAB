@@ -12,19 +12,21 @@ return [
     'writeToken' => '',               // optional X-Grab-Token to require on POSTs
 ];
 
-// (B) Reuse your existing private credentials: make config.php pull from them so no
-//     secrets live in the web root. Adjust the require path and the keys to match
-//     YOUR /private config's shape, e.g.:
+// (B) Reuse your existing private credentials so no secrets live in the web root.
+//     If your private config defines constants (DB_HOST, DB_NAME, DB_USER, DB_PASS),
+//     make config.php require it and map them:
 //
 //   <?php
-//   $shared = require '/home/demixme/private/config.php'; // your existing file
+//   require_once '/absolute/path/to/private/config.php'; // defines DB_* constants
 //   return [
-//       'host'       => $shared['db_host'],   // <- rename to your actual keys
-//       'dbname'     => $shared['db_name'],
-//       'user'       => $shared['db_user'],
-//       'pass'       => $shared['db_pass'],
+//       'host'       => DB_HOST,
+//       'dbname'     => DB_NAME,   // the GRAB tables can live in this database
+//       'user'       => DB_USER,
+//       'pass'       => DB_PASS,
 //       'writeToken' => '',
 //   ];
 //
+//   If instead it returns an array, map that array's keys the same way.
+//
 // Or set the GRAB_CONFIG env var to the absolute path of a file that returns the
-// array above (e.g. SetEnv GRAB_CONFIG /home/demixme/private/grab-config.php).
+// array above (e.g. SetEnv GRAB_CONFIG /home/.../private/grab-config.php).
