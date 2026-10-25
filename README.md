@@ -8,6 +8,14 @@ instruments configurable and self-documents their protocol.
 > The name nods to the devices it targets: **G**rand, **R**ise, **A**irwave,
 > **B**lock (and the rest of the BLOCKS family).
 
+<p align="center">
+  <img src="docs/grab-screenshot.png" width="480"
+       alt="GRAB configuring a ROLI Seaboard BLOCK over USB-MIDI: 5D sensitivity curves, MIDI settings, pitch and play-mode controls, all read live from the device.">
+</p>
+
+<p align="center"><sub>Controls are generated from what the connected device
+reports — here a Seaboard BLOCK on fw 1.4.3 over USB.</sub></p>
+
 Built with **JUCE 8** + **CMake** (no Projucer), developed on Windows 10/11 x64
 (MSVC). The code is kept portable; the decoder library has no JUCE dependency.
 
