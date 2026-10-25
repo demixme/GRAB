@@ -121,13 +121,16 @@ private:
     void saveToFile()
     {
         rebuildJson();
-        auto dir = juce::File::getCurrentWorkingDirectory().getChildFile ("profiles");
+        // Per-user dir (not the working directory — a Finder/Explorer-launched app has an
+        // unpredictable CWD it can't write to). Matches Capture/Diagnostics.
+        auto dir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                       .getChildFile ("GRAB").getChildFile ("profiles");
         dir.createDirectory();
         auto f = dir.getChildFile (juce::String (grab::blockTypeName (block->getType()))
                                    + "-" + block->versionNumber + "-"
                                    + juce::Time::getCurrentTime().formatted ("%Y%m%d-%H%M%S") + ".json");
         if (f.replaceWithText (json))
-            setStatus ("Saved: " + f.getFileName());
+            setStatus ("Saved: " + f.getFullPathName());
         else
             setStatus ("Could not write file.");
     }
