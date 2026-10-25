@@ -10,13 +10,17 @@ the contract in [../DEVICE-PROFILES.md](../DEVICE-PROFILES.md):
    ```sh
    mysql -u <user> -p <dbname> < schema.sql
    ```
-2. **Credentials:** create `config.php` (gitignored — never commit creds). Either
-   fill in host/db/user/pass directly (option A in `config.sample.php`), or — to
-   reuse an existing secret like `your_db_user` in a `/private` file — have
-   `config.php` `require` that file and map its keys (option B), so no credentials
-   sit in the web root. (You can also point the `GRAB_CONFIG` env var at a file
-   that returns the array.) The tables can live in your existing database; just run
-   `schema.sql` there.
+2. **Credentials:** `db.php` finds them in this order:
+   1. the `GRAB_CONFIG` env var (absolute path to a config), else
+   2. a local `config.php` next to the scripts, else
+   3. it **walks up the directory tree looking for `private/config.php`** — so if
+      your site keeps secrets in a `/private/config.php` that `define()`s
+      `DB_HOST`/`DB_NAME`/`DB_USER`/`DB_PASS` (the demix.me layout), **nothing extra
+      is needed** — GRAB finds it and uses those constants.
+   The config may either `return` the array (see `config.sample.php`) or `define()`
+   the `DB_*` constants. Optionally `define('GRAB_DB_NAME', …)` to put the GRAB
+   tables in a different database than `DB_NAME`. The tables can live in your
+   existing database; just run `schema.sql` there.
 3. **Upload** this folder to `https://demix.me/grab/v1/` (so the files sit at
    `/grab/v1/profiles.php`, `/grab/v1/names.php`, etc.).
 4. **URLs:** with the included `.htaccess` (mod_rewrite), the endpoints are

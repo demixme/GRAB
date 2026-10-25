@@ -5,14 +5,25 @@ function grab_config(): array
 {
     static $cfg = null;
     if ($cfg === null) {
-        // Point GRAB at your existing config with the GRAB_CONFIG env var (absolute
-        // path), else a local config.php, else the sample.
-        $env  = getenv('GRAB_CONFIG');
-        $path = ($env && is_file($env)) ? $env
-              : (is_file(__DIR__ . '/config.php') ? __DIR__ . '/config.php'
-              : __DIR__ . '/config.sample.php');
-
-        $ret = require $path;
+        // Find the config: GRAB_CONFIG env (absolute path), else a local config.php,
+        // else walk up the tree for a site /private/config.php (demix.me layout),
+        // else the sample.
+        $ret = null;
+        $env = getenv('GRAB_CONFIG');
+        if ($env && is_file($env)) {
+            $ret = require $env;
+        } elseif (is_file(__DIR__ . '/config.php')) {
+            $ret = require __DIR__ . '/config.php';
+        } else {
+            $dir = __DIR__;
+            while (true) {
+                $cand = $dir . '/private/config.php';
+                if (is_file($cand)) { $ret = require $cand; break; }
+                $parent = dirname($dir);
+                if ($parent === $dir) break; // reached filesystem root
+                $dir = $parent;
+            }
+        }
 
         if (is_array($ret)) {
             // config file returned the array directly
