@@ -8,6 +8,45 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     grab_json(405, ['error' => 'POST only']);
 }
 
+/** Best-effort per-IP rate limit. Stores only a salted hash of the IP in a temp
+ *  file (no raw IPs, nothing in the DB) with a count + window start; returns 429
+ *  over the limit. A speed bump against spam, not a hard guarantee. */
+function grab_rate_limit(int $maxPerHour = 60): void {
+    $ip = $_SERVER['HTTP_CF_CONNECTING_IP']
+        ?? (isset($_SERVER['HTTP_X_FORWARDED_FOR'])
+            ? trim(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0])
+            : ($_SERVER['REMOTE_ADDR'] ?? ''));
+    if ($ip === '') return;
+
+    $dir = sys_get_temp_dir() . '/grab_rate';
+    @mkdir($dir, 0700, true);
+    $file = $dir . '/' . substr(hash('sha256', 'grab-rl|' . $ip), 0, 24);
+
+    $now = time();
+    $window = 3600;
+    $n = 1; $start = $now;
+    $fp = @fopen($file, 'c+');
+    if ($fp !== false) {
+        if (flock($fp, LOCK_EX)) {
+            $cur = json_decode((string) stream_get_contents($fp), true);
+            if (is_array($cur) && ($now - (int) ($cur['t'] ?? 0)) < $window) {
+                $start = (int) $cur['t'];
+                $n = (int) ($cur['n'] ?? 0) + 1;
+            }
+            ftruncate($fp, 0); rewind($fp);
+            fwrite($fp, json_encode(['t' => $start, 'n' => $n]));
+            fflush($fp); flock($fp, LOCK_UN);
+        }
+        fclose($fp);
+    }
+    if ($n > $maxPerHour) {
+        header('Retry-After: ' . max(1, $window - ($now - $start)));
+        grab_json(429, ['error' => 'rate limit exceeded, please try later']);
+    }
+}
+
+grab_rate_limit();
+
 $cfg = grab_config();
 if (!empty($cfg['writeToken'])) {
     $tok = $_SERVER['HTTP_X_GRAB_TOKEN'] ?? '';

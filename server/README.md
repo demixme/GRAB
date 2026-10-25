@@ -51,4 +51,9 @@ curl -s 'https://demix.me/grab/v1/names?family=BLOCKS&type=Seaboard'
 - Requires PHP 7.4+ (8.x fine) with PDO MySQL, and MySQL 5.7+/MariaDB 10.2+ for the
   `JSON` columns (swap to `LONGTEXT` in `schema.sql` if your host is older).
 - Serials arrive already hashed by the client; nothing identifying is stored.
-- Add rate-limiting / the `writeToken` if you see spam.
+- `profiles.php` applies a best-effort **per-IP rate limit** (60 POSTs/hour by default;
+  returns HTTP 429 over the limit). It stores only a salted hash of the IP in a temp
+  file — no raw IPs, nothing in the DB. Tune the number in `grab_rate_limit()`. A
+  `writeToken` can't gate the public GUI (the token would ship in the app), so it's
+  only useful for a private/trusted uploader; rate-limiting is the open-contribution
+  defense.
