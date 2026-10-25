@@ -170,11 +170,17 @@ MainComponent::MainComponent()
 
     setSize (720, 680);
 
-    const auto logFile = juce::File::getCurrentWorkingDirectory()
+    // Logs go to a stable per-user dir (same base as settings.properties), not the
+    // current working directory — a Finder/Explorer-launched app has an unpredictable
+    // CWD (e.g. "/" on macOS) where it can't write. Windows: %APPDATA%\GRAB\logs;
+    // macOS: ~/Library/Application Support/GRAB/logs; Linux: ~/.config/GRAB/logs.
+    const auto logFile = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                             .getChildFile ("GRAB")
                              .getChildFile ("logs")
                              .getChildFile ("GRAB-"
                                  + juce::Time::getCurrentTime().formatted ("%Y%m%d-%H%M%S") + ".log");
     logger = std::make_unique<seaprobe::RawLogger> (logFile);
+    logger->line ("GRAB log: " + logFile.getFullPathName());
 
     connect (seaprobe::Transport::Auto);
 }
