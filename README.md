@@ -150,7 +150,7 @@ A port opened but the device never answered — usually one of:
 (below); the shared name map improves it for everyone.
 
 ### How to help or report — all opt-in, shown before anything is sent
-Your serial, if included, is hashed; each dialog also offers **Save to file** or **Open a
+Your serial, if included, is hashed (or blanked in raw MIDI and logs); each dialog also offers **Save to file** or **Open a
 prefilled GitHub issue** instead of submitting.
 
 - ⭐ **Unsupported device? Click "Help add device…"** → **Run & submit**. The easiest way

@@ -9,6 +9,8 @@
 
 #include <sea_sysex.h>
 
+#include "Anonymize.h"
+
 #include <cstdint>
 #include <thread>
 
@@ -164,10 +166,11 @@ private:
         // Background (MIDI) thread: format and queue only; the UI is touched on the timer.
         const auto* d = reinterpret_cast<const std::uint8_t*> (m.getRawData());
         const auto  n = (std::size_t) m.getRawDataSize();
+        const auto  safe = grab::anonymize (d, n);   // no serial / MAC in what gets shared
         const double t = juce::Time::getMillisecondCounterHiRes() - startMs;
 
         juce::String line;
-        line << "[" << juce::String (t, 1).paddedLeft (' ', 10) << "ms] " << juce::String (sea::toHex (d, n));
+        line << "[" << juce::String (t, 1).paddedLeft (' ', 10) << "ms] " << juce::String (sea::toHex (safe.data(), safe.size()));
         const juce::String note (sea::annotate (d, n));
         if (note.isNotEmpty())
             line << "   (" << note << ")";

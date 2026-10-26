@@ -10,6 +10,8 @@
 
 #include <sea_sysex.h>
 
+#include "Anonymize.h"
+
 #include <cstdint>
 #include <thread>
 
@@ -119,8 +121,8 @@ private:
         logLine ("# OS: " + juce::SystemStats::getOperatingSystemName());
         logLine ("# Output: " + (outIdx >= 0 ? outputs[outIdx].name : juce::String ("(none)")));
         logLine ("# Input:  " + (inIdx  >= 0 ? inputs[inIdx].name   : juce::String ("(none)")));
-        for (auto& d : inputs)  logLine ("# port IN   " + d.name + "  id=[" + d.identifier + "]");
-        for (auto& d : outputs) logLine ("# port OUT  " + d.name + "  id=[" + d.identifier + "]");
+        for (auto& d : inputs)  logLine ("# port IN   " + d.name + "  id=[" + grab::anonymizeIdentifier (d.identifier) + "]");
+        for (auto& d : outputs) logLine ("# port OUT  " + d.name + "  id=[" + grab::anonymizeIdentifier (d.identifier) + "]");
 
         if (inIdx >= 0)
         {
@@ -173,7 +175,8 @@ private:
     {
         const auto* d = reinterpret_cast<const std::uint8_t*> (m.getRawData());
         const auto  n = (std::size_t) m.getRawDataSize();
-        juce::String line = "RECV   " + juce::String (sea::toHex (d, n));
+        const auto  safe = grab::anonymize (d, n);   // no serial / MAC in what gets shared
+        juce::String line = "RECV   " + juce::String (sea::toHex (safe.data(), safe.size()));
         const juce::String note (sea::annotate (d, n));
         if (note.isNotEmpty()) line << "   (" << note << ")";
         const juce::ScopedLock sl (lock);
