@@ -17,8 +17,10 @@
 #include "FooterBar.h"
 #include "KeyboardView.h"
 #include "Rise2Component.h"
+#include "ThrottledWriter.h"
 
 #include <map>
+#include <set>
 #include <vector>
 
 //==============================================================================
@@ -110,6 +112,8 @@ private:
     void loadPreset();
     void savePreset();
     void onItemChanged (juce::uint32 id, juce::int32 value); // from a row or a curve
+    void flushLiveWrites();                                  // throttled: write edited items to the device
+    std::vector<roli::Block::Ptr> writeTargets() const;      // the selected block + its DNA cluster
     void updateSaveEnabled();
     void setStatus (const juce::String&);
     void setBlocksControlsVisible (bool);
@@ -141,7 +145,11 @@ private:
     void checkConnectTimeout();
 
     std::map<juce::uint32, juce::int32> deviceValues;  // last values read from device
-    std::map<juce::uint32, juce::int32> pendingValues; // edited (unsaved) values, rows + curves
+    std::map<juce::uint32, juce::int32> pendingValues; // edited values, rows + curves
+    // Live-write: ids the user edited interactively, pending a throttled write to the device.
+    // Preset-staged values are NOT in here — those still wait for an explicit Save.
+    std::set<juce::uint32> dirtyWrites;
+    ThrottledWriter        liveWriter;
 
     grab::LearnedMap learnedNames;      // names pulled from the store for the current type
     juce::String     learnedForType;    // which device type learnedNames is for (avoid refetch)

@@ -172,6 +172,7 @@ MainComponent::MainComponent()
     addAndMakeVisible (savePresetBtn);
     reloadButton.onClick  = [this] { reloadFromDevice(); };
     saveButton.onClick    = [this] { saveToDevice(); };
+    liveWriter.onTick     = [this] { flushLiveWrites(); };
     loadPresetBtn.onClick = [this] { loadPreset(); };
     savePresetBtn.onClick = [this] { savePreset(); };
     saveButton.setEnabled (false);
@@ -257,6 +258,7 @@ MainComponent::MainComponent()
 MainComponent::~MainComponent()
 {
     stopTimer();
+    liveWriter.cancel();
     setTouchListening ({});   // remove touch listeners while the blocks are still alive
     setListeningBlock (nullptr);
     if (source != nullptr)
@@ -272,6 +274,8 @@ void MainComponent::connect (seaprobe::Transport transport)
 
     // Tear down any existing session.
     stopTimer();
+    liveWriter.cancel();
+    dirtyWrites.clear();
     setListeningBlock (nullptr);
     setTouchListening ({});   // drop touch listeners before the source (and its blocks) go away
     if (source != nullptr)
@@ -298,6 +302,8 @@ void MainComponent::connect (seaprobe::Transport transport)
     rowHolder.removeAllChildren();
     deviceValues.clear();
     pendingValues.clear();
+    dirtyWrites.clear();
+    liveWriter.cancel();
     configRequested = false;
     rowsBuilt = false;
     deviceSeen = false;
@@ -381,6 +387,8 @@ void MainComponent::topologyChanged()
         layoutOrder.clear();
         rowHolder.removeAllChildren();
         pendingValues.clear();
+        dirtyWrites.clear();
+        liveWriter.cancel();
         saveButton.setEnabled (false);
         if (deviceSeen)
             setStatus ("Seaboard disconnected.");
@@ -566,6 +574,8 @@ void MainComponent::selectBlock (roli::Block::UID uid)
     rowHolder.removeAllChildren();
     deviceValues.clear();
     pendingValues.clear();
+    dirtyWrites.clear();
+    liveWriter.cancel();
     configRequested = false;
     rowsBuilt = false;
     saveButton.setEnabled (false);
@@ -792,6 +802,8 @@ void MainComponent::rebuildRows()
     rowHolder.removeAllChildren();
     deviceValues.clear();
     pendingValues.clear();
+    dirtyWrites.clear();
+    liveWriter.cancel();
 
     if (block == nullptr)
         return;
@@ -905,6 +917,66 @@ void MainComponent::onItemChanged (juce::uint32 id, juce::int32 value)
         if (c->getId() == id)
             c->setChanged (differs);
     updateSaveEnabled();
+
+    // Live-write, Dashboard-style: queue this edit and let the throttle flush it to the
+    // device within ~75 ms. A drag coalesces into one burst per window instead of a write
+    // per pixel. (Preset loads don't come through here, so they still wait for Save.)
+    if (differs)
+    {
+        dirtyWrites.insert (id);
+        liveWriter.nudge();
+    }
+}
+
+std::vector<roli::Block::Ptr> MainComponent::writeTargets() const
+{
+    // Fan writes out to every block in the DNA cluster so the shared config stays in sync,
+    // the way Dashboard does (edit one, the whole chain mirrors it). A lone block writes once.
+    std::vector<roli::Block::Ptr> targets;
+    if (source != nullptr)
+    {
+        const auto topo = source->getCurrentTopology();
+        auto it = clusterMembers.find (selectedBlockUid);
+        if (it != clusterMembers.end())
+            for (auto uid : it->second)
+                if (auto b = topo.getBlockWithUID (uid)) targets.push_back (b);
+    }
+    if (targets.empty() && block != nullptr)
+        targets.push_back (block);
+    return targets;
+}
+
+void MainComponent::flushLiveWrites()
+{
+    if (dirtyWrites.empty() || block == nullptr)
+    {
+        dirtyWrites.clear();
+        liveWriter.cancel();   // nothing left to write; stop ticking until the next edit
+        return;
+    }
+
+    auto targets = writeTargets();
+    for (auto id : dirtyWrites)
+    {
+        auto pv = pendingValues.find (id);
+        if (pv == pendingValues.end())
+            continue;
+        for (auto& t : targets)
+            t->setLocalConfigValue (id, pv->second);   // setConfig write (persists on fw 1.4.3)
+        deviceValues[id] = pv->second;                 // optimistic; a reload re-reads the truth
+    }
+    dirtyWrites.clear();
+
+    // The device now matches (optimistically), so clear the "changed" markers + Save button.
+    for (auto& r : rows)
+        r->setChangedFromDevice (deviceValues.count (r->getId())
+                                 && pendingValues.count (r->getId())
+                                 && deviceValues[r->getId()] != pendingValues[r->getId()]);
+    for (auto* c : curves)
+        c->setChanged (deviceValues.count (c->getId())
+                       && pendingValues.count (c->getId())
+                       && deviceValues[c->getId()] != pendingValues[c->getId()]);
+    updateSaveEnabled();
 }
 
 void MainComponent::updateSaveEnabled()
@@ -924,20 +996,13 @@ void MainComponent::saveToDevice()
     if (block == nullptr)
         return;
 
-    // Fan the write out to every block in the DNA cluster so the shared config stays in sync,
-    // the way Dashboard does (edit one, the whole chain mirrors it). A lone block writes once.
-    std::vector<roli::Block::Ptr> targets;
-    if (source != nullptr)
-    {
-        const auto topo = source->getCurrentTopology();
-        auto it = clusterMembers.find (selectedBlockUid);
-        if (it != clusterMembers.end())
-            for (auto uid : it->second)
-                if (auto b = topo.getBlockWithUID (uid)) targets.push_back (b);
-    }
-    if (targets.empty())
-        targets.push_back (block);
+    // Save is now a flush-all / force-resync: live-write already sent most edits as you made
+    // them, but this still catches anything outstanding (e.g. a just-loaded preset) and then
+    // re-reads to confirm. Drain the live queue so the throttle doesn't double-write.
+    dirtyWrites.clear();
+    liveWriter.cancel();
 
+    auto targets = writeTargets();
     int written = 0;
     for (auto& kv : pendingValues)
     {

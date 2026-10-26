@@ -10,9 +10,11 @@
 
 #include "LoggingMidi.h"
 #include "Rise2Protocol.h"
+#include "ThrottledWriter.h"
 
 #include <map>
 #include <memory>
+#include <set>
 #include <vector>
 
 class ConfigRow;
@@ -52,6 +54,7 @@ private:
     void onState (rise2::State);
     void rebuildRows();
     void onItemChanged (juce::uint32 id, juce::int32 value);
+    void flushLiveWrites();   // throttled: send edited settings to the device as you make them
     void updateEnabled();
     void saveToDevice();
     void loadPreset();
@@ -71,6 +74,10 @@ private:
     std::map<juce::uint32, juce::int32> deviceValues;
     std::map<juce::uint32, juce::int32> pendingValues;
     std::map<juce::uint32, juce::int32> expected;  // after a save, what the device should report
+    // Live-write (Dashboard-style): ids edited interactively, flushed to the device on a
+    // ~75 ms throttle. Preset-staged values aren't here — they still wait for an explicit Save.
+    std::set<juce::uint32> dirtyWrites;
+    ThrottledWriter        liveWriter;
     bool awaitingState = false;
     int  stateRetries = 0;
     bool minMaxReliable = true;   // false on the original RISE: min/max read back as zeros, so hidden

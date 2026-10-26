@@ -170,6 +170,7 @@ Rise2Component::Rise2Component (seaprobe::RawLogger& loggerToUse) : logger (logg
     addAndMakeVisible (savePresetBtn);
     reloadButton.onClick = [this] { setStatus ("Reloading from device..."); requestState(); };
     saveButton.onClick   = [this] { saveToDevice(); };
+    liveWriter.onTick    = [this] { flushLiveWrites(); };
     loadPresetBtn.onClick = [this] { loadPreset(); };
     savePresetBtn.onClick = [this] { savePreset(); };
     saveButton.setEnabled (false);
@@ -260,6 +261,8 @@ void Rise2Component::openPorts()
 
 void Rise2Component::closePorts()
 {
+    liveWriter.cancel();
+    dirtyWrites.clear();
     if (midiIn != nullptr)
         midiIn->stop();
     midiIn.reset();
@@ -455,6 +458,8 @@ void Rise2Component::rebuildRows()
     rowHolder.removeAllChildren();
     deviceValues.clear();
     pendingValues.clear();
+    dirtyWrites.clear();
+    liveWriter.cancel();
 
     for (auto& f : fields())
         deviceValues[f.id] = pendingValues[f.id] = f.read (state);
@@ -547,6 +552,56 @@ void Rise2Component::onItemChanged (juce::uint32 id, juce::int32 v)
         if (f->getId() == id)
             f->setChanged (differs);
     updateEnabled();
+
+    // Live-write, Dashboard-style: queue the edit and let the throttle send it within ~75 ms,
+    // coalescing a drag into one burst per window. (Presets load silently and still wait for Save.)
+    if (differs && midiOut != nullptr)
+    {
+        dirtyWrites.insert (id);
+        liveWriter.nudge();
+    }
+}
+
+void Rise2Component::flushLiveWrites()
+{
+    if (dirtyWrites.empty() || midiOut == nullptr)
+    {
+        dirtyWrites.clear();
+        liveWriter.cancel();   // nothing to write; idle until the next edit
+        return;
+    }
+
+    rise2::Messages msgs;
+    bool modeChanged = false;
+    for (auto id : dirtyWrites)
+    {
+        if (deviceValues[id] == pendingValues[id])
+            continue;
+        if (isModeGroup (id))
+            modeChanged = true;
+        else if (auto* f = findField (id); f != nullptr && f->write)
+            rise2::append (msgs, f->write (pendingValues[id]));
+    }
+
+    if (modeChanged)
+    {
+        const auto mode = (rise2::Mode) value (kMode);
+        rise2::Messages m = rise2::midiMode (mode, value (kZone) == 1, value (kMembers), value (kChannel), value (kBend));
+        rise2::append (m, msgs);
+        msgs = std::move (m);
+    }
+
+    for (auto id : dirtyWrites)
+        deviceValues[id] = pendingValues[id];   // optimistic; a reload re-reads the truth
+    dirtyWrites.clear();
+
+    if (! msgs.empty())
+        send (msgs);
+
+    for (auto& r : rows)   r->setChangedFromDevice (deviceValues[r->getId()] != pendingValues[r->getId()]);
+    for (auto* c : curves) c->setChanged (deviceValues[c->getId()] != pendingValues[c->getId()]);
+    for (auto* f : faders) f->setChanged (deviceValues[f->getId()] != pendingValues[f->getId()]);
+    updateEnabled();
 }
 
 void Rise2Component::updateEnabled()
@@ -567,6 +622,12 @@ void Rise2Component::updateEnabled()
 
 void Rise2Component::saveToDevice()
 {
+    // Save is a flush-all / force-resync now that edits live-write as you make them: it catches
+    // anything outstanding (e.g. a just-loaded preset) and re-reads to confirm. Drain the live
+    // queue so the throttle doesn't double-send.
+    dirtyWrites.clear();
+    liveWriter.cancel();
+
     rise2::Messages msgs;
     expected.clear();
     bool modeChanged = false;
