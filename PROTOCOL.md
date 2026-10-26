@@ -215,10 +215,38 @@ intercept proxy (mitmproxy; see `tools/FIRMWARE-CAPTURE.md`).
 3. The file is a **zip containing a `.syx`** — e.g. `BLOCKS seaboard 1.4.3 RC.syx`
    (~248 KB, 2882 SysEx messages). The firmware *is* the SysEx flash stream.
 
-**Firmware .syx format [dev]:** a concatenation of ~2882 `F0 00 21 10 ... F7`
-messages. The first message uses a **`0x47` namespace** (`F0 00 21 10 47 ...`)
-carrying ASCII metadata ("ROLI BLOCKS ..."), followed by the
-`firmwareUpdatePacket` payload messages.
+**Firmware .syx format [dev]:** the entire file is a concatenation of
+`F0 00 21 10 47 ... F7` messages — **every message is in the `0x47` namespace**
+(not the `0x77` config/control namespace). This corrects an earlier reading: the
+on-wire flash is a dedicated `0x47` protocol, *not* the config-namespace
+`firmwareUpdatePacket`. Within `0x47`, the byte after the namespace is an opcode:
+
+| opcode | role | count (seaboard 1.4.3) |
+|--------|------|------------------------|
+| `0x00` | manifest / header (ASCII keyed fields)           | 1    |
+| `0x04` | data packet (address-stepped payload)            | 942  |
+| `0x05` | data packet                                      | 1838 |
+| `0x07` | data packet (near the end)                       | 100  |
+| `0x01` | short terminator / commit (13-byte final message)| 1    |
+
+Data packets carry a 4-byte offset-ish field (bytes 6–9) that steps by ~`0x20`
+per packet, i.e. a flat memory image streamed by address. Payloads are high
+entropy (~6.45 bits/byte against the 7-bit-packed ceiling of 7.0) — consistent
+with a compressed or encrypted body; the raw image is **not** readable code and
+we have not disassembled it.
+
+**Self-describing manifest (header opcode `0x00`) [dev]:** keyed ASCII fields,
+`\r\n`-separated. Readable keys: `V:` firmware version (e.g. `1.4.3`), `I:` target
+image/device (e.g. `seaboard`, `control`). Binary-valued keys: `A`/`a` (load
+address), `M`/`m` (hash/CRC), `S`/`s` (signature slot — present but essentially
+empty in the 1.4.3 build; **not** proof the bootloader skips verification, as
+`M`/`m` may be an integrity check), `B`/`b` (build number). A `.syx` therefore
+identifies its own version + target device from its bytes — usable as a
+match-before-flash safety check without trusting the filename. **Note:** the
+Seaboard **RISE** firmware (`MAIN_x.x.x.syx`) uses `0x47` too but *not* this keyed
+header — no `V:`/`I:`, version only in the filename, three empty
+`F0 00 21 10 47 F7` sync messages up front, plus a `0x48`-namespace begin/commit
+pair. RISE is the older non-BLOCKS line.
 
 **Device side (how it's flashed) [src]:** host streams `firmwareUpdatePacket`
 (MessageFromHost `0x04`: `size(7) + 7-bit data`) over the same transport; device
@@ -226,11 +254,48 @@ replies `firmwareUpdateACK` (MessageFromDevice `0x03`: `code(7) + detail(32)`).
 Dashboard brackets it with `hardware_firmware_update_begin`/`_end` and reports
 `firmware-update-progress`.
 
+**Firmware catalogue — latest versions (captured 2026-10-16, servers still up):**
+These are the `-latest` builds the download endpoint returned; archived so the
+version check survives ROLI's shutdown.
+
+| Device | Latest firmware | Image id (`I:`) | File |
+|--------|-----------------|-----------------|------|
+| Seaboard Block (M)        | `1.4.3`      | `seaboard` | `BLOCKS seaboard 1.4.3 RC.syx` |
+| Live / Loop / Touch Block | `0.1.2`      | `control`  | `BLOCKS control 0.1.2.syx`     |
+| Seaboard RISE (49)        | `MAIN 1.1.8` | (none)     | `MAIN_1.1.8.syx`               |
+| Seaboard RISE 25          | `MAIN 1.0.9` | (none)     | `MAIN_1.0.9.syx`               |
+
+**Live Block, Loop Block and Touch Block ship the byte-identical `control`
+image** — ROLI serves one firmware for that whole family.
+
+**Download coordinates + no version history (probed 2026-10-26, servers up) [dev]:**
+`GET /firmware_versions/update_to/{name}/{anyVersion}` is a *catch-up-to-latest*
+call — it returns the **latest** build regardless of the `{anyVersion}` you claim
+to be on (tested `1.0.0`, `0.0.1` → same `1.4.3`), as a `303` to
+`my.roli.com/build_redirect/product/{productId}/version/{versionId}/build/firmware`.
+That redirect reveals the opaque IDs below. **No version-enumeration endpoint
+exists** — every catalogue shape tried returns 404 (`/firmware_versions`,
+`/firmware_versions/{name}`, `/.../versions`, `/api/v1/product[s]/{id}[/versions]`,
+`/api/legacy/product/{id}/versions`, `?product={id}`). So only *latest* per product
+is retrievable; older builds exist in storage but are addressable only by Mongo
+ObjectID `versionId`s that are neither listed nor guessable (time+random+counter).
+
+| Product name (`{name}`) | Latest | productId | versionId |
+|-------------------------|--------|-----------|-----------|
+| `Seaboard Block` | 1.4.3 | `5c61fdc17808a64c4c7e2ecb` | `6683de5db1c3d0480a55e4da` |
+| `Seaboard RISE`  | 1.1.8 | `580f7ec2d19dffc19e5d1dd5` | `5c65894b7d8de7c84b2878e4` |
+
+(`versionId` prefix is a creation timestamp: `6683de5d` ≈ 2024-07-01. These are
+opaque identifiers, not credentials. `Lightpad Block` returns 404 "Product not
+found" — that exact name isn't a registered product.) The `X-API-Key` used to probe
+is the user's ROLI session token in `captures/firmware/auth-headers.txt` — sensitive,
+gitignored, never committed or echoed.
+
 **Preservation note (ROLI winding down):** the version check + download depend on
-`my.roli.com`/`api.roli.com`/`builds.roli.com`. The 1.4.3 Seaboard Block firmware
-has been archived locally (`captures/firmware/`, gitignored — it is ROLI's
-copyrighted file, not committed). We do NOT flash firmware (hard rule; a bad flash
-bricks the device) — this is archival only.
+`my.roli.com`/`api.roli.com`/`builds.roli.com`. The firmware above has been
+archived locally (`captures/firmware/`, gitignored — ROLI's copyrighted files, not
+committed). We do NOT flash firmware (hard rule; a bad flash bricks the device) —
+this is archival + version-reference only.
 
 ## 13. Still open (not needed for the config tool)
 - The `updateUserConfig` (0x05) layout (user-config metadata) — not yet seen.
