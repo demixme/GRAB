@@ -26,7 +26,7 @@ reports — here a Seaboard BLOCK on fw 1.4.3 over USB.</sub></p>
 | Pad & control **BLOCKS** (Lightpad/Pad, Live, Loop, Touch) · **Airwave** | ◻️ out of scope *for now* — they connect and GRAB shows their basic shared settings, but ROLI's per-app/mode config (Note Grid, Fader Block, Drum Block, …) isn't managed by GRAB (see **Scope** below). **Contributions to add them are welcome** |
 | Multiple BLOCKS (DNA-connected cluster) | ✅ detected; per-block selection |
 | Seaboard **RISE 25/49** (original) | 🟡 read-only — settings are shown (same `0x78` dump as the RISE 2, ~90% decoded) but **Save is disabled** until writes are confirmed on that firmware · [RISE-GRAND.md](RISE-GRAND.md) |
-| Seaboard **GRAND** | ⛔ not yet — help add it with one click (see below) · [RISE-GRAND.md](RISE-GRAND.md) · [issue #1](../../issues/1) |
+| Seaboard **GRAND** | ⛔ not mapped yet — **owners: click Help add device…** so we can see its protocol (likely the same as the RISE); reads could follow, then writes via [tools/CAPTURE-DASHBOARD.md](tools/CAPTURE-DASHBOARD.md) · [issue #1](../../issues/1) |
 
 Got an **unsupported** device? Run GRAB, click **Help add device…** → **Run & submit** —
 one click, read-only, and it's how the next devices get added.

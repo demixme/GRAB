@@ -1,12 +1,15 @@
 # Capturing ROLI Dashboard ↔ device traffic
 
 GRAB can **read** a device by asking it for its settings, but to **write** a setting it
-has to send the exact MIDI message ROLI Dashboard sends. For some devices we don't know
-those messages yet — most notably the **original Seaboard RISE (25/49, fw 1.x)**, where
-GRAB currently shows settings read-only because the `0x78 3D <param>` write numbers are
-confirmed only on the RISE 2.
+has to send the exact MIDI message ROLI Dashboard sends. **This guide works for any ROLI
+device** — the steps are the same whatever you own. Right now it's most useful for:
 
-To fill that gap we need a capture of **Dashboard talking to the device** while a few
+- the **original Seaboard RISE (25/49, fw 1.x)** — GRAB shows it read-only; a capture
+  confirms the `0x78 3D <param>` write numbers (known only on the RISE 2) and unlocks writing;
+- the **Seaboard GRAND** — not mapped at all yet (if you have one, please run **Help add
+  device…** in GRAB *first* so we can see its protocol, then do this capture for writes).
+
+To fill the gap we need a capture of **Dashboard talking to the device** while a few
 settings are changed. GRAB can't record this itself (Dashboard owns the port), so it's a
 quick, passive capture — about 10 minutes. **This only observes traffic — it sends nothing
 to the device and never touches firmware.**
