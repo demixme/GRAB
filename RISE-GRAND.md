@@ -5,7 +5,7 @@ firmware 2.0.2 on macOS). The **original RISE (fw 1.x)** returns the **same 224-
 dump**, and ~90% of it decodes correctly against the RISE 2 layout, so GRAB now shows it
 **read-only**: settings are displayed, but **Save is disabled** and the one field that
 decodes wrong on the original (the Strike/Press/Lift min/max block, which reads zeros) is
-hidden — see "Original RISE 49 answers with the same dump" below. Writes stay locked until
+hidden — see "Original RISE 25 and 49 answer with the same dump" below. Writes stay locked until
 the `0x78 3D` write params are confirmed on that firmware. The **GRAND** is still
 unconfirmed. The RISE 2 protocol below is confirmed on that device; the rest of this
 document collects what is known so far for the other models.
@@ -110,11 +110,12 @@ state on connect. Offsets count from `F0`, values are stored as sent.
 
 Single Channel mode shows as first = last = master. Multi Channel only clears 82.
 
-#### Original RISE 49 answers with the same dump (confirmed, fw 1.1.8)
+#### Original RISE 25 and 49 answer with the same dump (confirmed, fw 1.1.8)
 
-A contributed capture of an **original Seaboard RISE 49** (2016, firmware **1.1.8**,
-serial `R49…`) answering `F0 00 21 10 78 3F F7` shows it returns the **same 224-byte
-`3A` dump as the RISE 2**, and most offsets above decode correctly against it:
+Contributed captures of an **original Seaboard RISE 49** *and* an **original Seaboard
+RISE 25** (both 2016, firmware **1.1.8**) answering `F0 00 21 10 78 3F F7` show they return
+the **same 224-byte `3A` dump as the RISE 2** — byte-identical in structure between the 25
+and the 49 — and most offsets above decode correctly against it:
 
 - ✅ model `RISE1.00`, firmware `1.1.8` (the main image matches ROLI's `MAIN_1.1.8.syx`),
   MAC, serial, MPE block (79–82), bend range (83), octave (84), glide/press tracking
@@ -181,9 +182,9 @@ aren't BLOCKS devices). Confirmed so far:
 | **Seaboard RISE 2**, firmware 2.0.2 | macOS | `Seaboard RISE 2` | (CoreMIDI UID only) |
 
 Vendor `2af4` is shared across ROLI devices (the Seaboard **Block** is `vid_2af4 pid_0700`);
-the PID identifies the model. The **original RISE 49** answers the same `0x78 3F` identify
-as the RISE 2 (see "Original RISE 49 answers with the same dump" above). What is still open
-for it is whether its `0x78 3D` write params match the RISE 2's.
+the PID identifies the model. The **original RISE 25 and 49** both answer the same `0x78 3F`
+identify as the RISE 2 (see "Original RISE 25 and 49 answer with the same dump" above). What
+is still open for them is whether their `0x78 3D` write params match the RISE 2's.
 
 **To capture one:** in GRAB, **Advanced… → Raw MIDI capture** → pick `Seaboard RISE` → **Start** → play and
 operate the device (and change settings on it) → **Save to file** → attach the `.txt` to
@@ -223,8 +224,9 @@ notes below) or only visible by capturing ROLI Dashboard, not by probing.
 > **For the RISE 2, the confirmed on-wire protocol is the "Seaboard RISE 2 protocol"
 > section above — use that.** The tables below are the host-side variable names + defaults
 > from Dashboard's `.mode` files, kept as the *semantic* set and as a starting point for
-> the devices **not yet confirmed**: the **GRAND** and the **original RISE 25/49** (older
-> firmware, the `0x78` dialect in "Known old-RISE SysEx" further down).
+> the one device **not yet confirmed**: the **GRAND**. (The original **RISE 25/49** are now
+> confirmed to answer `0x78 3F` with the same dump as the RISE 2 — see above; only their
+> *write* params remain to be captured.)
 
 ### Seaboard RISE (RISE 2)
 | Dashboard variable | Example value | Equivalent BLOCKS config id |
