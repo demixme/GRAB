@@ -2,6 +2,7 @@
 #include "MainComponent.h"
 #include "SectionCard.h"
 #include "FaderPanel.h"
+#include "Help.h"
 
 #include <functional>
 #include <set>
@@ -127,6 +128,18 @@ bool isCurve (juce::uint32 id) { return id >= kStrikeSens && id <= kLiftSens; }
 // the RISE 2 (hardware-confirmed by an owner), and those offsets decode to the expected CC
 // numbers (107/109/111, 113/114). See RISE-GRAND.md.
 bool isUnreliableOnOldRise (juce::uint32 id)
+{
+    switch (id)
+    {
+        case kStrikeMin: case kStrikeMax: case kPressMin: case kPressMax: case kLiftMin: case kLiftMax:
+            return true;
+        default:
+            return false;
+    }
+}
+
+// The Strike/Press/Lift min/max — now set by dragging the curve end-nodes, not as rows.
+bool isCurveMinMax (juce::uint32 id)
 {
     switch (id)
     {
@@ -484,10 +497,12 @@ void Rise2Component::rebuildRows()
             for (auto& d : dims)
             {
                 const bool hasMinMax = d.minId != 0 && ! readOnly;   // min/max unreliable on the old RISE
+                const int minId = hasMinMax ? (int) d.minId : -1;
+                const int maxId = hasMinMax ? (int) d.maxId : -1;
                 curves.push_back (curveRow->add (std::make_unique<CurveComponent> (
                     d.label, juce::Colour (d.colour), d.id, deviceValues[d.id],
-                    hasMinMax ? deviceValues[d.minId] : 0, hasMinMax ? deviceValues[d.maxId] : 127, onChange,
-                    hasMinMax)));
+                    minId, hasMinMax ? deviceValues[d.minId] : 0,
+                    maxId, hasMinMax ? deviceValues[d.maxId] : 127, onChange)));
             }
             card->addItem (*curveRow, 130);
         }
@@ -498,8 +513,12 @@ void Rise2Component::rebuildRows()
             faderPanel = std::make_unique<FaderPanel>();
             for (auto& f : fields())
                 if (juce::String (f.group) == group && isFaderField (f.id) && shown (f.id))
-                    faders.push_back (faderPanel->add (std::make_unique<Fader> (
-                        f.id, shortFaderLabel (f.name), deviceValues[f.id], f.lo, f.hi, onChange)));
+                {
+                    auto* fader = faderPanel->add (std::make_unique<Fader> (
+                        f.id, shortFaderLabel (f.name), deviceValues[f.id], f.lo, f.hi, onChange));
+                    fader->setTooltip (grab::helpForParameter (f.name));
+                    faders.push_back (fader);
+                }
             if (! faderPanel->faders.empty())
                 card->addItem (*faderPanel, 150);
 
@@ -510,7 +529,7 @@ void Rise2Component::rebuildRows()
         else
         {
             for (auto& f : fields())
-                if (juce::String (f.group) == group && ! isCurve (f.id) && shown (f.id))
+                if (juce::String (f.group) == group && ! isCurve (f.id) && ! isCurveMinMax (f.id) && shown (f.id))
                     addRow (f);
         }
 

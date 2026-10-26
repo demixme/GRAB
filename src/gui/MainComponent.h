@@ -14,6 +14,7 @@
 #include "LearnedNames.h"
 #include "CurveComponent.h"
 #include "SectionCard.h"
+#include "FooterBar.h"
 #include "Rise2Component.h"
 
 #include <map>
@@ -21,7 +22,8 @@
 
 //==============================================================================
 /** One editable config item: label + the control appropriate to its type. */
-class ConfigRow  : public juce::Component
+class ConfigRow  : public juce::Component,
+                   public juce::SettableTooltipClient
 {
 public:
     using ChangeFn = std::function<void (juce::uint32 id, juce::int32 value)>;
@@ -30,6 +32,7 @@ public:
 
     void resized() override;
     void paint (juce::Graphics&) override;
+    void mouseDown (const juce::MouseEvent&) override;   // right-click resets to the device value
 
     juce::uint32 getId()    const { return id; }
     juce::int32  getValue() const;
@@ -44,6 +47,7 @@ private:
     juce::uint32 id;
     ConfigType   type;
     juce::Range<juce::int32> range;
+    juce::int32  initialValue = 0;   // device value, for right-click reset
 
     juce::Label      nameLabel;
     juce::Slider     slider;     // integer
@@ -159,6 +163,8 @@ private:
 
     std::unique_ptr<Rise2Component> rise2Page;  // shown instead of the BLOCKS page for a RISE
     bool risePreviewVerified = true;            // toggles verified/unverified on the dev preview shortcut
+
+    FooterBar footer;                           // hover-help strip along the bottom
     juce::MidiDeviceListConnection deviceList;  // to pick up a RISE switched on after launch
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)

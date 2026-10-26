@@ -13,7 +13,8 @@
 #include <utility>
 #include <vector>
 
-class Fader  : public juce::Component
+class Fader  : public juce::Component,
+               public juce::SettableTooltipClient
 {
 public:
     using ChangeFn = std::function<void (juce::uint32, juce::int32)>;

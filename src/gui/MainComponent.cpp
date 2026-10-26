@@ -3,16 +3,16 @@
 #include "CapturePanel.h"
 #include "ProbePanel.h"
 #include "ExplorePanel.h"
+#include "Help.h"
 
 #include <algorithm>
 #include <map>
 
 //==============================================================================
 ConfigRow::ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value, ChangeFn onChange)
-    : id (meta.item), type (meta.type), range (meta.range), change (std::move (onChange))
+    : id (meta.item), type (meta.type), range (meta.range), initialValue (value), change (std::move (onChange))
 {
     nameLabel.setText (meta.name, juce::dontSendNotification);
-    nameLabel.setTooltip ("id " + juce::String ((int) id) + "  (" + meta.group + ")");
     addAndMakeVisible (nameLabel);
 
     switch (type)
@@ -56,6 +56,24 @@ ConfigRow::ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value
     }
 
     addAndMakeVisible (control);
+
+    // Hover help (shown in the footer bar) + right-click reset.
+    const auto help = grab::helpForParameter (meta.name);
+    setTooltip (help);
+    nameLabel.setTooltip (help);
+    if (auto* tc = dynamic_cast<juce::SettableTooltipClient*> (control))
+        tc->setTooltip (help);
+    if (control != nullptr)
+        control->addMouseListener (this, true);
+}
+
+void ConfigRow::mouseDown (const juce::MouseEvent& e)
+{
+    if (e.mods.isPopupMenu())   // right-click / ctrl-click: revert to the device value
+    {
+        setValue (initialValue);
+        fireChange();
+    }
 }
 
 void ConfigRow::fireChange()
@@ -192,7 +210,9 @@ MainComponent::MainComponent()
     viewport.setViewedComponent (&rowHolder, false);
     viewport.setScrollBarsShown (true, false);
 
-    setSize (900, 680);
+    addAndMakeVisible (footer);
+
+    setSize (920, 810);   // tall enough for the RISE page (its columns run longest)
     setWantsKeyboardFocus (true);   // so the secret RISE-preview shortcut reaches keyPressed
     // Grab focus once the window is on screen, so the shortcut works without clicking first.
     juce::Component::SafePointer<MainComponent> sp (this);
@@ -695,10 +715,10 @@ void MainComponent::rebuildRows()
             {
                 if (deviceValues.find (d.id) == deviceValues.end())
                     continue;
-                const int mn = (d.minId >= 0 && deviceValues.count ((juce::uint32) d.minId)) ? deviceValues[(juce::uint32) d.minId] : 0;
-                const int mx = (d.maxId >= 0 && deviceValues.count ((juce::uint32) d.maxId)) ? deviceValues[(juce::uint32) d.maxId] : 127;
+                const int mn = (d.minId > 0 && deviceValues.count ((juce::uint32) d.minId)) ? deviceValues[(juce::uint32) d.minId] : 0;
+                const int mx = (d.maxId > 0 && deviceValues.count ((juce::uint32) d.maxId)) ? deviceValues[(juce::uint32) d.maxId] : 127;
                 auto* c = cr->add (std::make_unique<CurveComponent> (d.label, juce::Colour (d.colour),
-                                        d.id, deviceValues[d.id], mn, mx, onChange, d.minId >= 0));
+                                        d.id, deviceValues[d.id], d.minId, mn, d.maxId, mx, onChange));
                 curves.push_back (c);
             }
             if (! cr->curves.empty())
@@ -706,8 +726,17 @@ void MainComponent::rebuildRows()
                 card->addItem (*cr, 130);
                 curveRows.push_back (std::move (cr));
             }
+
+            // Min/max are now set by dragging the curve end-nodes, so skip their rows.
+            auto isCurveMinMax = [&] (juce::uint32 itemId)
+            {
+                for (const auto& d : dims)
+                    if ((d.minId > 0 && (juce::uint32) d.minId == itemId) || (d.maxId > 0 && (juce::uint32) d.maxId == itemId))
+                        return true;
+                return false;
+            };
             for (const auto& item : groups[g])
-                if (item.meta.item < 10 || item.meta.item > 14) // not a curve dimension
+                if ((item.meta.item < 10 || item.meta.item > 14) && ! isCurveMinMax (item.meta.item))
                     emitRow (item);
         }
         else
@@ -895,7 +924,8 @@ void MainComponent::forceRisePreview()
 
 void MainComponent::resized()
 {
-    auto r = getLocalBounds().reduced (8);
+    footer.setBounds (getLocalBounds().removeFromBottom (26));   // full-width strip at the very bottom
+    auto r = getLocalBounds().withTrimmedBottom (26).reduced (8);
     statusLabel.setBounds (r.removeFromTop (28));
     r.removeFromTop (4);
 

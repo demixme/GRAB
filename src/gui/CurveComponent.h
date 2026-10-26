@@ -17,28 +17,36 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "Theme.h"
+#include "Help.h"
 
 #include <cmath>
 #include <functional>
 #include <memory>
 #include <vector>
 
-class CurveComponent  : public juce::Component
+class CurveComponent  : public juce::Component,
+                        public juce::SettableTooltipClient
 {
 public:
     using ChangeFn = std::function<void (juce::uint32 id, juce::int32 value)>;
 
-    CurveComponent (juce::String nameToUse, juce::Colour colourToUse, juce::uint32 sensId,
-                    juce::int32 sensitivity, juce::int32 minVal, juce::int32 maxVal, ChangeFn onChange,
-                    bool showNodes = true)
-        : name (std::move (nameToUse)), colour (colourToUse), id (sensId),
-          sens (sensitivity), mn (minVal), mx (maxVal), change (std::move (onChange)), nodes (showNodes)
+    CurveComponent (juce::String nameToUse, juce::Colour colourToUse, juce::uint32 sensId, juce::int32 sensitivity,
+                    int minIdToUse, juce::int32 minVal, int maxIdToUse, juce::int32 maxVal, ChangeFn onChange)
+        : name (std::move (nameToUse)), colour (colourToUse), id (sensId), sens (sensitivity),
+          minId (minIdToUse), maxId (maxIdToUse), mn (minVal), mx (maxVal), change (std::move (onChange)),
+          nodes (minIdToUse > 0 && maxIdToUse > 0)
     {
+        setTooltip (grab::helpForParameter (name)
+                        + (nodes ? juce::String ("  (drag the end dots to set min / max)") : juce::String()));
     }
 
     juce::uint32 getId()    const { return id; }
     juce::int32  getValue() const { return sens; }
     void setSensitivity (juce::int32 v) { sens = juce::jlimit (0, 127, v); repaint(); }
+    void setMin (juce::int32 v) { mn = juce::jlimit (0, 127, v); repaint(); }
+    void setMax (juce::int32 v) { mx = juce::jlimit (0, 127, v); repaint(); }
+    int  getMinId() const { return minId; }
+    int  getMaxId() const { return maxId; }
     void setChanged (bool c) { if (changed != c) { changed = c; repaint(); } }
 
     void paint (juce::Graphics& g) override
@@ -109,8 +117,8 @@ public:
         g.drawText (juce::String (sens), header, juce::Justification::centredRight);
     }
 
-    void mouseDown (const juce::MouseEvent& e) override { setFromMouse (e); }
-    void mouseDrag (const juce::MouseEvent& e) override { setFromMouse (e); }
+    void mouseDown (const juce::MouseEvent& e) override { dragTarget = pickDrag (e.position); applyDrag (e); }
+    void mouseDrag (const juce::MouseEvent& e) override { applyDrag (e); }
 
 private:
     enum class Kind { velocity, slide, glide };   // velocity: Strike, Press, Lift
@@ -176,17 +184,40 @@ private:
         return path;
     }
 
-    void setFromMouse (const juce::MouseEvent& e)
+    enum class Drag { sensitivity, minNode, maxNode };
+
+    // Dragging the bottom-left dot sets min, the top-right dot sets max, anywhere else the
+    // sensitivity. Matches ROLI Dashboard's draggable curve end-nodes.
+    Drag pickDrag (juce::Point<float> pos) const
+    {
+        if (nodes && sens > 0)
+        {
+            const auto plot = plotArea();
+            const auto toScreen = [&plot] (juce::Point<float> p)
+            { return juce::Point<float> (plot.getX() + p.x * plot.getWidth(), plot.getBottom() - p.y * plot.getHeight()); };
+            if (pos.getDistanceFrom (toScreen ({ 0.0f, (float) mn / 127.0f })) < 16.0f) return Drag::minNode;
+            if (pos.getDistanceFrom (toScreen ({ 1.0f, (float) mx / 127.0f })) < 16.0f) return Drag::maxNode;
+        }
+        return Drag::sensitivity;
+    }
+
+    void applyDrag (const juce::MouseEvent& e)
     {
         const auto plot = plotArea();
         const float f = (plot.getBottom() - e.position.y) / juce::jmax (1.0f, plot.getHeight());
         const int v = juce::jlimit (0, 127, (int) std::lround (f * 127.0f));
-        if (v != sens)
+
+        if (dragTarget == Drag::minNode)
         {
-            sens = v;
-            repaint();
-            if (change != nullptr)
-                change (id, sens);
+            if (v != mn) { mn = v; repaint(); if (change != nullptr) change ((juce::uint32) minId, mn); }
+        }
+        else if (dragTarget == Drag::maxNode)
+        {
+            if (v != mx) { mx = v; repaint(); if (change != nullptr) change ((juce::uint32) maxId, mx); }
+        }
+        else if (v != sens)
+        {
+            sens = v; repaint(); if (change != nullptr) change (id, sens);
         }
     }
 
@@ -225,11 +256,13 @@ private:
     juce::String name;
     juce::Colour colour;
     juce::uint32 id;
+    int minId = -1, maxId = -1;
     juce::int32 sens, mn, mx;
     ChangeFn change;
     bool nodes;
     Kind kind = kindFor (name);
     bool changed = false;
+    Drag dragTarget = Drag::sensitivity;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CurveComponent)
 };
