@@ -1,5 +1,7 @@
 #include "Rise2Component.h"
 #include "MainComponent.h"
+#include "SectionCard.h"
+#include "FaderPanel.h"
 
 #include <functional>
 #include <set>
@@ -133,6 +135,25 @@ bool isUnreliableOnOldRise (juce::uint32 id)
         default:
             return false;
     }
+}
+
+// The MIDI CC Assignments that map to a physical fader / XY-pad axis (shown as vertical
+// faders). The pedal CC is not a fader, so it stays a normal row.
+bool isFaderField (juce::uint32 id)
+{
+    switch (id)
+    {
+        case kFaderLeftCc: case kFaderMiddleCc: case kFaderRightCc: case kXyXCc: case kXyYCc:
+            return true;
+        default:
+            return false;
+    }
+}
+
+// "Left Fader CC" -> "Left", "XY Pad X CC" -> "X" (the full name is long for a narrow fader).
+juce::String shortFaderLabel (juce::String n)
+{
+    return n.replace (" Fader CC", "").replace ("XY Pad ", "").replace (" CC", "");
 }
 
 constexpr int rowHeight = 30;
@@ -419,11 +440,12 @@ int Rise2Component::value (juce::uint32 id) const
 
 void Rise2Component::rebuildRows()
 {
+    cards.clear();          // un-parents the rows/curves/faders it holds
+    faderPanel.reset();
+    faders.clear();
     rows.clear();
     curveRow.reset();
     curves.clear();
-    sectionHeaders.clear();
-    layoutOrder.clear();
     rowHolder.removeAllChildren();
     deviceValues.clear();
     pendingValues.clear();
@@ -432,21 +454,31 @@ void Rise2Component::rebuildRows()
         deviceValues[f.id] = pendingValues[f.id] = f.read (state);
 
     const auto onChange = [this] (juce::uint32 id, juce::int32 v) { onItemChanged (id, v); };
+    const auto shown = [this] (juce::uint32 id) { return ! (readOnly && isUnreliableOnOldRise (id)); };
 
     const char* groupOrder[] = { "Sensitivity", "MIDI Settings", "Play mode", "MIDI CC Assignments", "Power" };
     for (auto* g : groupOrder)
     {
-        auto header = std::make_unique<juce::Label>();
-        header->setText (g, juce::dontSendNotification);
-        header->setFont (juce::Font (juce::FontOptions (16.0f, juce::Font::bold)));
-        header->setColour (juce::Label::textColourId, grab::theme::header);
-        header->setColour (juce::Label::backgroundColourId, juce::Colour (0x22ffffff));
-        header->setJustificationType (juce::Justification::centredLeft);
-        rowHolder.addAndMakeVisible (*header);
-        layoutOrder.push_back ({ header.get(), sectionHeaderHeight });
-        sectionHeaders.push_back (std::move (header));
+        const juce::String group (g);
+        auto card = std::make_unique<SectionCard> (group);
 
-        if (juce::String (g) == "Sensitivity")
+        auto addRow = [&] (const Field& f)
+        {
+            roli::Block::ConfigMetaData meta (f.id);
+            meta.name = f.name;
+            meta.group = f.group;
+            meta.type = f.type;
+            meta.range = { f.lo, f.hi };
+            meta.value = deviceValues[f.id];
+            meta.isActive = true;
+            for (size_t i = 0; i < f.options.size() && i < (size_t) roli::Block::ConfigMetaData::numOptionNames; ++i)
+                meta.optionNames[i] = f.options[i];
+            auto row = std::make_unique<ConfigRow> (meta, deviceValues[f.id], onChange);
+            card->addItem (*row, rowHeight);
+            rows.push_back (std::move (row));
+        };
+
+        if (group == "Sensitivity")
         {
             curveRow = std::make_unique<CurveRow>();
             for (auto& d : dims)
@@ -457,32 +489,33 @@ void Rise2Component::rebuildRows()
                     hasMinMax ? deviceValues[d.minId] : 0, hasMinMax ? deviceValues[d.maxId] : 127, onChange,
                     hasMinMax)));
             }
-            rowHolder.addAndMakeVisible (*curveRow);
-            layoutOrder.push_back ({ curveRow.get(), 130 });
+            card->addItem (*curveRow, 130);
         }
 
-        for (auto& f : fields())
+        if (group == "MIDI CC Assignments")
         {
-            if (juce::String (f.group) != g || isCurve (f.id))
-                continue;
-            if (readOnly && isUnreliableOnOldRise (f.id))   // hidden on the original RISE
-                continue;
+            // The three touch faders + XY-pad axes as vertical faders; pedal stays a row.
+            faderPanel = std::make_unique<FaderPanel>();
+            for (auto& f : fields())
+                if (juce::String (f.group) == group && isFaderField (f.id) && shown (f.id))
+                    faders.push_back (faderPanel->add (std::make_unique<Fader> (
+                        f.id, shortFaderLabel (f.name), deviceValues[f.id], f.lo, f.hi, onChange)));
+            if (! faderPanel->faders.empty())
+                card->addItem (*faderPanel, 150);
 
-            roli::Block::ConfigMetaData meta (f.id);
-            meta.name = f.name;
-            meta.group = f.group;
-            meta.type = f.type;
-            meta.range = { f.lo, f.hi };
-            meta.value = deviceValues[f.id];
-            meta.isActive = true;
-            for (size_t i = 0; i < f.options.size() && i < (size_t) roli::Block::ConfigMetaData::numOptionNames; ++i)
-                meta.optionNames[i] = f.options[i];
-
-            auto row = std::make_unique<ConfigRow> (meta, deviceValues[f.id], onChange);
-            rowHolder.addAndMakeVisible (*row);
-            layoutOrder.push_back ({ row.get(), rowHeight });
-            rows.push_back (std::move (row));
+            for (auto& f : fields())
+                if (juce::String (f.group) == group && ! isFaderField (f.id) && ! isCurve (f.id) && shown (f.id))
+                    addRow (f);
         }
+        else
+        {
+            for (auto& f : fields())
+                if (juce::String (f.group) == group && ! isCurve (f.id) && shown (f.id))
+                    addRow (f);
+        }
+
+        rowHolder.addAndMakeVisible (*card);
+        cards.push_back (std::move (card));
     }
 
     rowHolder.setEnabled (! readOnly);   // read-only: show values greyed, no editing
@@ -500,6 +533,9 @@ void Rise2Component::onItemChanged (juce::uint32 id, juce::int32 v)
     for (auto* c : curves)
         if (c->getId() == id)
             c->setChanged (differs);
+    for (auto* f : faders)
+        if (f->getId() == id)
+            f->setChanged (differs);
     updateEnabled();
 }
 
@@ -587,14 +623,5 @@ void Rise2Component::resized()
     r.removeFromTop (6);
 
     viewport.setBounds (r);
-    const int w = juce::jmax (200, viewport.getWidth() - 12);
-    int total = 0;
-    for (auto& item : layoutOrder) total += item.second;
-    rowHolder.setSize (w, total);
-    int y = 0;
-    for (auto& item : layoutOrder)
-    {
-        item.first->setBounds (0, y, w, item.second);
-        y += item.second;
-    }
+    layoutCardGrid (viewport, rowHolder, cards, "Sensitivity");
 }

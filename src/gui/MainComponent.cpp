@@ -939,40 +939,7 @@ void MainComponent::resized()
     r.removeFromTop (6);
 
     viewport.setBounds (r);
-
-    // Card grid: the Sensitivity card spans the full width at the top; the rest flow
-    // into a responsive set of columns, each new card dropped into the shortest column.
-    const int gap     = 10;
-    const int availW  = juce::jmax (260, viewport.getWidth() - 14);   // leave room for the scrollbar
-    const int cols    = juce::jlimit (1, 3, (availW + gap) / (280 + gap));
-    const int colW    = cols > 1 ? (availW - gap * (cols - 1)) / cols : availW;
-
-    int topY = 0;
-    SectionCard* sensitivity = nullptr;
-    for (auto& c : cards)
-        if (c->getTitle() == "Sensitivity") { sensitivity = c.get(); break; }
-
-    if (sensitivity != nullptr)
-    {
-        sensitivity->setBounds (0, 0, availW, sensitivity->contentHeight());
-        topY = sensitivity->getBottom() + gap;
-    }
-
-    std::vector<int> colBottom ((size_t) cols, topY);
-    for (auto& c : cards)
-    {
-        if (c.get() == sensitivity)
-            continue;
-        int col = 0;
-        for (int i = 1; i < cols; ++i)
-            if (colBottom[(size_t) i] < colBottom[(size_t) col]) col = i;
-        c->setBounds (col * (colW + gap), colBottom[(size_t) col], colW, c->contentHeight());
-        colBottom[(size_t) col] = c->getBottom() + gap;
-    }
-
-    int total = topY;
-    for (int b : colBottom) total = juce::jmax (total, b);
-    rowHolder.setSize (availW, juce::jmax (total, viewport.getHeight()));
+    layoutCardGrid (viewport, rowHolder, cards, "Sensitivity");
 }
 
 void MainComponent::paint (juce::Graphics& g)

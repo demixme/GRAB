@@ -8,6 +8,7 @@
 
 #include "Theme.h"
 
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -61,3 +62,45 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SectionCard)
 };
+
+//==============================================================================
+/** Lay cards out in `rowHolder` (the viewed component of `viewport`): the card whose title
+    is `fullWidthTitle` spans the full width at the top, the rest flow into up to three
+    responsive columns, each card dropped into the shortest column. Sizes rowHolder so the
+    viewport scrolls. Shared by the BLOCKS and RISE config pages. */
+inline void layoutCardGrid (juce::Viewport& viewport, juce::Component& rowHolder,
+                            const std::vector<std::unique_ptr<SectionCard>>& cards,
+                            const juce::String& fullWidthTitle)
+{
+    const int gap    = 10;
+    const int availW = juce::jmax (260, viewport.getWidth() - 14);   // room for the scrollbar
+    const int cols   = juce::jlimit (1, 3, (availW + gap) / (280 + gap));
+    const int colW   = cols > 1 ? (availW - gap * (cols - 1)) / cols : availW;
+
+    int topY = 0;
+    SectionCard* full = nullptr;
+    for (auto& c : cards)
+        if (c->getTitle() == fullWidthTitle) { full = c.get(); break; }
+
+    if (full != nullptr)
+    {
+        full->setBounds (0, 0, availW, full->contentHeight());
+        topY = full->getBottom() + gap;
+    }
+
+    std::vector<int> colBottom ((size_t) cols, topY);
+    for (auto& c : cards)
+    {
+        if (c.get() == full)
+            continue;
+        int col = 0;
+        for (int i = 1; i < cols; ++i)
+            if (colBottom[(size_t) i] < colBottom[(size_t) col]) col = i;
+        c->setBounds (col * (colW + gap), colBottom[(size_t) col], colW, c->contentHeight());
+        colBottom[(size_t) col] = c->getBottom() + gap;
+    }
+
+    int total = topY;
+    for (int b : colBottom) total = juce::jmax (total, b);
+    rowHolder.setSize (availW, juce::jmax (total, viewport.getHeight()));
+}
