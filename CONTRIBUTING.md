@@ -33,10 +33,11 @@ tools that gather what we need — no extra software:
 (For most RISE/GRAND owners, the one-click **Help add device…** above already covers
 this — reach for these only if a maintainer asks.)
 
-To capture **ROLI Dashboard talking to the device** (the full host→device protocol),
-the external tools still apply:
-- `tools/capture-dashboard.ps1` / `capture-usb-replug.ps1` (USBPcap, run elevated),
-- `tools/decode-capture.sh` (auto-detects USB vs BLE and runs `seadecode`).
+To capture **ROLI Dashboard talking to the device** (the full host→device protocol — this
+is what's needed to add *writing* for a new device), see
+**[tools/CAPTURE-DASHBOARD.md](tools/CAPTURE-DASHBOARD.md)**. It covers two ways: a
+point-and-click Wireshark capture (no repo needed) and the scripted
+`tools/capture-dashboard.ps1` (USBPcap, elevated), then `tools/decode-capture.sh` to decode.
 
 See [RISE-GRAND.md](RISE-GRAND.md) for the known RISE/GRAND parameters and the
 capture-and-map workflow.

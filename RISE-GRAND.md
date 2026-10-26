@@ -135,7 +135,8 @@ read-only unlock, GRAB shows these decoded values for any fw 1.x RISE with **Sav
 disabled**, and **hides only** the Strike/Press/Lift min/max block (the one group that reads
 zeros) via `isUnreliableOnOldRise()` in `Rise2Component.cpp`. To enable writing, someone
 needs to capture Dashboard ↔ original-RISE traffic and confirm the `0x78 3D <param>`
-numbers on fw 1.x (they may differ from the RISE 2's).
+numbers on fw 1.x (they may differ from the RISE 2's). **How to capture it (two ways, ~10
+min): [tools/CAPTURE-DASHBOARD.md](tools/CAPTURE-DASHBOARD.md).**
 
 ### Battery
 Battery level 0..7 comes from the Bluetooth module (an ASCII `BAT <n>` message inside the
