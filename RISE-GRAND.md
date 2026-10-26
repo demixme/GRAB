@@ -89,7 +89,7 @@ state on connect. Offsets count from `F0`, values are stored as sent.
 |---|---|
 | 6..13 | `RISE1.00` (family and format, a RISE 2 reports this too) |
 | 22 / 30 / 38 | firmware versions: main, second image, Bluetooth module |
-| 46..62 / 63..74 | MAC / serial (GRAB does not send these anywhere) |
+| 46..62 / 63..74 | MAC / serial (GRAB blanks these in logs, captures and submissions) |
 | 79 / 80 / 81 | first member, last member and master channel (0-based) |
 | 82 | MPE on |
 | 83 | pitch bend range |

@@ -12,6 +12,8 @@
 
 #include <sea_sysex.h>
 
+#include "Anonymize.h"
+
 #include <cstdint>
 #include <thread>
 #include <vector>
@@ -269,7 +271,8 @@ private:
     {
         const auto* d = reinterpret_cast<const std::uint8_t*> (m.getRawData());
         const auto  n = (std::size_t) m.getRawDataSize();
-        juce::String line = "RECV   " + juce::String (sea::toHex (d, n));
+        const auto  safe = grab::anonymize (d, n);   // no serial / MAC in what gets shared
+        juce::String line = "RECV   " + juce::String (sea::toHex (safe.data(), safe.size()));
         const juce::String note (sea::annotate (d, n));
         if (note.isNotEmpty()) line << "   (" << note << ")";
         const juce::ScopedLock sl (lock);

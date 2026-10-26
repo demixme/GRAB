@@ -29,6 +29,9 @@ Plus the self-learn **pull** and the maintainer **export**:
   defaults can be learned; reviewable before sending.
 - No audio or played notes are sent — except what a device itself emits in an explicit
   raw **Capture** (which is read-only and shown live before you submit).
+- Logs, captures, probes and **Help add device** blank the MAC and serial in a ROLI
+  identify reply (`78 3A`, shown as `X`) and mask the per-unit part of port identifiers
+  (a Windows USB instance id, a Bluetooth address). See `src/common/Anonymize.h`.
 - No account. The store keeps no raw IP (the rate-limiter stores only a salted hash).
 
 ## Profile schema (v1)

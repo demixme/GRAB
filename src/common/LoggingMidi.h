@@ -16,6 +16,8 @@
 
 #include <sea_sysex.h>
 
+#include "Anonymize.h"
+
 #include <atomic>
 #include <cstdint>
 #include <cstring>
@@ -57,9 +59,10 @@ public:
     /** Log a raw MIDI message. dir is "IN " or "OUT". note is a short annotation. */
     void midi (const char* dir, const std::uint8_t* data, std::size_t size, const juce::String& note)
     {
+        const auto safe = grab::anonymize (data, size);   // no serial / MAC in the log
         juce::String text;
         text << dir << " "
-             << juce::String (sea::toHex (data, size))
+             << juce::String (sea::toHex (safe.data(), safe.size()))
              << "   (" << note << ")";
         line (text);
     }
@@ -241,8 +244,8 @@ public:
             return nullptr;
 
         const auto& pair = selectedPairs[(std::size_t) index];
-        logger.line ("Opening " + activeTransport + " Seaboard: IN='" + pair.input.name + "' [" + pair.input.identifier
-                     + "]  OUT='" + pair.output.name + "' [" + pair.output.identifier + "]");
+        logger.line ("Opening " + activeTransport + " Seaboard: IN='" + pair.input.name + "' [" + grab::anonymizeIdentifier (pair.input.identifier)
+                     + "]  OUT='" + pair.output.name + "' [" + grab::anonymizeIdentifier (pair.output.identifier) + "]");
 
         auto out = juce::MidiOutput::openDevice (pair.output.identifier);
         if (out == nullptr)
@@ -341,7 +344,7 @@ private:
         {
             allPorts.push_back ({ d, true, isBlocksDevice (d), isBle (d), transportTag (d) });
             logger.line ("  IN   [" + juce::String (transportTag (d)).paddedRight (' ', 5) + "] name='"
-                         + d.name + "'  id=[" + d.identifier + "]"
+                         + d.name + "'  id=[" + grab::anonymizeIdentifier (d.identifier) + "]"
                          + (isBlocksDevice (d) ? "  <blocks>" : ""));
         }
 
@@ -350,7 +353,7 @@ private:
         {
             allPorts.push_back ({ d, false, isBlocksDevice (d), isBle (d), transportTag (d) });
             logger.line ("  OUT  [" + juce::String (transportTag (d)).paddedRight (' ', 5) + "] name='"
-                         + d.name + "'  id=[" + d.identifier + "]"
+                         + d.name + "'  id=[" + grab::anonymizeIdentifier (d.identifier) + "]"
                          + (isBlocksDevice (d) ? "  <blocks>" : ""));
         }
 
@@ -378,8 +381,8 @@ private:
                      + transportName (transport) + ";  USB avail=" + juce::String ((int) usbPairs.size())
                      + ", BLE avail=" + juce::String ((int) blePairs.size()) + "] ===");
         for (auto& p : selectedPairs)
-            logger.line ("  USE  IN='" + p.input.name + "' [" + p.input.identifier
-                         + "]  OUT='" + p.output.name + "' [" + p.output.identifier + "]");
+            logger.line ("  USE  IN='" + p.input.name + "' [" + grab::anonymizeIdentifier (p.input.identifier)
+                         + "]  OUT='" + p.output.name + "' [" + grab::anonymizeIdentifier (p.output.identifier) + "]");
     }
 
     std::vector<Pair> buildPairs (const juce::Array<juce::MidiDeviceInfo>& inputs,
