@@ -3,9 +3,10 @@
 **Status: Seaboard RISE 2 is supported** (config read and write, verified on a RISE 2 with
 firmware 2.0.2 on macOS). The **original RISE (fw 1.x)** returns the **same 224-byte state
 dump**, and ~90% of it decodes correctly against the RISE 2 layout, so GRAB now shows it
-**read-only**: settings are displayed, but **Save is disabled** and the fields that decode
-wrong on the original (the Strike/Press/Lift min/max block and the fader/XY CC section) are
-hidden — see "Original RISE 49 answers with the same dump" below. Writes stay locked until
+**read-only**: settings are displayed, but **Save is disabled** and the fields not yet
+confirmed on the original (the Strike/Press/Lift min/max block, which reads zeros, and the
+fader/XY CC *assignments*) are hidden — see "Original RISE 49 answers with the same dump"
+below. Writes stay locked until
 the `0x78 3D` write params are confirmed on that firmware. The **GRAND** is still
 unconfirmed. The RISE 2 protocol below is confirmed on that device; the rest of this
 document collects what is known so far for the other models.
@@ -122,16 +123,20 @@ serial `R49…`) answering `F0 00 21 10 78 3F F7` shows it returns the **same 22
   velocity (152/153), transpose (207), battery (209).
 - ⚠️ **Min/max block (154–159) reads all zeros** — either not stored on this firmware or
   at a different offset; don't trust those six on an original RISE.
-- ⚠️ **Fader CCs (92/96/100) and XY CCs (102/103)** point at the RISE 2's extra left-hand
-  faders, which the original RISE doesn't have — values there are not meaningful controls.
+- ⚠️ **Fader CCs (92/96/100) and XY CCs (102/103)** — the original RISE has the **same three
+  touch faders + XY pad** as the RISE 2 (Glide/Slide/Press sensitivity sliders; confirmed by
+  an owner), and the dump holds plausible values (107/109/111, 113/114). What's unconfirmed
+  is whether the fader/XY **MIDI-CC assignment** (the RISE 2's "MIDI CC Assignments") is a
+  real setting at these offsets on fw 1.x — the original RISE's Dashboard may not expose it —
+  so GRAB hides these rows until an owner confirms.
 - There is an extra version string (`1.1.0`) at offset 14 that a RISE 2 leaves blank; it
   does **not** shift the settings region (every offset from 22 on still lines up).
 
 Because the port is named `ROLI Seaboard RISE 49`, `rise2::isRisePort()` already matches
 it, so GRAB (≥ 0.1.9) routes it to the RISE page rather than the BLOCKS path. As of the
 read-only unlock, GRAB shows these decoded values for any fw 1.x RISE with **Save
-disabled**, and **hides** the min/max block and the fader/XY CC rows (the known-wrong
-fields) via `isUnreliableOnOldRise()` in `Rise2Component.cpp`. To enable writing, someone
+disabled**, and **hides** the min/max block and the fader/XY CC rows (the fields not yet
+confirmed on fw 1.x) via `isUnreliableOnOldRise()` in `Rise2Component.cpp`. To enable writing, someone
 needs to capture Dashboard ↔ original-RISE traffic and confirm the `0x78 3D <param>`
 numbers on fw 1.x (they may differ from the RISE 2's).
 
