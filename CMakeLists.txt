@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(GRAB VERSION 0.1.14 LANGUAGES C CXX)  # bump with each release; tag vX.Y.Z to match
+project(GRAB VERSION 0.1.15 LANGUAGES C CXX)  # bump with each release; tag vX.Y.Z to match
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

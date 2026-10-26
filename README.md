@@ -9,12 +9,13 @@ instruments configurable and self-documents their protocol.
 > **B**lock (and the rest of the BLOCKS family).
 
 <p align="center">
-  <img src="docs/grab-screenshot.png" width="480"
-       alt="GRAB configuring a ROLI Seaboard BLOCK over USB-MIDI: 5D sensitivity curves, MIDI settings, pitch and play-mode controls, all read live from the device.">
+  <img src="docs/grab-screenshot.png" width="560"
+       alt="GRAB's interface: colour-coded 5D sensitivity curves across the top, with MIDI settings, play mode and a RISE MIDI CC fader panel in cards below.">
 </p>
 
-<p align="center"><sub>Controls are generated from what the connected device
-reports — here a Seaboard BLOCK on fw 1.4.3 over USB.</sub></p>
+<p align="center"><sub>Controls are generated from what the connected device reports.
+Drag the curve end-dots to set min/max, hover anything for a description, and double- or
+right-click to reset.</sub></p>
 
 ## Supported devices
 | Device | Status |
@@ -53,6 +54,9 @@ usable whatever happens to ROLI's software and servers.
 - An open, no-login, no-driver tool that reads and writes a device's **core settings**
   over MIDI SysEx — the things on Dashboard's config panel (5D sensitivities, MIDI
   mode/channels, pitch, tracking, play mode), generated live from what the device reports.
+- A **clear, self-documenting interface** — colour-coded 5D curves (drag the end-dots to
+  set min/max), grouped cards, a RISE MIDI CC fader panel, hover-help on every control, and
+  double-/right-click to reset.
 - A growing, community-built **map of the protocol** (the opt-in self-learn store, see
   [DEVICE-PROFILES.md](DEVICE-PROFILES.md)) and an offline **decoder** for captured traffic.
 
