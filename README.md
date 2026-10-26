@@ -13,10 +13,6 @@ instruments configurable and self-documents their protocol.
        alt="GRAB's interface: colour-coded 5D sensitivity curves across the top, with MIDI settings, play mode and a RISE MIDI CC fader panel in cards below.">
 </p>
 
-<p align="center"><sub>Controls are generated from what the connected device reports.
-Drag the curve end-dots to set min/max, hover anything for a description, and double- or
-right-click to reset.</sub></p>
-
 ## Supported devices
 | Device | Status |
 |---|---|
