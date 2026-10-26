@@ -16,10 +16,10 @@ instruments configurable and self-documents their protocol.
 ## Supported devices
 | Device | Status |
 |---|---|
-| Seaboard **Block** | ✅ supported (config read/write, presets) |
+| Seaboard **Block** (now sold as **Seaboard Block M**) | ✅ supported (config read/write, presets) |
 | Seaboard **RISE 2** | ✅ supported (config read/write, presets, firmware 2.x) — own protocol |
 | **ROLI Piano** (49) | ✅ confirmed (config read/write, key colours; firmware 1.5.0, Windows) — same BLOCKS protocol · [PIANO.md](PIANO.md) |
-| **LUMI Keys** | 🟡 keyboard-family — connects and shows its basic shared settings; full support (scales, lighting) not done yet — **contributions welcome** |
+| **Piano M** (24, formerly **LUMI Keys** / LUMI Keys Studio Edition — same hardware, rebranded) | 🟡 keyboard-family — connects and shows its basic shared settings; full support (scales, lighting) not done yet. DNA-linkable, so a chained pair should show like two Seaboard Blocks once we get a report — **contributions welcome** |
 | Pad & control **BLOCKS** (Lightpad/Pad, Live, Loop, Touch) · **Airwave** | ◻️ out of scope *for now* — they connect and GRAB shows their basic shared settings, but ROLI's per-app/mode config (Note Grid, Fader Block, Drum Block, …) isn't managed by GRAB (see **Scope** below). **Contributions to add them are welcome** |
 | Multiple BLOCKS (DNA-connected cluster) | ✅ identical chained blocks (e.g. two Seaboard Blocks) shown as one device — shared config, writes fan out to the whole chain, drawn as one continuous keyboard |
 | Seaboard **RISE 25/49** (original) | ✅ read/write — same `0x78`/RPN protocol as the RISE 2, confirmed on a RISE 25 (one caveat: min/max aren't shown — this firmware doesn't report them back) · [RISE-GRAND.md](RISE-GRAND.md) |
@@ -28,8 +28,9 @@ instruments configurable and self-documents their protocol.
 Got an **unsupported** device? Run GRAB, click **Help add device…** → **Run & submit** —
 one click, read-only, and it's how the next devices get added.
 
-**Scope.** GRAB focuses on ROLI's **keyboard-family instruments** — the Seaboard Block,
-Seaboard RISE / RISE 2, and ROLI Piano (with LUMI Keys a natural next addition) — where a
+**Scope.** GRAB focuses on ROLI's **keyboard-family instruments** — the Seaboard Block
+(Seaboard Block M), Seaboard RISE / RISE 2, and ROLI Piano (with Piano M, the rebranded
+LUMI Keys, a natural next addition) — where a
 device's configuration is a fixed parameter set GRAB reads and writes in full. The **pad
 and control BLOCKS** (Lightpad/Pad, Live, Loop, Touch) run ROLI's Littlefoot **app** system,
 where each app (Note Grid, Fader Block, Drum Block, …) has its own layout and most settings
@@ -62,7 +63,7 @@ usable whatever happens to ROLI's software and servers.
   reproduce Dashboard's full workflow.
 - Finished or polished — expect rough edges. **Confirmed on real hardware: the Seaboard
   Block, the Seaboard RISE 2, and the ROLI Piano 49** so far. Other BLOCKS (Lightpad, Live,
-  Loop, Touch, LUMI, Airwave) connect and show the config they report, but **app- and
+  Loop, Touch, Piano M / LUMI, Airwave) connect and show the config they report, but **app- and
   mode-specific features aren't covered yet** (e.g. a Lightpad's Fader Block setup) — those
   need more reports. The **original Seaboard RISE** is **read/write** (same protocol as the
   RISE 2, confirmed on a RISE 25; min/max aren't shown); the **GRAND** isn't supported yet.
