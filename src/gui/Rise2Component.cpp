@@ -119,16 +119,16 @@ const Dim dims[] = {
 
 bool isCurve (juce::uint32 id) { return id >= kStrikeSens && id <= kLiftSens; }
 
-// Hidden in the original-RISE (fw 1.x) read-only view because they're not yet confirmed
-// there: the Strike/Press/Lift min/max block reads zeros (clearly wrong), and although the
-// original RISE has the same three faders + XY pad as the RISE 2, whether their MIDI-CC
-// assignment is a real setting at these offsets on fw 1.x is unverified. See RISE-GRAND.md.
+// The Strike/Press/Lift min/max block reads all zeros on the original RISE (fw 1.x) —
+// clearly wrong (a strikeMax of 0 is impossible) — so hide it in the read-only view. The
+// fader/XY CC rows ARE shown: the original RISE has the same three touch faders + XY pad as
+// the RISE 2 (hardware-confirmed by an owner), and those offsets decode to the expected CC
+// numbers (107/109/111, 113/114). See RISE-GRAND.md.
 bool isUnreliableOnOldRise (juce::uint32 id)
 {
     switch (id)
     {
         case kStrikeMin: case kStrikeMax: case kPressMin: case kPressMax: case kLiftMin: case kLiftMax:
-        case kFaderLeftCc: case kFaderMiddleCc: case kFaderRightCc: case kXyXCc: case kXyYCc:
             return true;
         default:
             return false;
