@@ -67,6 +67,7 @@ private:
 class MainComponent  : public juce::Component,
                        private roli::TopologySource::Listener,
                        private roli::Block::ConfigItemListener,
+                       private roli::TouchSurface::Listener,
                        private juce::Timer
 {
 public:
@@ -92,6 +93,12 @@ private:
     void connect (seaprobe::Transport transport);
     void updateBlockList (const roli::BlockTopology& topology);
     void selectBlock (roli::Block::UID uid);
+    void updateKeyboardForBlock();  // show/size the keywave for the current block (joined for a chain)
+
+    // Live 5D-touch rings on the keyboard graphic. Registers on every cluster member's touch
+    // surface; touchChanged (MIDI thread) maps a touch into the combined keyboard and forwards it.
+    void setTouchListening (const std::vector<roli::Block::UID>& members);
+    void touchChanged (roli::TouchSurface&, const roli::TouchSurface::Touch&) override;
     void contribute();
     void openDialog (juce::Component* panel, const juce::String& title); // owns panel in a DialogWindow
     void fetchNames (const juce::String& family, const juce::String& type);
@@ -114,7 +121,11 @@ private:
     roli::Block::Ptr block;                 // currently selected block
     roli::Block::Ptr listeningBlock;        // block we've registered the config listener on
     roli::Block::UID selectedBlockUid = 0;  // kept across topology updates
-    std::vector<roli::Block::UID> blockOrder; // combo index -> uid
+    std::vector<roli::Block::UID> blockOrder; // combo index -> representative (master) uid
+    // A DNA-chained, same-type group shares one config (edit one, the chain mirrors it), so
+    // it's shown as a single picker entry. Maps the representative uid -> all member uids,
+    // left-to-right. A write fans out to every member. Lone blocks map to a 1-element list.
+    std::map<roli::Block::UID, std::vector<roli::Block::UID>> clusterMembers;
 
     // Config sync bookkeeping
     bool   configRequested = false;
@@ -168,6 +179,13 @@ private:
     FooterBar footer;                           // hover-help strip along the bottom
     KeyboardView keyboardView;                  // stylised keywave at the top (keyboard devices)
     juce::MidiDeviceListConnection deviceList;  // to pick up a RISE switched on after launch
+
+    // Touch-surface listening for the live rings. Hold a Block::Ptr to each listened block so its
+    // touch surface stays alive until we removeListener, even if the block leaves the topology.
+    std::vector<roli::Block::Ptr> listenedBlocks;
+    struct TouchGeom { int index; int count; float w, h; }; // block's place in the chain + its size
+    std::map<roli::Block::UID, TouchGeom> touchGeometry;
+    juce::CriticalSection touchGeomLock;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
 };

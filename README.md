@@ -17,11 +17,11 @@ instruments configurable and self-documents their protocol.
 | Device | Status |
 |---|---|
 | Seaboard **Block** | ✅ supported (config read/write, presets) |
-| Seaboard **RISE 2** | ✅ supported (config read/write, firmware 2.x) — own protocol |
+| Seaboard **RISE 2** | ✅ supported (config read/write, presets, firmware 2.x) — own protocol |
 | **ROLI Piano** (49) | ✅ confirmed (config read/write, key colours; firmware 1.5.0, Windows) — same BLOCKS protocol · [PIANO.md](PIANO.md) |
 | **LUMI Keys** | 🟡 keyboard-family — connects and shows its basic shared settings; full support (scales, lighting) not done yet — **contributions welcome** |
 | Pad & control **BLOCKS** (Lightpad/Pad, Live, Loop, Touch) · **Airwave** | ◻️ out of scope *for now* — they connect and GRAB shows their basic shared settings, but ROLI's per-app/mode config (Note Grid, Fader Block, Drum Block, …) isn't managed by GRAB (see **Scope** below). **Contributions to add them are welcome** |
-| Multiple BLOCKS (DNA-connected cluster) | ✅ detected; per-block selection |
+| Multiple BLOCKS (DNA-connected cluster) | ✅ identical chained blocks (e.g. two Seaboard Blocks) shown as one device — shared config, writes fan out to the whole chain, drawn as one continuous keyboard |
 | Seaboard **RISE 25/49** (original) | ✅ read/write — same `0x78`/RPN protocol as the RISE 2, confirmed on a RISE 25 (one caveat: min/max aren't shown — this firmware doesn't report them back) · [RISE-GRAND.md](RISE-GRAND.md) |
 | Seaboard **GRAND** | ⛔ not mapped yet — **owners: click Help add device…** so we can see its protocol (likely the same as the RISE); reads could follow, then writes via [tools/CAPTURE-DASHBOARD.md](tools/CAPTURE-DASHBOARD.md) · [issue #1](../../issues/1) |
 
@@ -176,7 +176,11 @@ prefilled GitHub issue** instead of submitting.
 - **Live UI** — controls update as the device reports changes (from the device itself
   or another app), and the control set adapts when a setting like MIDI Mode changes
   which parameters are available — no manual refresh needed. Unsaved edits are kept.
-- **JSON presets**, multi-device (daisy-chained BLOCKS), transport auto-select (USB/BLE).
+- **JSON presets** (Seaboard Block and RISE), transport auto-select (USB/BLE).
+- **Chained Seaboard Blocks** of the same type appear as one device — shared config, writes
+  fan out to the whole chain, shown as a single continuous keyboard.
+- **Keyboard graphic** at the top for Seaboard devices, with **live 5D-touch rings** that
+  track finger position and grow with pressure.
 - **Decodes the protocol offline** from hex dumps or USBPcap/Wireshark/BLE captures.
 
 ## Building from source

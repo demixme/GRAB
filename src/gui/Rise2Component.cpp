@@ -166,9 +166,15 @@ Rise2Component::Rise2Component (seaprobe::RawLogger& loggerToUse) : logger (logg
     infoLabel.setColour (juce::Label::textColourId, juce::Colours::white.withAlpha (0.7f));
     addAndMakeVisible (reloadButton);
     addAndMakeVisible (saveButton);
+    addAndMakeVisible (loadPresetBtn);
+    addAndMakeVisible (savePresetBtn);
     reloadButton.onClick = [this] { setStatus ("Reloading from device..."); requestState(); };
     saveButton.onClick   = [this] { saveToDevice(); };
+    loadPresetBtn.onClick = [this] { loadPreset(); };
+    savePresetBtn.onClick = [this] { savePreset(); };
     saveButton.setEnabled (false);
+    loadPresetBtn.setEnabled (false);   // enabled once settings are shown (a verified read)
+    savePresetBtn.setEnabled (false);
 
     addAndMakeVisible (viewport);
     viewport.setViewedComponent (&rowHolder, false);
@@ -371,7 +377,7 @@ void Rise2Component::onState (rise2::State s)
     stopTimer();
     state = std::move (s);
 
-    const auto firmware = state.text (off::firmware, 8);
+    firmware = state.text (off::firmware, 8);   // stored for preset metadata
     const auto extra    = state.text (off::extraVersion, 8);
     const auto ble      = state.text (off::bleFirmware, 8);
     infoLabel.setText (portName + "   fw " + firmware + (extra.isNotEmpty() ? " (" + extra + ")" : juce::String())
@@ -398,6 +404,8 @@ void Rise2Component::onState (rise2::State s)
         layoutOrder.clear();
         rowHolder.removeAllChildren();
         saveButton.setEnabled (false);
+        loadPresetBtn.setEnabled (false);
+        savePresetBtn.setEnabled (false);
         resized();
         return;
     }
@@ -407,6 +415,8 @@ void Rise2Component::onState (rise2::State s)
     // reads back as zeros, so those stay hidden even though they are writable.
     minMaxReliable = verified;
     rebuildRows();
+    loadPresetBtn.setEnabled (true);    // settings are shown now, so presets apply
+    savePresetBtn.setEnabled (true);
 
     if (expected.empty())
     {
@@ -598,6 +608,85 @@ void Rise2Component::saveToDevice()
     });
 }
 
+void Rise2Component::savePreset()
+{
+    if (pendingValues.empty())
+        return;
+
+    chooser = std::make_unique<juce::FileChooser> ("Save preset", juce::File(), "*.json");
+    chooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles,
+        [this] (const juce::FileChooser& fc)
+        {
+            const auto file = fc.getResult();
+            if (file == juce::File())
+                return;
+
+            auto* obj = new juce::DynamicObject();
+            obj->setProperty ("tool", "GRAB");
+            obj->setProperty ("device", portName);
+            obj->setProperty ("firmware", firmware);
+            auto* values = new juce::DynamicObject();
+            for (auto& kv : pendingValues) // all items incl. the 5D curve dimensions and min/max
+                values->setProperty (juce::String ((int) kv.first), kv.second);
+            obj->setProperty ("values", juce::var (values));
+
+            file.replaceWithText (juce::JSON::toString (juce::var (obj)));
+            setStatus ("Preset saved: " + file.getFileName());
+        });
+}
+
+void Rise2Component::loadPreset()
+{
+    if (pendingValues.empty())
+    {
+        setStatus ("Read the device first, then load a preset.");
+        return;
+    }
+
+    chooser = std::make_unique<juce::FileChooser> ("Load preset", juce::File(), "*.json");
+    chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+        [this] (const juce::FileChooser& fc)
+        {
+            const auto file = fc.getResult();
+            if (file == juce::File())
+                return;
+
+            const auto parsed = juce::JSON::parse (file.loadFileAsString());
+            const auto* values = parsed.getProperty ("values", juce::var()).getDynamicObject();
+            if (values == nullptr)
+            {
+                setStatus ("Preset has no 'values' object.");
+                return;
+            }
+
+            int applied = 0;
+            for (const auto& prop : values->getProperties())
+            {
+                const auto id = (juce::uint32) prop.name.toString().getIntValue();
+                if (pendingValues.find (id) == pendingValues.end())
+                    continue; // only items this device actually has
+                const auto v = (juce::int32) (int) prop.value;
+                pendingValues[id] = v;
+                const bool differs = deviceValues.count (id) && deviceValues[id] != v;
+
+                for (auto& r : rows)
+                    if (r->getId() == id) { r->setValue (v); r->setChangedFromDevice (differs); }
+                for (auto* c : curves)
+                {
+                    if (c->getId()    == id)        { c->setSensitivity (v); c->setChanged (differs); }
+                    if (c->getMinId() == (int) id)  c->setMin (v);
+                    if (c->getMaxId() == (int) id)  c->setMax (v);
+                }
+                for (auto* f : faders)
+                    if (f->getId() == id) { f->setValue (v); f->setChanged (differs); }
+                ++applied;
+            }
+
+            updateEnabled();
+            setStatus ("Preset loaded (" + juce::String (applied) + " items). Review, then Save to device.");
+        });
+}
+
 void Rise2Component::setStatus (const juce::String& s)
 {
     statusLabel.setText (s, juce::dontSendNotification);
@@ -612,8 +701,10 @@ void Rise2Component::resized()
     r.removeFromTop (4);
 
     auto buttons = r.removeFromTop (30);
-    reloadButton.setBounds (buttons.removeFromLeft (165).reduced (2, 0));
-    saveButton  .setBounds (buttons.removeFromLeft (165).reduced (2, 0));
+    reloadButton .setBounds (buttons.removeFromLeft (165).reduced (2, 0));
+    saveButton   .setBounds (buttons.removeFromLeft (165).reduced (2, 0));
+    loadPresetBtn.setBounds (buttons.removeFromLeft (137).reduced (2, 0));
+    savePresetBtn.setBounds (buttons.removeFromLeft (137).reduced (2, 0));
     r.removeFromTop (6);
 
     viewport.setBounds (r);

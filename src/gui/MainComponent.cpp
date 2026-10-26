@@ -257,6 +257,7 @@ MainComponent::MainComponent()
 MainComponent::~MainComponent()
 {
     stopTimer();
+    setTouchListening ({});   // remove touch listeners while the blocks are still alive
     setListeningBlock (nullptr);
     if (source != nullptr)
     {
@@ -272,6 +273,7 @@ void MainComponent::connect (seaprobe::Transport transport)
     // Tear down any existing session.
     stopTimer();
     setListeningBlock (nullptr);
+    setTouchListening ({});   // drop touch listeners before the source (and its blocks) go away
     if (source != nullptr)
     {
         source->removeListener (this);
@@ -319,6 +321,7 @@ void MainComponent::connect (seaprobe::Transport transport)
             if (rise2::isRisePort (d.name)) { riseName = d.name; break; }
         keyboardView.setOctaves (keyboardOctavesForName (riseName));
         keyboardView.setFamily (KeyboardView::Family::rise);
+        keyboardView.setBlocks (1);   // a RISE is a single keybed (no DNA chaining)
         keyboardView.setVisible (true);
 
         resized();
@@ -366,6 +369,8 @@ void MainComponent::topologyChanged()
         block = nullptr;
         selectedBlockUid = 0;
         blockOrder.clear();
+        clusterMembers.clear();
+        setTouchListening ({});   // device gone: stop the live rings
         blockBox.clear (juce::dontSendNotification);
         rowsBuilt = false;
         configRequested = false;
@@ -390,23 +395,62 @@ void MainComponent::topologyChanged()
 void MainComponent::updateBlockList (const roli::BlockTopology& topo)
 {
     blockOrder.clear();
+    clusterMembers.clear();
     blockBox.clear (juce::dontSendNotification);
 
-    int selectId = 0;
-    for (int i = 0; i < topo.blocks.size(); ++i)
+    // Group DNA-chained, same-type blocks under one logical device: they share one config
+    // (edit one, the chain mirrors it), exactly like ROLI Dashboard. A block connected only
+    // via its magnetic port reports isMasterBlock()==false and getConnectedMasterUID()==<the
+    // USB master>, so grouping by (master uid, type) collapses a homogeneous chain into one
+    // entry and leaves two separate USB cables (two masters) as two entries. Mixed-type
+    // chains stay separate too (a Lightpad on the same master is configured on its own).
+    struct Group { roli::Block::UID master; roli::Block::Type type; std::vector<roli::Block::Ptr> members; };
+    std::vector<Group> groups;
+    for (auto& b : topo.blocks)
     {
-        const auto b = topo.blocks[i];
-        blockOrder.push_back (b->uid);
-        blockBox.addItem (b->getDeviceDescription() + "  " + b->serialNumber, i + 1);
-        if (b->uid == selectedBlockUid)
-            selectId = i + 1;
+        const auto m = b->isMasterBlock() ? b->uid : b->getConnectedMasterUID();
+        Group* g = nullptr;
+        for (auto& c : groups)
+            if (c.master == m && c.type == b->getType()) { g = &c; break; }
+        if (g == nullptr) { groups.push_back ({ m, b->getType(), {} }); g = &groups.back(); }
+        g->members.push_back (b);
+    }
+
+    int selectId = 0;
+    roli::Block::UID newSelected = 0;
+    for (int i = 0; i < (int) groups.size(); ++i)
+    {
+        auto& g = groups[(size_t) i];
+        // left-to-right within the chain, so the keyboard halves draw in physical order
+        std::sort (g.members.begin(), g.members.end(), [] (const roli::Block::Ptr& a, const roli::Block::Ptr& b)
+                   { return a->getBlockAreaWithinLayout().x < b->getBlockAreaWithinLayout().x; });
+
+        // Representative we read/display from: the USB master if present, else the left-most.
+        roli::Block::Ptr rep = g.members.front();
+        for (auto& mb : g.members) if (mb->isMasterBlock()) { rep = mb; break; }
+
+        std::vector<roli::Block::UID> uids;
+        for (auto& mb : g.members) uids.push_back (mb->uid);
+        clusterMembers[rep->uid] = uids;
+        blockOrder.push_back (rep->uid);
+
+        juce::String label = rep->getDeviceDescription();
+        if (g.members.size() > 1)
+            label += "  x" + juce::String ((int) g.members.size()) + " (chained)";
+        label += "  " + rep->serialNumber;
+        blockBox.addItem (label, i + 1);
+
+        // Keep the selection if the previously-selected uid is any member of this group.
+        for (auto& mb : g.members)
+            if (mb->uid == selectedBlockUid) { selectId = i + 1; newSelected = rep->uid; }
     }
 
     if (selectId == 0) // first time, or previously-selected block is gone
     {
         selectId = 1;
-        selectedBlockUid = topo.blocks.getFirst()->uid;
+        newSelected = blockOrder.empty() ? 0 : blockOrder.front();
     }
+    selectedBlockUid = newSelected;
     blockBox.setSelectedId (selectId, juce::dontSendNotification);
 
     const bool blockChanged = (block == nullptr) || (block->uid != selectedBlockUid);
@@ -414,6 +458,8 @@ void MainComponent::updateBlockList (const roli::BlockTopology& topo)
     setListeningBlock (block); // live config updates for the selected block
     deviceSeen = true;             // a real BLOCKS device responded; disarm the connect timeout
     connectTimeoutShown = false;
+
+    updateKeyboardForBlock(); // joined keywave for a Seaboard (chain draws side-by-side)
 
     setStatus ("Connected (" + (detector != nullptr ? detector->getActiveTransport() : juce::String())
                + "): " + juce::String (topo.blocks.size()) + " block(s)"
@@ -432,6 +478,73 @@ void MainComponent::updateBlockList (const roli::BlockTopology& topo)
         requestConfig();
 }
 
+void MainComponent::updateKeyboardForBlock()
+{
+    const bool isSeaboard = block != nullptr && block->getType() == roli::Block::Type::seaboardBlock;
+    if (isSeaboard)
+    {
+        auto it = clusterMembers.find (selectedBlockUid);
+        const std::vector<roli::Block::UID> members = (it != clusterMembers.end()) ? it->second
+                                                                                   : std::vector<roli::Block::UID> { selectedBlockUid };
+        keyboardView.setOctaves (2);                       // a Seaboard Block is 2 octaves
+        keyboardView.setFamily  (KeyboardView::Family::block);
+        keyboardView.setBlocks  (juce::jmax (1, (int) members.size())); // chained Seaboards draw as one
+        keyboardView.setVisible (true);
+        setTouchListening (members);                       // live 5D-touch rings
+    }
+    else
+    {
+        keyboardView.setVisible (false);
+        setTouchListening ({});
+    }
+}
+
+void MainComponent::setTouchListening (const std::vector<roli::Block::UID>& members)
+{
+    for (auto& b : listenedBlocks)
+        if (auto* ts = b->getTouchSurface())
+            ts->removeListener (this);
+    listenedBlocks.clear();
+
+    std::map<roli::Block::UID, TouchGeom> geom;
+    if (source != nullptr && ! members.empty())
+    {
+        const auto topo = source->getCurrentTopology();
+        const int n = (int) members.size();
+        for (int i = 0; i < n; ++i)
+            if (auto b = topo.getBlockWithUID (members[(size_t) i]))
+                if (auto* ts = b->getTouchSurface())
+                {
+                    ts->addListener (this);
+                    listenedBlocks.push_back (b);   // keep the block (and its surface) alive
+                    geom[b->uid] = { i, n, (float) juce::jmax (1, b->getWidth()), (float) juce::jmax (1, b->getHeight()) };
+                }
+    }
+
+    { const juce::ScopedLock sl (touchGeomLock); touchGeometry = std::move (geom); }
+
+    if (listenedBlocks.empty()) keyboardView.stopTouchDisplay();
+    else                        keyboardView.startTouchDisplay();
+}
+
+void MainComponent::touchChanged (roli::TouchSurface&, const roli::TouchSurface::Touch& t)
+{
+    TouchGeom g;
+    {
+        const juce::ScopedLock sl (touchGeomLock);
+        auto it = touchGeometry.find (t.blockUID);
+        if (it == touchGeometry.end())
+            return;
+        g = it->second;
+    }
+
+    const float nx = juce::jlimit (0.0f, 1.0f, t.x / g.w);
+    const float ny = juce::jlimit (0.0f, 1.0f, t.y / g.h);
+    const float cx = ((float) g.index + nx) / (float) g.count;   // across the whole chain
+    const juce::uint64 id = t.blockUID ^ ((juce::uint64) (juce::uint32) t.index * 0x9E3779B97F4A7C15ULL);
+    keyboardView.setTouch (id, cx, ny, t.z, t.isTouchEnd);
+}
+
 void MainComponent::selectBlock (roli::Block::UID uid)
 {
     selectedBlockUid = uid;
@@ -442,9 +555,7 @@ void MainComponent::selectBlock (roli::Block::UID uid)
     setListeningBlock (block);
 
     // Keyboard graphic for keyboard-family blocks (Seaboard); hidden for pad/control blocks.
-    keyboardView.setOctaves (2);
-    keyboardView.setFamily (KeyboardView::Family::block);
-    keyboardView.setVisible (block != nullptr && block->getType() == roli::Block::Type::seaboardBlock);
+    updateKeyboardForBlock();
 
     // Reset per-block config state and re-read for the newly selected block.
     rows.clear();
@@ -813,18 +924,35 @@ void MainComponent::saveToDevice()
     if (block == nullptr)
         return;
 
+    // Fan the write out to every block in the DNA cluster so the shared config stays in sync,
+    // the way Dashboard does (edit one, the whole chain mirrors it). A lone block writes once.
+    std::vector<roli::Block::Ptr> targets;
+    if (source != nullptr)
+    {
+        const auto topo = source->getCurrentTopology();
+        auto it = clusterMembers.find (selectedBlockUid);
+        if (it != clusterMembers.end())
+            for (auto uid : it->second)
+                if (auto b = topo.getBlockWithUID (uid)) targets.push_back (b);
+    }
+    if (targets.empty())
+        targets.push_back (block);
+
     int written = 0;
     for (auto& kv : pendingValues)
     {
         auto it = deviceValues.find (kv.first);
         if (it != deviceValues.end() && it->second != kv.second)
         {
-            block->setLocalConfigValue (kv.first, kv.second); // setConfig write (persists on fw 1.4.3)
+            for (auto& t : targets)
+                t->setLocalConfigValue (kv.first, kv.second); // setConfig write (persists on fw 1.4.3)
             ++written;
         }
     }
 
-    setStatus ("Wrote " + juce::String (written) + " item(s); re-reading from device...");
+    setStatus ("Wrote " + juce::String (written) + " item(s)"
+               + (targets.size() > 1 ? " to " + juce::String ((int) targets.size()) + " chained blocks" : juce::String())
+               + "; re-reading from device...");
     saveButton.setEnabled (false);
     requestConfig(); // re-sync + rebuild confirms the values that stuck
 }
@@ -943,6 +1071,7 @@ void MainComponent::forceRisePreview()
 
     keyboardView.setOctaves (risePreviewVerified ? 5 : 2);   // RISE 2 = 5 octaves, original RISE = 2
     keyboardView.setFamily (KeyboardView::Family::rise);
+    keyboardView.setBlocks (1);
     keyboardView.setVisible (true);
     rise2Page->previewSyntheticState (risePreviewVerified);
     setStatus (juce::String ("RISE preview - ")

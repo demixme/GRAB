@@ -54,6 +54,8 @@ private:
     void onItemChanged (juce::uint32 id, juce::int32 value);
     void updateEnabled();
     void saveToDevice();
+    void loadPreset();
+    void savePreset();
     void setStatus (const juce::String&);
 
     int value (juce::uint32 id) const;   // pending value, falls back to the device value
@@ -63,6 +65,7 @@ private:
     std::unique_ptr<juce::MidiInput>  midiIn;
     juce::MidiDeviceListConnection deviceList;
     juce::String portName;   // "Seaboard RISE 2", the product name the device does not report
+    juce::String firmware;   // last-read firmware string, for preset metadata
 
     rise2::State state;
     std::map<juce::uint32, juce::int32> deviceValues;
@@ -76,6 +79,9 @@ private:
     juce::Label      infoLabel;
     juce::TextButton reloadButton { "Reload from device" };
     juce::TextButton saveButton   { "Save to device" };
+    juce::TextButton loadPresetBtn { "Load preset..." };
+    juce::TextButton savePresetBtn { "Save preset..." };
+    std::unique_ptr<juce::FileChooser> chooser;
     juce::Viewport   viewport;
     juce::Component  rowHolder;
     std::vector<std::unique_ptr<ConfigRow>> rows;
