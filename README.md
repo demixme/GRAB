@@ -128,7 +128,12 @@ devices get fixed and added.
 - **macOS:** BLE-MIDI devices do *not* appear in System Settings → Bluetooth. Connect
   once via **Audio MIDI Setup → Window → Show MIDI Studio → the Bluetooth icon → Connect**.
   After that it's a normal MIDI port — set **Transport → BLE** (or Auto) and **Reload from device**.
-- **Windows:** pair the device first in **Settings → Bluetooth & devices**.
+- **Windows:** pair the device first in **Settings → Bluetooth & devices**. For reliable
+  BLE-MIDI, use the **new Windows MIDI Services** stack — it's **built into Windows 11
+  (25H2 and later)**, so keep Windows updated; on older builds install it from Microsoft's
+  MIDI project ([github.com/microsoft/MIDI](https://github.com/microsoft/MIDI), or
+  `winget install Microsoft.WindowsMIDIServicesSDK`). The legacy WinRT BLE-MIDI path is
+  flaky by comparison.
 - A ROLI device **bonds to one computer at a time** — if it won't advertise, turn
   Bluetooth **off** on any other machine (or in ROLI software) holding it, then
   power-cycle the device and try again.
