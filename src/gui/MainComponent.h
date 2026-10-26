@@ -15,6 +15,7 @@
 #include "CurveComponent.h"
 #include "SectionCard.h"
 #include "FooterBar.h"
+#include "KeyboardView.h"
 #include "Rise2Component.h"
 
 #include <map>
@@ -165,6 +166,7 @@ private:
     bool risePreviewVerified = true;            // toggles verified/unverified on the dev preview shortcut
 
     FooterBar footer;                           // hover-help strip along the bottom
+    KeyboardView keyboardView;                  // stylised keywave at the top (keyboard devices)
     juce::MidiDeviceListConnection deviceList;  // to pick up a RISE switched on after launch
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)

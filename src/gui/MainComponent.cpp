@@ -8,6 +8,19 @@
 #include <algorithm>
 #include <map>
 
+namespace
+{
+// Rough key-range (octaves) for the keyboard graphic, from the device's port/name.
+int keyboardOctavesForName (const juce::String& name)
+{
+    if (name.contains ("25")) return 2;                                           // RISE 25
+    if (name.contains ("49")) return 4;                                           // RISE 49 / Piano 49
+    if (name.containsIgnoreCase ("RISE 2") || name.containsIgnoreCase ("RISE2"))  // RISE 2 (61 keys)
+        return 5;
+    return 2;                                                                     // Seaboard Block / original RISE / default
+}
+}
+
 //==============================================================================
 ConfigRow::ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value, ChangeFn onChange)
     : id (meta.item), type (meta.type), range (meta.range), initialValue (value), change (std::move (onChange))
@@ -211,8 +224,9 @@ MainComponent::MainComponent()
     viewport.setScrollBarsShown (true, false);
 
     addAndMakeVisible (footer);
+    addChildComponent (keyboardView);   // shown only for keyboard devices
 
-    setSize (920, 810);   // tall enough for the RISE page (its columns run longest)
+    setSize (920, 910);   // tall enough for the RISE page + the keyboard graphic
     setWantsKeyboardFocus (true);   // so the secret RISE-preview shortcut reaches keyPressed
     // Grab focus once the window is on screen, so the shortcut works without clicking first.
     juce::Component::SafePointer<MainComponent> sp (this);
@@ -267,6 +281,7 @@ void MainComponent::connect (seaprobe::Transport transport)
     detector.reset();
     rise2Page.reset();
     setBlocksControlsVisible (true);
+    keyboardView.setVisible (false);   // re-shown below for a keyboard device
     block = nullptr;
     selectedBlockUid = 0;
     learnedForType = {};
@@ -298,6 +313,14 @@ void MainComponent::connect (seaprobe::Transport transport)
         rise2Page = std::make_unique<Rise2Component> (*logger);
         addAndMakeVisible (*rise2Page);
         setBlocksControlsVisible (false);
+
+        juce::String riseName = "Seaboard RISE";
+        for (auto& d : juce::MidiOutput::getAvailableDevices())
+            if (rise2::isRisePort (d.name)) { riseName = d.name; break; }
+        keyboardView.setOctaves (keyboardOctavesForName (riseName));
+        keyboardView.setFamily (KeyboardView::Family::rise);
+        keyboardView.setVisible (true);
+
         resized();
         return;
     }
@@ -417,6 +440,11 @@ void MainComponent::selectBlock (roli::Block::UID uid)
 
     block = source->getCurrentTopology().getBlockWithUID (uid);
     setListeningBlock (block);
+
+    // Keyboard graphic for keyboard-family blocks (Seaboard); hidden for pad/control blocks.
+    keyboardView.setOctaves (2);
+    keyboardView.setFamily (KeyboardView::Family::block);
+    keyboardView.setVisible (block != nullptr && block->getType() == roli::Block::Type::seaboardBlock);
 
     // Reset per-block config state and re-read for the newly selected block.
     rows.clear();
@@ -913,6 +941,9 @@ void MainComponent::forceRisePreview()
         setBlocksControlsVisible (false);
     }
 
+    keyboardView.setOctaves (risePreviewVerified ? 5 : 2);   // RISE 2 = 5 octaves, original RISE = 2
+    keyboardView.setFamily (KeyboardView::Family::rise);
+    keyboardView.setVisible (true);
     rise2Page->previewSyntheticState (risePreviewVerified);
     setStatus (juce::String ("RISE preview - ")
                + (risePreviewVerified ? "verified fw 2.0.2"
@@ -929,6 +960,16 @@ void MainComponent::resized()
     statusLabel.setBounds (r.removeFromTop (28));
     r.removeFromTop (4);
 
+    // The keyboard graphic (keyboard devices only) sits above the config content.
+    auto placeKeyboard = [this] (juce::Rectangle<int>& area)
+    {
+        if (keyboardView.isVisible())
+        {
+            keyboardView.setBounds (area.removeFromTop (108));   // full width; keys are a fixed scale, centred/clipped
+            area.removeFromTop (8);
+        }
+    };
+
     // The RISE page owns its own reload/save/info/viewport, so when it's shown lay out
     // only the controls that still apply (Help add, Transport, Advanced) and hand it the
     // rest of the window. (The BLOCKS-only controls are hidden by setBlocksControlsVisible.)
@@ -942,6 +983,7 @@ void MainComponent::resized()
         transportLabel.setBounds (row.removeFromLeft (66));
         transportBox.setBounds (row.removeFromLeft (92).reduced (2, 0));
         r.removeFromTop (6);
+        placeKeyboard (r);
         rise2Page->setBounds (r);
         return;
     }
@@ -968,6 +1010,7 @@ void MainComponent::resized()
     blockBox.setBounds (trow.reduced (2, 0));
     r.removeFromTop (6);
 
+    placeKeyboard (r);
     viewport.setBounds (r);
     layoutCardGrid (viewport, rowHolder, cards, "Sensitivity");
 }
