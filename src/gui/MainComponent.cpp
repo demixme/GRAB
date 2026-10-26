@@ -38,9 +38,10 @@ ConfigRow::ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value
 
         case ConfigType::integer:
             slider.setSliderStyle (juce::Slider::LinearHorizontal);
-            slider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 70, 22);
+            slider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 56, 22);
             slider.setRange ((double) range.getStart(), (double) range.getEnd(), 1.0);
             slider.setValue ((double) value, juce::dontSendNotification);
+            slider.setDoubleClickReturnValue (true, (double) value);  // double-click reverts to the device value
             slider.onValueChange = [this] { fireChange(); };
             control = &slider;
             break;
@@ -93,7 +94,8 @@ void ConfigRow::setChangedFromDevice (bool c)
 void ConfigRow::resized()
 {
     auto r = getLocalBounds().reduced (4, 2);
-    nameLabel.setBounds (r.removeFromLeft (200));
+    const int labelW = juce::jlimit (90, 200, (int) (r.getWidth() * 0.46f));
+    nameLabel.setBounds (r.removeFromLeft (labelW));
     if (control != nullptr)
         control->setBounds (r);
 }
@@ -624,11 +626,10 @@ void MainComponent::applyLiveConfigChange (const roli::Block::ConfigMetaData& me
 
 void MainComponent::rebuildRows()
 {
+    cards.clear();          // un-parents the rows/curves it holds
     rows.clear();
     curveRows.clear();
     curves.clear();
-    sectionHeaders.clear();
-    layoutOrder.clear();
     rowHolder.removeAllChildren();
     deviceValues.clear();
     pendingValues.clear();
@@ -674,30 +675,21 @@ void MainComponent::rebuildRows()
         { 12, "Slide",  grab::theme::slide.getARGB(),  -1, -1 }, { 13, "Press", grab::theme::press.getARGB(), 52, 53 },
         { 14, "Lift",   grab::theme::lift.getARGB(),   54, 55 } };
 
-    auto emitRow = [&] (const Item& item)
-    {
-        auto row = std::make_unique<ConfigRow> (item.meta, item.value, onChange);
-        rowHolder.addAndMakeVisible (*row);
-        layoutOrder.push_back ({ row.get(), rowHeight });
-        rows.push_back (std::move (row));
-    };
-
     for (const auto& g : groupOrder)
     {
-        auto header = std::make_unique<juce::Label>();
-        header->setText (g.isEmpty() ? "Other" : g, juce::dontSendNotification);
-        header->setFont (juce::Font (juce::FontOptions (16.0f, juce::Font::bold)));
-        header->setColour (juce::Label::textColourId, grab::theme::header);
-        header->setColour (juce::Label::backgroundColourId, juce::Colour (0x22ffffff));
-        header->setJustificationType (juce::Justification::centredLeft);
-        rowHolder.addAndMakeVisible (*header);
-        layoutOrder.push_back ({ header.get(), sectionHeaderHeight });
-        sectionHeaders.push_back (std::move (header));
+        auto card = std::make_unique<SectionCard> (g.isEmpty() ? "Other" : g);
+
+        auto emitRow = [&] (const Item& item)
+        {
+            auto row = std::make_unique<ConfigRow> (item.meta, item.value, onChange);
+            card->addItem (*row, rowHeight);
+            rows.push_back (std::move (row));
+        };
 
         if (g == "Sensitivity")
         {
-            // 5D curves across the top of the section; remaining items (min/max,
-            // fixed velocity) as rows below.
+            // 5D curves across the top of the card; remaining items (min/max, fixed
+            // velocity) as rows below.
             auto cr = std::make_unique<CurveRow>();
             for (const auto& d : dims)
             {
@@ -711,8 +703,7 @@ void MainComponent::rebuildRows()
             }
             if (! cr->curves.empty())
             {
-                rowHolder.addAndMakeVisible (*cr);
-                layoutOrder.push_back ({ cr.get(), 130 });
+                card->addItem (*cr, 130);
                 curveRows.push_back (std::move (cr));
             }
             for (const auto& item : groups[g])
@@ -724,9 +715,12 @@ void MainComponent::rebuildRows()
             for (const auto& item : groups[g])
                 emitRow (item);
         }
+
+        rowHolder.addAndMakeVisible (*card);
+        cards.push_back (std::move (card));
     }
 
-    resized(); // positions the sections/rows and sizes rowHolder
+    resized(); // positions the cards and sizes rowHolder
     saveButton.setEnabled (false);
     setStatus (statusLabel.getText() + "   -   " + juce::String ((int) rows.size())
                + " items in " + juce::String ((int) groupOrder.size()) + " sections");
@@ -945,16 +939,40 @@ void MainComponent::resized()
     r.removeFromTop (6);
 
     viewport.setBounds (r);
-    const int w = juce::jmax (200, viewport.getWidth() - 12);
-    int total = 0;
-    for (auto& item : layoutOrder) total += item.second;
-    rowHolder.setSize (w, total);
-    int y = 0;
-    for (auto& item : layoutOrder)
+
+    // Card grid: the Sensitivity card spans the full width at the top; the rest flow
+    // into a responsive set of columns, each new card dropped into the shortest column.
+    const int gap     = 10;
+    const int availW  = juce::jmax (260, viewport.getWidth() - 14);   // leave room for the scrollbar
+    const int cols    = juce::jlimit (1, 3, (availW + gap) / (280 + gap));
+    const int colW    = cols > 1 ? (availW - gap * (cols - 1)) / cols : availW;
+
+    int topY = 0;
+    SectionCard* sensitivity = nullptr;
+    for (auto& c : cards)
+        if (c->getTitle() == "Sensitivity") { sensitivity = c.get(); break; }
+
+    if (sensitivity != nullptr)
     {
-        item.first->setBounds (0, y, w, item.second);
-        y += item.second;
+        sensitivity->setBounds (0, 0, availW, sensitivity->contentHeight());
+        topY = sensitivity->getBottom() + gap;
     }
+
+    std::vector<int> colBottom ((size_t) cols, topY);
+    for (auto& c : cards)
+    {
+        if (c.get() == sensitivity)
+            continue;
+        int col = 0;
+        for (int i = 1; i < cols; ++i)
+            if (colBottom[(size_t) i] < colBottom[(size_t) col]) col = i;
+        c->setBounds (col * (colW + gap), colBottom[(size_t) col], colW, c->contentHeight());
+        colBottom[(size_t) col] = c->getBottom() + gap;
+    }
+
+    int total = topY;
+    for (int b : colBottom) total = juce::jmax (total, b);
+    rowHolder.setSize (availW, juce::jmax (total, viewport.getHeight()));
 }
 
 void MainComponent::paint (juce::Graphics& g)

@@ -13,6 +13,7 @@
 #include "ConfigOverrides.h"
 #include "LearnedNames.h"
 #include "CurveComponent.h"
+#include "SectionCard.h"
 #include "Rise2Component.h"
 
 #include <map>
@@ -148,7 +149,8 @@ private:
     std::vector<std::unique_ptr<ConfigRow>> rows;
     std::vector<std::unique_ptr<CurveRow>> curveRows;   // 5D curve panels
     std::vector<CurveComponent*> curves;                // non-owning, for id lookup
-    std::vector<std::unique_ptr<juce::Label>> sectionHeaders;
+    std::vector<std::unique_ptr<SectionCard>> cards;    // one titled card per section
+    std::vector<std::unique_ptr<juce::Label>> sectionHeaders;  // (unused by the card layout)
     // Ordered list of what to stack in rowHolder: section headers and rows, each
     // with its height. Drives both rebuildRows() and resized().
     std::vector<std::pair<juce::Component*, int>> layoutOrder;
