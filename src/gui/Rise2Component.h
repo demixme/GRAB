@@ -70,7 +70,7 @@ private:
     std::map<juce::uint32, juce::int32> expected;  // after a save, what the device should report
     bool awaitingState = false;
     int  stateRetries = 0;
-    bool readOnly = false;   // original RISE (1.x): show settings, but writes aren't confirmed yet
+    bool minMaxReliable = true;   // false on the original RISE: min/max read back as zeros, so hidden
 
     juce::Label      statusLabel;
     juce::Label      infoLabel;

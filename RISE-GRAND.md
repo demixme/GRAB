@@ -1,14 +1,13 @@
 # Seaboard RISE / GRAND — protocol notes for contributors
 
-**Status: Seaboard RISE 2 is supported** (config read and write, verified on a RISE 2 with
-firmware 2.0.2 on macOS). The **original RISE (fw 1.x)** returns the **same 224-byte state
-dump**, and ~90% of it decodes correctly against the RISE 2 layout, so GRAB now shows it
-**read-only**: settings are displayed, but **Save is disabled** and the one field that
-decodes wrong on the original (the Strike/Press/Lift min/max block, which reads zeros) is
-hidden — see "Original RISE 25 and 49 answer with the same dump" below. Writes stay locked until
-the `0x78 3D` write params are confirmed on that firmware. The **GRAND** is still
-unconfirmed. The RISE 2 protocol below is confirmed on that device; the rest of this
-document collects what is known so far for the other models.
+**Status: the Seaboard RISE 2 and the original RISE (25/49) are both supported — read and
+write.** The RISE 2 was verified on fw 2.0.2 (macOS); the original RISE returns the **same
+224-byte state dump** and uses the **same `0x78 3D` / RPN / NRPN write protocol**, confirmed
+from a contributed RISE 25 Dashboard capture (see "Write protocol confirmed" below). The one
+caveat on the original: the Strike/Press/Lift **min/max block reads back as zeros**, so GRAB
+hides those (they're writable, just not readable on that firmware). The **GRAND** is still
+unconfirmed. The RISE 2 protocol below is confirmed on that device; the rest of this document
+collects what is known so far for the other models.
 
 ## How RISE/GRAND differ from BLOCKS
 - `roli_blocks_basics` (the library this tool is built on) has **no RISE/GRAND
@@ -125,19 +124,30 @@ and the 49 — and most offsets above decode correctly against it:
   at a different offset; don't trust those six on an original RISE.
 - ✅ **Fader CCs (92/96/100) and XY CCs (102/103)** — the original RISE has the **same three
   touch faders + XY pad** as the RISE 2 (hardware-confirmed by an owner), and these offsets
-  decode to the **expected CC numbers** (107/109/111, 113/114), so GRAB shows them in the
-  read-only view.
+  decode to the **expected CC numbers** (107/109/111, 113/114), so GRAB shows them.
 - There is an extra version string (`1.1.0`) at offset 14 that a RISE 2 leaves blank; it
   does **not** shift the settings region (every offset from 22 on still lines up).
 
 Because the port is named `ROLI Seaboard RISE 49`, `rise2::isRisePort()` already matches
-it, so GRAB (≥ 0.1.9) routes it to the RISE page rather than the BLOCKS path. As of the
-read-only unlock, GRAB shows these decoded values for any fw 1.x RISE with **Save
-disabled**, and **hides only** the Strike/Press/Lift min/max block (the one group that reads
-zeros) via `isUnreliableOnOldRise()` in `Rise2Component.cpp`. To enable writing, someone
-needs to capture Dashboard ↔ original-RISE traffic and confirm the `0x78 3D <param>`
-numbers on fw 1.x (they may differ from the RISE 2's). **How to capture it (two ways, ~10
-min): [tools/CAPTURE-DASHBOARD.md](tools/CAPTURE-DASHBOARD.md).**
+it, so GRAB (≥ 0.1.9) routes it to the RISE page rather than the BLOCKS path. GRAB treats
+any fw 1.x RISE as editable and **hides only** the Strike/Press/Lift min/max block (it reads
+back as zeros on that firmware — writable, just not readable), via `isCurveMinMax()` in
+`Rise2Component.cpp`.
+
+#### Write protocol confirmed (fw 1.x, from a RISE 25 Dashboard capture)
+
+A contributed macOS Dashboard↔RISE-25 capture (see [tools/CAPTURE-DASHBOARD.md](tools/CAPTURE-DASHBOARD.md))
+shows the original RISE uses the **same writes as the RISE 2**, verified against a preset
+load and (for Octave) by replaying the message live:
+
+- settings: `F0 00 21 10 78 3D <param> <value> F7` — MIDI mode `0E`, sensitivities `17`–`1B`
+  (glide/slide/press/strike/lift), endpoints `46`–`4B`, slide CC `38`, slide mode `39`,
+  faders `1C`/`1D`/`1E`, pedal `08` — all matching `Rise2Protocol.h`;
+- RPN/NRPN on ch 1: Pitch Bend Range = RPN 0, MCM = RPN 6, Octave = NRPN 2 (`4+oct`),
+  Transpose = NRPN 3 (`64+t`), Press Mode = NRPN 4 — all matching the RISE 2 too.
+
+The preset load confirmed `3D 1A 65` = Strike sensitivity 101 (so `0x1A` = Strike, as on the
+RISE 2). So GRAB's existing RISE-2 write code drives the original RISE directly.
 
 ### Battery
 Battery level 0..7 comes from the Bluetooth module (an ASCII `BAT <n>` message inside the

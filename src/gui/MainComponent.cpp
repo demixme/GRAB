@@ -915,8 +915,8 @@ void MainComponent::forceRisePreview()
 
     rise2Page->previewSyntheticState (risePreviewVerified);
     setStatus (juce::String ("RISE preview - ")
-               + (risePreviewVerified ? "verified fw 2.0.2 (editable)"
-                                      : "original RISE fw 1.1.8 (read-only)")
+               + (risePreviewVerified ? "verified fw 2.0.2"
+                                      : "original RISE fw 1.1.8 (editable; min/max hidden)")
                + ".  Ctrl+Alt+Shift+R to toggle.");
     risePreviewVerified = ! risePreviewVerified;   // next press shows the other
     resized();

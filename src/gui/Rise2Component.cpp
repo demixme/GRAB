@@ -122,23 +122,8 @@ const Dim dims[] = {
 
 bool isCurve (juce::uint32 id) { return id >= kStrikeSens && id <= kLiftSens; }
 
-// The Strike/Press/Lift min/max block reads all zeros on the original RISE (fw 1.x) —
-// clearly wrong (a strikeMax of 0 is impossible) — so hide it in the read-only view. The
-// fader/XY CC rows ARE shown: the original RISE has the same three touch faders + XY pad as
-// the RISE 2 (hardware-confirmed by an owner), and those offsets decode to the expected CC
-// numbers (107/109/111, 113/114). See RISE-GRAND.md.
-bool isUnreliableOnOldRise (juce::uint32 id)
-{
-    switch (id)
-    {
-        case kStrikeMin: case kStrikeMax: case kPressMin: case kPressMax: case kLiftMin: case kLiftMax:
-            return true;
-        default:
-            return false;
-    }
-}
-
-// The Strike/Press/Lift min/max — now set by dragging the curve end-nodes, not as rows.
+// The Strike/Press/Lift min/max — set by dragging the curve end-nodes (fw 2.x), not as rows.
+// On the original RISE (fw 1.x) they read back as zeros, so they're hidden there entirely.
 bool isCurveMinMax (juce::uint32 id)
 {
     switch (id)
@@ -394,9 +379,9 @@ void Rise2Component::onState (rise2::State s)
                            + "   battery " + juce::String (state.at (off::battery)) + "/7",
                        juce::dontSendNotification);
 
-    // The write protocol is confirmed on RISE 2 (fw 2.x). The original RISE (fw 1.x) returns
-    // the same dump and ~90% of it decodes correctly, so show it read-only. Anything else we
-    // don't guess at.
+    // The write protocol is confirmed on both the RISE 2 (fw 2.x) and the original RISE
+    // (fw 1.x) - the original returns the same dump and uses the same 0x78/RPN/NRPN writes
+    // (see RISE-GRAND.md), so both are editable. Anything else we don't guess at.
     const bool verified = firmware.startsWith ("2.");
     const bool oldRise  = firmware.startsWith ("1.");   // original RISE 25/49, same 0x78 dump
 
@@ -417,20 +402,18 @@ void Rise2Component::onState (rise2::State s)
         return;
     }
 
-    readOnly = oldRise;   // original RISE: display only; writes aren't confirmed on this firmware
+    // The original RISE (fw 1.x) uses the same write protocol as the RISE 2 (confirmed from a
+    // contributed Dashboard capture), so it is editable too. Its one quirk: the min/max block
+    // reads back as zeros, so those stay hidden even though they are writable.
+    minMaxReliable = verified;
     rebuildRows();
-
-    if (readOnly)
-    {
-        setStatus ("Read " + juce::String ((int) rows.size() + (int) curves.size())
-                   + " settings (read-only - firmware " + firmware
-                   + " isn't fully verified, so Save is disabled and a few fields are hidden).");
-        return;
-    }
 
     if (expected.empty())
     {
-        setStatus ("Read " + juce::String ((int) rows.size() + (int) curves.size()) + " settings from the device.");
+        setStatus ("Read " + juce::String ((int) rows.size() + (int) curves.size()) + " settings from the device."
+                   + (oldRise ? juce::String ("  Writes enabled (confirmed from a RISE 25 capture); "
+                                              "min/max aren't shown - not reported reliably on this firmware.")
+                              : juce::String()));
         return;
     }
 
@@ -467,7 +450,6 @@ void Rise2Component::rebuildRows()
         deviceValues[f.id] = pendingValues[f.id] = f.read (state);
 
     const auto onChange = [this] (juce::uint32 id, juce::int32 v) { onItemChanged (id, v); };
-    const auto shown = [this] (juce::uint32 id) { return ! (readOnly && isUnreliableOnOldRise (id)); };
 
     const char* groupOrder[] = { "Sensitivity", "MIDI Settings", "Play mode", "MIDI CC Assignments", "Power" };
     for (auto* g : groupOrder)
@@ -496,7 +478,7 @@ void Rise2Component::rebuildRows()
             curveRow = std::make_unique<CurveRow>();
             for (auto& d : dims)
             {
-                const bool hasMinMax = d.minId != 0 && ! readOnly;   // min/max unreliable on the old RISE
+                const bool hasMinMax = d.minId != 0 && minMaxReliable;   // old RISE can't read min/max back
                 const int minId = hasMinMax ? (int) d.minId : -1;
                 const int maxId = hasMinMax ? (int) d.maxId : -1;
                 curves.push_back (curveRow->add (std::make_unique<CurveComponent> (
@@ -512,7 +494,7 @@ void Rise2Component::rebuildRows()
             // The three touch faders + XY-pad axes as vertical faders; pedal stays a row.
             faderPanel = std::make_unique<FaderPanel>();
             for (auto& f : fields())
-                if (juce::String (f.group) == group && isFaderField (f.id) && shown (f.id))
+                if (juce::String (f.group) == group && isFaderField (f.id))
                 {
                     auto* fader = faderPanel->add (std::make_unique<Fader> (
                         f.id, shortFaderLabel (f.name), deviceValues[f.id], f.lo, f.hi, onChange));
@@ -523,13 +505,13 @@ void Rise2Component::rebuildRows()
                 card->addItem (*faderPanel, 150);
 
             for (auto& f : fields())
-                if (juce::String (f.group) == group && ! isFaderField (f.id) && ! isCurve (f.id) && shown (f.id))
+                if (juce::String (f.group) == group && ! isFaderField (f.id) && ! isCurve (f.id))
                     addRow (f);
         }
         else
         {
             for (auto& f : fields())
-                if (juce::String (f.group) == group && ! isCurve (f.id) && ! isCurveMinMax (f.id) && shown (f.id))
+                if (juce::String (f.group) == group && ! isCurve (f.id) && ! isCurveMinMax (f.id))
                     addRow (f);
         }
 
@@ -537,7 +519,6 @@ void Rise2Component::rebuildRows()
         cards.push_back (std::move (card));
     }
 
-    rowHolder.setEnabled (! readOnly);   // read-only: show values greyed, no editing
     resized();
     updateEnabled();
 }
@@ -560,12 +541,6 @@ void Rise2Component::onItemChanged (juce::uint32 id, juce::int32 v)
 
 void Rise2Component::updateEnabled()
 {
-    if (readOnly)   // original RISE: writes aren't confirmed, so Save stays off
-    {
-        saveButton.setEnabled (false);
-        return;
-    }
-
     const auto mode = (rise2::Mode) value (kMode);
     for (auto& r : rows)
     {

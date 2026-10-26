@@ -22,7 +22,7 @@ instruments configurable and self-documents their protocol.
 | **LUMI Keys** | 🟡 keyboard-family — connects and shows its basic shared settings; full support (scales, lighting) not done yet — **contributions welcome** |
 | Pad & control **BLOCKS** (Lightpad/Pad, Live, Loop, Touch) · **Airwave** | ◻️ out of scope *for now* — they connect and GRAB shows their basic shared settings, but ROLI's per-app/mode config (Note Grid, Fader Block, Drum Block, …) isn't managed by GRAB (see **Scope** below). **Contributions to add them are welcome** |
 | Multiple BLOCKS (DNA-connected cluster) | ✅ detected; per-block selection |
-| Seaboard **RISE 25/49** (original) | 🟡 read-only — settings are shown (same `0x78` dump as the RISE 2, ~90% decoded) but **Save is disabled** until writes are confirmed on that firmware · [RISE-GRAND.md](RISE-GRAND.md) |
+| Seaboard **RISE 25/49** (original) | ✅ read/write — same `0x78`/RPN protocol as the RISE 2, confirmed on a RISE 25 (one caveat: min/max aren't shown — this firmware doesn't report them back) · [RISE-GRAND.md](RISE-GRAND.md) |
 | Seaboard **GRAND** | ⛔ not mapped yet — **owners: click Help add device…** so we can see its protocol (likely the same as the RISE); reads could follow, then writes via [tools/CAPTURE-DASHBOARD.md](tools/CAPTURE-DASHBOARD.md) · [issue #1](../../issues/1) |
 
 Got an **unsupported** device? Run GRAB, click **Help add device…** → **Run & submit** —
@@ -64,8 +64,8 @@ usable whatever happens to ROLI's software and servers.
   Block, the Seaboard RISE 2, and the ROLI Piano 49** so far. Other BLOCKS (Lightpad, Live,
   Loop, Touch, LUMI, Airwave) connect and show the config they report, but **app- and
   mode-specific features aren't covered yet** (e.g. a Lightpad's Fader Block setup) — those
-  need more reports. The **original Seaboard RISE** shows its settings **read-only** (writes
-  not confirmed on that firmware yet); the **GRAND** isn't supported yet.
+  need more reports. The **original Seaboard RISE** is **read/write** (same protocol as the
+  RISE 2, confirmed on a RISE 25; min/max aren't shown); the **GRAND** isn't supported yet.
 
 If you just want to tweak your device's settings today, it does that. If you'd like it to
 *grow into* a fuller Dashboard alternative, that's exactly why **contributing a profile**
@@ -146,9 +146,8 @@ A port opened but the device never answered — usually one of:
   installed, the **"ROLI Hardware Driver"** Windows service can keep the port open. Stop
   that service (or uninstall Connect) and reconnect. GRAB itself needs **no** ROLI driver.
 - **It's a Seaboard RISE** — RISE uses a different protocol (GRAB shows a separate RISE
-  page). The **RISE 2** is fully supported; the **original RISE 25/49** shows its settings
-  **read-only** (Save disabled until writes are confirmed on that firmware). The **GRAND**
-  isn't supported yet — GRAB says so in the status line; please help add it.
+  page). The **RISE 2** and the **original RISE 25/49** are both supported (read/write);
+  the **GRAND** isn't supported yet — GRAB says so in the status line; please help add it.
 - Try the other **Transport** option (USB ↔ BLE).
 
 **Connected, but a setting looks missing / unnamed / wrong** — contribute a profile
@@ -269,7 +268,9 @@ your own ROLI account) — keep those binaries for yourself, out of the profile 
 GRAB is built by the community. In particular, **[sbialy](https://github.com/sbialy)**
 reverse-engineered the **Seaboard RISE 2 protocol** (the `0x78` dialect GRAB uses to read
 and write RISE settings), built the **5D sensitivity-curve rendering**, and contributed the
-**serial/MAC anonymization** and further RISE fixes. Thanks also to everyone who's submitted a device profile, capture, or report — the
+**serial/MAC anonymization** and further RISE fixes. **[fictionfred](https://github.com/fictionfred)**
+captured and decoded the **original RISE (RISE 25)** write protocol, which unlocked read/write
+support for the original Seaboard RISE. Thanks also to everyone who's submitted a device profile, capture, or report — the
 supported-device list grows from those. Contributions welcome; see
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
