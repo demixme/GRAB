@@ -113,9 +113,9 @@ bool isModeGroup (juce::uint32 id) { return id >= kMode && id <= kBend; }
 
 struct Dim { juce::uint32 id; const char* label; juce::uint32 colour; juce::uint32 minId, maxId; };
 const Dim dims[] = {
-    { kStrikeSens, "Strike", 0xff4fc3f7, kStrikeMin, kStrikeMax }, { kGlideSens, "Glide", 0xff66d36e, 0, 0 },
-    { kSlideSens,  "Slide",  0xffe15fd0, 0, 0 },                   { kPressSens, "Press", 0xff4fd6c9, kPressMin, kPressMax },
-    { kLiftSens,   "Lift",   0xffe6c24a, kLiftMin, kLiftMax } };
+    { kStrikeSens, "Strike", grab::theme::strike.getARGB(), kStrikeMin, kStrikeMax }, { kGlideSens, "Glide", grab::theme::glide.getARGB(), 0, 0 },
+    { kSlideSens,  "Slide",  grab::theme::slide.getARGB(), 0, 0 },                     { kPressSens, "Press", grab::theme::press.getARGB(), kPressMin, kPressMax },
+    { kLiftSens,   "Lift",   grab::theme::lift.getARGB(), kLiftMin, kLiftMax } };
 
 bool isCurve (juce::uint32 id) { return id >= kStrikeSens && id <= kLiftSens; }
 
@@ -439,7 +439,7 @@ void Rise2Component::rebuildRows()
         auto header = std::make_unique<juce::Label>();
         header->setText (g, juce::dontSendNotification);
         header->setFont (juce::Font (juce::FontOptions (16.0f, juce::Font::bold)));
-        header->setColour (juce::Label::textColourId, juce::Colour (0xff6fd3d6));
+        header->setColour (juce::Label::textColourId, grab::theme::header);
         header->setColour (juce::Label::backgroundColourId, juce::Colour (0x22ffffff));
         header->setJustificationType (juce::Justification::centredLeft);
         rowHolder.addAndMakeVisible (*header);

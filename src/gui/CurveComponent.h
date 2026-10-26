@@ -16,6 +16,8 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include "Theme.h"
+
 #include <cmath>
 #include <functional>
 #include <memory>
@@ -48,7 +50,7 @@ public:
         const auto plot = plotArea();
 
         // panel
-        g.setColour (juce::Colour (0xff20242a));
+        g.setColour (grab::theme::curveBg);
         g.fillRoundedRectangle (getLocalBounds().toFloat(), 4.0f);
         if (changed)
         {
@@ -65,7 +67,7 @@ public:
         g.fillRoundedRectangle (fill, 3.0f);
 
         // grid
-        g.setColour (juce::Colour (0x18ffffff));
+        g.setColour (grab::theme::curveGrid);
         for (int i = 1; i < 8; ++i)
         {
             const float fx = plot.getX() + plot.getWidth()  * (i / 8.0f);
@@ -89,13 +91,13 @@ public:
             for (auto p : { toPlot ({ 0.0f, (float) mn / 127.0f }), toPlot ({ 1.0f, (float) mx / 127.0f }) })
                 g.fillEllipse (juce::Rectangle<float> (8.0f, 8.0f).withCentre (p));
 
-        // Glide end stops: keyboard (no glide) at 0, notes (free pitch) at 127.
+        // Glide end stops: discrete keys (no glide) at 0, free continuous pitch at 127.
         if (kind == Kind::glide && (sens == 0 || sens == 127))
         {
-            g.setFont (juce::Font (juce::FontOptions (14.0f)));
-            g.drawText (sens == 0 ? juce::String (juce::CharPointer_UTF8 ("\xf0\x9f\x8e\xb9"))
-                                  : juce::String (juce::CharPointer_UTF8 ("\xe2\x99\xab")),
-                        plot.withSize (24.0f, 18.0f).translated (4.0f, 2.0f), juce::Justification::centredLeft);
+            // Top-left of the plot, clear of the diagonal the curve draws at 127.
+            const juce::Rectangle<float> icon (plot.getX() + 3.0f, plot.getY() + 3.0f, 26.0f, 18.0f);
+            if (sens == 0) drawKeyboardIcon (g, icon, colour);
+            else           drawNoteIcon     (g, icon, colour);
         }
 
         // label + value
@@ -186,6 +188,38 @@ private:
             if (change != nullptr)
                 change (id, sens);
         }
+    }
+
+    // Glide = 0: a little piano keyboard (discrete, stepped keys — no glide).
+    static void drawKeyboardIcon (juce::Graphics& g, juce::Rectangle<float> r, juce::Colour c)
+    {
+        r = r.withSizeKeepingCentre (juce::jmin (24.0f, r.getWidth()), juce::jmin (14.0f, r.getHeight()));
+        g.setColour (c);
+        g.drawRoundedRectangle (r, 2.0f, 1.2f);                       // keyboard body
+        const int whites = 5;
+        const float kw = r.getWidth() / (float) whites;
+        for (int i = 1; i < whites; ++i)                              // white-key dividers
+            g.drawLine (r.getX() + i * kw, r.getY(), r.getX() + i * kw, r.getBottom(), 1.0f);
+        const float bh = r.getHeight() * 0.58f, bw = kw * 0.52f;
+        for (int i : { 1, 2, 4 })                                     // a few black keys
+            g.fillRect (juce::Rectangle<float> (r.getX() + i * kw - bw * 0.5f, r.getY(), bw, bh));
+    }
+
+    // Glide = 127: a quaver (free, continuous pitch between notes).
+    static void drawNoteIcon (juce::Graphics& g, juce::Rectangle<float> r, juce::Colour c)
+    {
+        r = r.withSizeKeepingCentre (juce::jmin (15.0f, r.getWidth()), juce::jmin (16.0f, r.getHeight()));
+        g.setColour (c);
+        const float headW = r.getWidth() * 0.62f, headH = r.getHeight() * 0.40f;
+        const juce::Rectangle<float> head (r.getX(), r.getBottom() - headH, headW, headH);
+        g.fillEllipse (head);                                         // note head
+        const float stemX = head.getRight() - 1.3f;
+        g.drawLine (stemX, head.getCentreY(), stemX, r.getY() + 1.0f, 1.5f);   // stem
+        juce::Path flag;                                             // flag off the top
+        flag.startNewSubPath (stemX, r.getY() + 1.0f);
+        flag.quadraticTo (stemX + r.getWidth() * 0.40f, r.getY() + r.getHeight() * 0.12f,
+                          stemX + r.getWidth() * 0.14f, r.getY() + r.getHeight() * 0.40f);
+        g.strokePath (flag, juce::PathStrokeType (1.5f));
     }
 
     juce::String name;

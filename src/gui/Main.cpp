@@ -3,6 +3,7 @@
 #include <juce_gui_extra/juce_gui_extra.h>
 
 #include "MainComponent.h"
+#include "Theme.h"
 
 class GRABApplication  : public juce::JUCEApplication
 {
@@ -15,10 +16,15 @@ public:
 
     void initialise (const juce::String&) override
     {
+        juce::LookAndFeel::setDefaultLookAndFeel (&lookAndFeel);   // before the window, so it picks up the dark bg
         mainWindow = std::make_unique<MainWindow> (getApplicationName());
     }
 
-    void shutdown() override { mainWindow = nullptr; }
+    void shutdown() override
+    {
+        mainWindow = nullptr;
+        juce::LookAndFeel::setDefaultLookAndFeel (nullptr);
+    }
 
     void systemRequestedQuit() override { quit(); }
 
@@ -49,6 +55,7 @@ public:
     };
 
 private:
+    grab::GrabLookAndFeel lookAndFeel;          // declared first, so it outlives the window
     std::unique_ptr<MainWindow> mainWindow;
 };
 

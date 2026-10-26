@@ -670,9 +670,9 @@ void MainComponent::rebuildRows()
     // The 5D sensitivity config ids -> curve panels (Strike/Glide/Slide/Press/Lift).
     struct Dim { juce::uint32 id; const char* label; juce::uint32 colour; int minId; int maxId; };
     static const Dim dims[] = {
-        { 10, "Strike", 0xff4fc3f7, 50, 51 }, { 11, "Glide", 0xff66d36e, -1, -1 },
-        { 12, "Slide",  0xffe15fd0, -1, -1 }, { 13, "Press", 0xff4fd6c9, 52, 53 },
-        { 14, "Lift",   0xffe6c24a, 54, 55 } };
+        { 10, "Strike", grab::theme::strike.getARGB(), 50, 51 }, { 11, "Glide", grab::theme::glide.getARGB(), -1, -1 },
+        { 12, "Slide",  grab::theme::slide.getARGB(),  -1, -1 }, { 13, "Press", grab::theme::press.getARGB(), 52, 53 },
+        { 14, "Lift",   grab::theme::lift.getARGB(),   54, 55 } };
 
     auto emitRow = [&] (const Item& item)
     {
@@ -687,7 +687,7 @@ void MainComponent::rebuildRows()
         auto header = std::make_unique<juce::Label>();
         header->setText (g.isEmpty() ? "Other" : g, juce::dontSendNotification);
         header->setFont (juce::Font (juce::FontOptions (16.0f, juce::Font::bold)));
-        header->setColour (juce::Label::textColourId, juce::Colour (0xff6fd3d6));
+        header->setColour (juce::Label::textColourId, grab::theme::header);
         header->setColour (juce::Label::backgroundColourId, juce::Colour (0x22ffffff));
         header->setJustificationType (juce::Justification::centredLeft);
         rowHolder.addAndMakeVisible (*header);

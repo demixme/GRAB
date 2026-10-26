@@ -268,8 +268,8 @@ your own ROLI account) — keep those binaries for yourself, out of the profile 
 ## Credits
 GRAB is built by the community. In particular, **[sbialy](https://github.com/sbialy)**
 reverse-engineered the **Seaboard RISE 2 protocol** (the `0x78` dialect GRAB uses to read
-and write RISE settings) and contributed the **serial/MAC anonymization** and further RISE
-fixes. Thanks also to everyone who's submitted a device profile, capture, or report — the
+and write RISE settings), built the **5D sensitivity-curve rendering**, and contributed the
+**serial/MAC anonymization** and further RISE fixes. Thanks also to everyone who's submitted a device profile, capture, or report — the
 supported-device list grows from those. Contributions welcome; see
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
