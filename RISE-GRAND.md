@@ -181,8 +181,9 @@ aren't BLOCKS devices). Confirmed so far:
 | **Seaboard RISE 2**, firmware 2.0.2 | macOS | `Seaboard RISE 2` | (CoreMIDI UID only) |
 
 Vendor `2af4` is shared across ROLI devices (the Seaboard **Block** is `vid_2af4 pid_0700`);
-the PID identifies the model. The **original RISE 49** is the best starting point — it uses
-the older, documented `0x78` dialect below (vs the RISE 2's compiled-in encoding).
+the PID identifies the model. The **original RISE 49** answers the same `0x78 3F` identify
+as the RISE 2 (see "Original RISE 49 answers with the same dump" above). What is still open
+for it is whether its `0x78 3D` write params match the RISE 2's.
 
 **To capture one:** in GRAB, **Advanced… → Raw MIDI capture** → pick `Seaboard RISE` → **Start** → play and
 operate the device (and change settings on it) → **Save to file** → attach the `.txt` to

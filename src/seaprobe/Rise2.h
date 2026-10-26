@@ -25,6 +25,7 @@
 #include "LoggingMidi.h"
 #include "Rise2Protocol.h"
 
+#include <atomic>
 #include <cstdint>
 #include <vector>
 
@@ -101,6 +102,8 @@ public:
 
     bool isOpen() const { return out != nullptr; }
 
+    bool gotIdentifyReply() const { return identifyReply; }
+
     void send (const std::vector<std::uint8_t>& m)
     {
         logger.midi ("OUT", m.data(), m.size(), "rise2");
@@ -111,11 +114,14 @@ private:
     void handleIncomingMidiMessage (juce::MidiInput*, const juce::MidiMessage& message) override
     {
         logger.midi ("IN ", message.getRawData(), (std::size_t) message.getRawDataSize(), "rise2");
+        if (::rise2::State::isIdentifyReply (message.getRawData(), message.getRawDataSize()))
+            identifyReply = true;
     }
 
     RawLogger& logger;
     std::unique_ptr<juce::MidiOutput> out;
     std::unique_ptr<juce::MidiInput> in;
+    std::atomic<bool> identifyReply { false };
 };
 
 //==============================================================================
@@ -237,6 +243,14 @@ inline int run (RawLogger& logger, const juce::StringArray& pos, bool commit)
 
     // Collect echoes and replies.
     juce::MessageManager::getInstance()->runDispatchLoopUntil (1500);
+
+    // The first request after the keyboard has been idle can go unanswered. Ask once more.
+    if (cmd == "identify" && ! port.gotIdentifyReply())
+    {
+        logger.line ("No identify reply, retrying once.");
+        port.send (p2::identify());
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (1500);
+    }
     return 0;
 }
 

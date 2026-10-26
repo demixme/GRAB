@@ -96,7 +96,8 @@ namespace offset
     enum : int
     {
         // model is "RISE1.00" on a RISE 2 (family plus format version), not the product name.
-        model = 6, firmware = 22, subFirmware = 30, bleFirmware = 38, mac = 46, serial = 63,
+        // extraVersion is "1.1.0" on an original RISE 49 (fw 1.1.8) and blank on a RISE 2.
+        model = 6, extraVersion = 14, firmware = 22, subFirmware = 30, bleFirmware = 38, mac = 46, serial = 63,
         firstMember = 79, lastMember = 80, masterChannel = 81, mpeOn = 82, bendRange = 83,
         octave = 84, glideTracking = 85, pressTracking = 86, pedalCc = 88,
         faderLeftCc = 92, faderMiddleCc = 96, faderRightCc = 100, xyXCc = 102, xyYCc = 103,

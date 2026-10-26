@@ -139,8 +139,9 @@ private:
                 out->sendMessageNow (juce::MidiMessage (idReq, (int) sizeof (idReq)));
                 logLine ("SENT   " + juce::String (sea::toHex (idReq, sizeof (idReq))) + "   (Universal Identity Request)");
 
-                // ROLI identify (read-only) — RISE/GRAND ignore the universal one but answer this
-                // with a full settings dump (confirmed safe: the 0x78 handler only reads here).
+                // ROLI identify (read-only). The RISE ignores the universal one but answers this
+                // with a full settings dump. On RISE 2 fw 2.0.2 the decoded 0x78 handler only reads
+                // for 3F. The original RISE 49 and the Piano answer it too, other devices are untested.
                 const std::uint8_t roliId[] = { 0xF0, 0x00, 0x21, 0x10, 0x78, 0x3F, 0xF7 };
                 out->sendMessageNow (juce::MidiMessage (roliId, (int) sizeof (roliId)));
                 logLine ("SENT   " + juce::String (sea::toHex (roliId, sizeof (roliId))) + "   (ROLI identify)");

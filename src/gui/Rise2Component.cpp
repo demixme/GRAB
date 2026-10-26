@@ -191,6 +191,7 @@ void Rise2Component::previewSyntheticState (bool verifiedFirmware)
     auto put = [&raw] (int o, const char* s) { for (int i = 0; s[i] != 0; ++i) raw[(size_t) (o + i)] = (std::uint8_t) s[i]; };
     put (offset::model,    "RISE1.00");
     put (offset::firmware, verifiedFirmware ? "2.0.2" : "1.1.8");
+    put (verifiedFirmware ? offset::bleFirmware : offset::extraVersion, verifiedFirmware ? "0.0.2" : "1.1.0");
     put (offset::serial,   "PREVIEW00000000");   // not a real serial
 
     raw[offset::firstMember]   = 1;   raw[offset::lastMember] = 15;  raw[offset::masterChannel] = 0;
@@ -352,7 +353,10 @@ void Rise2Component::onState (rise2::State s)
     state = std::move (s);
 
     const auto firmware = state.text (off::firmware, 8);
-    infoLabel.setText (portName + "   fw " + firmware
+    const auto extra    = state.text (off::extraVersion, 8);
+    const auto ble      = state.text (off::bleFirmware, 8);
+    infoLabel.setText (portName + "   fw " + firmware + (extra.isNotEmpty() ? " (" + extra + ")" : juce::String())
+                           + (ble.isNotEmpty() ? "   Bluetooth " + ble : juce::String())
                            + "   battery " + juce::String (state.at (off::battery)) + "/7",
                        juce::dontSendNotification);
 
