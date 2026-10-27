@@ -35,6 +35,16 @@ public:
     /** True when a RISE MIDI port is present. */
     static bool isConnected();
 
+    /** ROLI firmware-download product name for the connected device, or "" if none is known.
+        Only the original RISE (fw 1.x) resolves ("Seaboard RISE" -> 1.1.8); RISE 2's product name
+        is unknown and the GRAND has no downloadable build. */
+    juce::String firmwareDownloadProduct() const
+    {
+        if (grand) return {};
+        if (firmware.startsWith ("1.")) return "Seaboard RISE";
+        return {};
+    }
+
     /** Dev/preview: render the page from a synthetic identify reply, no device needed.
         verifiedFirmware=true fakes a RISE 2 (2.0.2, full settings shown); false fakes an
         original RISE (1.1.8, the "not verified" path). No real serial/MAC. */

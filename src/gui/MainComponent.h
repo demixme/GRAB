@@ -35,7 +35,8 @@ public:
 
     void resized() override;
     void paint (juce::Graphics&) override;
-    void mouseDown (const juce::MouseEvent&) override;   // right-click resets to the device value
+    void mouseDown (const juce::MouseEvent&) override;        // right-click resets to the device value
+    void mouseDoubleClick (const juce::MouseEvent&) override; // double-click resets too
 
     juce::uint32 getId()    const { return id; }
     juce::int32  getValue() const;
@@ -46,6 +47,7 @@ private:
     using ConfigType = roli::Block::ConfigMetaData::ConfigType;
 
     void fireChange();
+    void resetToDevice();   // revert to the device value and write it (double-/right-click)
 
     juce::uint32 id;
     ConfigType   type;

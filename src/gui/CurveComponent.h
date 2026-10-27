@@ -37,7 +37,9 @@ public:
           nodes (minIdToUse > 0 && maxIdToUse > 0)
     {
         setTooltip (grab::helpForParameter (name)
-                        + (nodes ? juce::String ("  (drag the end dots to set min / max)") : juce::String()));
+                        + (nodes ? juce::String ("  (drag the end dots to set min / max; double-/right-click to reset)")
+                                 : juce::String ("  (double-/right-click to reset)")));
+        initialSens = sens; initialMn = mn; initialMx = mx;   // device values, for reset
     }
 
     juce::uint32 getId()    const { return id; }
@@ -117,8 +119,29 @@ public:
         g.drawText (juce::String (sens), header, juce::Justification::centredRight);
     }
 
-    void mouseDown (const juce::MouseEvent& e) override { dragTarget = pickDrag (e.position); applyDrag (e); }
+    void mouseDown (const juce::MouseEvent& e) override
+    {
+        if (e.mods.isRightButtonDown())   // right-click resets (no ctrl-click), like the other controls
+        {
+            resetToDefault();
+            return;
+        }
+        dragTarget = pickDrag (e.position);
+        applyDrag (e);
+    }
     void mouseDrag (const juce::MouseEvent& e) override { applyDrag (e); }
+    void mouseDoubleClick (const juce::MouseEvent&) override { resetToDefault(); }
+
+    // Revert the sensitivity and (if present) its min/max end-nodes to the values read from the
+    // device when this control was built, writing each change out (matches the rows' reset).
+    void resetToDefault()
+    {
+        bool any = false;
+        if (sens != initialSens)         { sens = initialSens; if (change) change (id, sens);                 any = true; }
+        if (nodes && mn != initialMn)    { mn = initialMn;     if (change) change ((juce::uint32) minId, mn); any = true; }
+        if (nodes && mx != initialMx)    { mx = initialMx;     if (change) change ((juce::uint32) maxId, mx); any = true; }
+        if (any) repaint();
+    }
 
 private:
     enum class Kind { velocity, slide, glide };   // velocity: Strike, Press, Lift
@@ -258,6 +281,7 @@ private:
     juce::uint32 id;
     int minId = -1, maxId = -1;
     juce::int32 sens, mn, mx;
+    juce::int32 initialSens = 0, initialMn = 0, initialMx = 0;   // set in ctor; reset target
     ChangeFn change;
     bool nodes;
     Kind kind = kindFor (name);

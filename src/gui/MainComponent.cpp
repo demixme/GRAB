@@ -84,11 +84,19 @@ ConfigRow::ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value
 
 void ConfigRow::mouseDown (const juce::MouseEvent& e)
 {
-    if (e.mods.isPopupMenu())   // right-click / ctrl-click: revert to the device value
-    {
-        setValue (initialValue);
-        fireChange();
-    }
+    if (e.mods.isRightButtonDown())   // right-click resets to the device value (no ctrl-click)
+        resetToDevice();
+}
+
+void ConfigRow::mouseDoubleClick (const juce::MouseEvent&)
+{
+    resetToDevice();   // double-click also resets
+}
+
+void ConfigRow::resetToDevice()
+{
+    setValue (initialValue);
+    fireChange();
 }
 
 void ConfigRow::fireChange()
@@ -227,7 +235,7 @@ MainComponent::MainComponent()
         m.addItem (6, "Diagnose connection...");
         m.addItem (1, "Raw MIDI capture...");
         m.addItem (2, "Active probe...");
-        m.addItem (5, "Download firmware for archiving...", roliProductName().isNotEmpty());
+        m.addItem (5, "Download firmware for archiving...");   // always enabled; explains if unmapped
         m.addSeparator();
         m.addItem (3, "Factory reset (presets only)...", block != nullptr);  // Blocks only; confirm dialog follows
         m.addSeparator();
@@ -1149,6 +1157,8 @@ juce::String MainComponent::roliProductName() const
 {
     if (block != nullptr && block->getType() == roli::Block::Type::seaboardBlock)
         return "Seaboard Block";
+    if (rise2Page != nullptr)
+        return rise2Page->firmwareDownloadProduct();   // "Seaboard RISE" for an original RISE
     return {};
 }
 
@@ -1159,7 +1169,21 @@ void MainComponent::downloadFirmware()
 {
     const auto product = roliProductName();
     if (product.isEmpty())
+    {
+        // Explain why rather than doing nothing (the menu item is always enabled).
+        juce::AlertWindow::showAsync (
+            juce::MessageBoxOptions()
+                .withIconType (juce::MessageBoxIconType::InfoIcon)
+                .withTitle ("Download firmware for archiving")
+                .withMessage (grab::u8 ("GRAB doesn't have a confirmed firmware download for this device yet.\n\n"
+                              "Confirmed so far: Seaboard Block, and the original Seaboard RISE (25/49).\n\n"
+                              "The Seaboard GRAND is registered with ROLI but has no downloadable firmware build. "
+                              "RISE 2, LUMI Keys, Lightpad and ROLI Piano aren't mapped yet.\n\n"
+                              "You can still check my.roli.com in a browser, or use \"Help add device...\" to help."))
+                .withButton ("OK"),
+            nullptr);
         return;
+    }
 
     // Name-based + any version -> ROLI resolves to the latest build (no hard-coded versionId).
     const auto url = "https://my.roli.com/firmware_versions/update_to/"

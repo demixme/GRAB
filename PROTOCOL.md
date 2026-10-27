@@ -312,11 +312,21 @@ this is archival + version-reference only.
 `X-API-Key` header *or* a logged-in browser session cookie (confirmed working). The
 chain is `update_to` → `303` → `build_redirect` → `303` → a **public signed S3 URL**
 on `builds.roli.com` serving `…/<name>/<ver>/<file>.syx.zip` (the `.syx` ships zipped).
-GRAB offers **Advanced ▸ Download firmware for archiving…** for devices whose ROLI
-product name we've confirmed (currently **Seaboard Block** only — `Lightpad Block`
-404s, others unverified). It opens the name-based `update_to` URL in the user's
-browser, so **GRAB holds no credential** — the browser's ROLI login does the auth, and
-nothing is ever sent to the device.
+GRAB offers **Advanced ▸ Download firmware for archiving…** It opens the name-based
+`update_to` URL in the user's browser, so **GRAB holds no credential** — the browser's
+ROLI login does the auth, and nothing is ever sent to the device.
+
+**Product-name probe (2026-10-27, authed):** `update_to/<name>/1.0.0` results —
+- `Seaboard Block` → **303** (downloadable, 1.4.3).
+- `Seaboard RISE` → **303** (downloadable, **1.1.8 = original RISE / MKI**). RISE 2 is a
+  *different* product: `Seaboard RISE 2` → **404**.
+- `Seaboard GRAND` → **204 No Content** — the product is **registered but has no
+  downloadable firmware build** (so GRAND firmware isn't fetchable, and it is *not* the
+  RISE build — a distinct product id).
+- `LUMI Keys`, `ROLI Piano`, `Lightpad Block` → **404** (names unknown).
+
+So GRAB maps **Seaboard Block** and the **original RISE** (fw 1.x → `Seaboard RISE`); for
+anything else it shows an explanatory alert instead of a silent no-op.
 
 ## 13. Still open (not needed for the config tool)
 - The `updateUserConfig` (0x05) layout (user-config metadata) — not yet seen.
