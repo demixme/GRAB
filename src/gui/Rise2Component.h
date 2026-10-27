@@ -43,7 +43,9 @@ public:
     {
         if (grand) return {};
         if (firmware.startsWith ("2."))        return "Seaboard RISE2";   // RISE 2
-        if (portName.containsIgnoreCase ("25")) return "Seaboard RISE 25"; // original RISE 25 (its own build)
+        // Match the RISE 25 model token, not just any "25" (a serial can contain "25").
+        if (portName.containsIgnoreCase ("rise 25") || portName.containsIgnoreCase ("rise25"))
+            return "Seaboard RISE 25";                                     // original RISE 25 (its own build)
         if (firmware.startsWith ("1."))        return "Seaboard RISE";    // original RISE 49 -> 1.1.8
         return {};
     }
