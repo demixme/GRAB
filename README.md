@@ -162,6 +162,19 @@ A port opened but the device never answered — usually one of:
 - **Windows: ROLI's background service holds the port.** If ROLI Connect/Dashboard is
   installed, the **"ROLI Hardware Driver"** Windows service can keep the port open. Stop
   that service (or uninstall Connect) and reconnect. GRAB itself needs **no** ROLI driver.
+
+> **Why can ROLI Dashboard run with my DAW open, but GRAB can't (yet)?** Dashboard talks to
+> the device through ROLI's own background stack (that **"ROLI Hardware Driver"** service),
+> which brokers the hardware so several apps can share it at once. GRAB deliberately uses
+> **no** ROLI driver — it opens the MIDI port directly with Windows' legacy API (WinMM),
+> which is **single-client / exclusive**, so one app at a time. Letting GRAB coexist with a
+> DAW means moving it onto the **multi-client** Windows MIDI Services stack — that's on the
+> roadmap ([issue #7](../../issues/7)). On **macOS** (CoreMIDI) and **Linux** (ALSA) the MIDI
+> layer is already multi-client, so concurrent use is more feasible there.
+>
+> Interim: most DAWs let you toggle the Seaboard's MIDI input off/on in preferences without
+> fully quitting — switch in GRAB in between. And since modes/settings live on the device,
+> GRAB can stay closed while you play once it's set.
 - **It's a Seaboard RISE** — RISE uses a different protocol (GRAB shows a separate RISE
   page). The **RISE 2** and the **original RISE 25/49** are both supported (read/write);
   the **GRAND** isn't supported yet — GRAB says so in the status line; please help add it.

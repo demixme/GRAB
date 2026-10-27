@@ -121,6 +121,7 @@ private:
             "     - Advanced \xe2\x96\xb8 Raw MIDI capture  \xe2\x80\x94 logs exactly what your device sends (read-only), to submit or attach to a GitHub issue.\n"
             "\n"
             "WHAT WE'RE WORKING ON\n"
+            "     - Running alongside a DAW on Windows (multi-client MIDI, so you don't have to quit the DAW)\n"
             "     - Full RISE / GRAND configuration support\n"
             "     - Confirming presets + factory reset across the whole Block family\n"
             "     - Friendly names for every setting (built from your contributed profiles)\n"
