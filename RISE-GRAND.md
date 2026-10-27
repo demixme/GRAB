@@ -5,10 +5,11 @@ write.** The RISE 2 was verified on fw 2.0.2 (macOS); the original RISE returns 
 224-byte state dump** and uses the **same `0x78 3D` / RPN / NRPN write protocol**, confirmed
 from a contributed RISE 25 Dashboard capture (see "Write protocol confirmed" below). The one
 caveat on the original: the Strike/Press/Lift **min/max block reads back as zeros**, so GRAB
-hides those (they're writable, just not readable on that firmware). The **GRAND** now has a
-first capture (Oct 2026) — it **is** a `0x78` RISE-family device, but its settings aren't in the
-identify reply (see "Seaboard GRAND — first capture" below), so its config model still needs a
-probe. The RISE 2 protocol below is confirmed on that device; the rest of this document
+hides those (they're writable, just not readable on that firmware). The **GRAND** is confirmed (Oct 2026) a
+`0x78` RISE-family device **configured with the same `3D` set-param protocol as the RISE** (from
+a Dashboard↔GRAND capture — see "Seaboard GRAND" below); it is **4D (no slide)** with **3 pedal
+CCs**, and its 87-byte reply is shorter than the RISE's 224-byte dump. Writing works via the
+existing RISE code; a systematic capture is still needed to complete its param map. The RISE 2 protocol below is confirmed on that device; the rest of this document
 collects what is known so far for the other models.
 
 **Presets (v0.1.19):** GRAB's RISE page ships ROLI's four built-in presets — **MPE / Multi
@@ -215,16 +216,40 @@ RISE-family device**, not a BLOCKS (`0x77`) one. It answers the ROLI identify
 pressure, notes). It did **not** stream any `0x77` BLOCKS traffic (so, unlike the Piano 49, it
 is *not* dual-protocol).
 
-But the GRAND's `3A` reply is **short (~87 bytes) — identity only**, not the RISE's full
-224-byte settings dump. Decoded header (differs from the RISE layout):
+The GRAND's `3A` reply is **87 bytes** — not the RISE's full 224-byte dump. Decoded header
+(differs from the RISE layout):
 - offset 6: model `GRND` + format version `1.01`
-- offset 14: a hardware/ID code (`SBG-...`; now redacted by the anonymiser)
-- then sub-versions `0.0.7` and `0.6.9`, then the serial/MAC block (redacted)
+- offset 14: a hardware/ID code (`SBG-…`; redacted by the anonymiser)
+- then version strings `0.0.7` (bootloader), `0.6.9`, `0.6.9`, `1.9.5`
+- then a ~22-byte **settings tail** (see below) + checksum
 
-So the dialect matches the RISE, but **the GRAND does not return its settings in the identify
-reply** the way the RISE does. Next step to map its config: an **active probe on a GRAND**
-(send `0x78 3C <param>` reads like the RISE 25 probe session, or set/read a `3D` param), or a
-**ROLI Dashboard capture** of the GRAND's config tab. Until then, GRAND stays read-identify only.
+### GRAND config IS the RISE `0x78 3D` protocol (Dashboard capture, Oct 2026)
+A **ROLI Dashboard↔GRAND 62 capture** (contributed by Fishbonecreek / BabeleDunnit, macOS,
+Dashboard 4.7.2) settles it: **the GRAND is configured with the same `F0 00 21 10 78 3D
+<param> <value> F7` set-param protocol as the RISE** — 308 such writes in the session. It does
+**not** use `0x77`: Dashboard sent 690 BLOCKS `requestTopology` probes and the GRAND **never
+replied** to any (so it is not BLOCKS, not dual-protocol). So the earlier "identity-only,
+unmappable" note was wrong — GRAND config is **writable exactly like a RISE**.
+
+Params seen written (mapped against `Rise2Protocol.h` set-param ids):
+- `0x08 / 0x0A / 0x0C` = **three pedal CCs** (e.g. 60 / 67 / 66), each with a `0x09 / 0x0B /
+  0x0D` companion byte — a **GRAND-specific** feature (a grand has 3 pedals; the RISE has 1).
+- `0x0E` = **MIDI mode** (0 = Single, 1 = MPE).
+- `0x17` = **Glide sensitivity**.
+- No Strike/Slide params — the GRAND is **4D (no slide axis)**; its Dashboard has no Strike
+  Sensitivity or Slide CC. This capture is **partial** (the contributor couldn't exercise
+  every control), so the full param set still needs a systematic per-setting capture.
+
+**The 87-byte `3A` reply carries live settings, not just identity.** Its ~22-byte tail is
+`3E 01 0F 00 01 | 3C 00 43 00 42 00 | 01 00 01 00 | 30 | 40 40 | 00 0C 00 00` + checksum —
+and `3C 00 43 00 42 00` = the three pedal CCs (60/67/66) **echoing the values written**. So the
+GRAND is **writable like a RISE and partially readable** via a GRAND-specific (compact, not
+224-byte) offset map that still needs fully decoding.
+
+**Next step to finish GRAND support:** a systematic Dashboard capture that changes **every**
+GRAND setting one at a time (like the RISE 25 session) to complete the `3D` param map and the
+87-byte reply layout; then route the GRAND to the RISE page with a GRAND profile (4D, 3 pedals,
+no slide). Writing already works through GRAB's existing RISE `setParam` code.
 
 Vendor `2af4` is shared across ROLI devices (the Seaboard **Block** is `vid_2af4 pid_0700`);
 the PID identifies the model. The **original RISE 25 and 49** both answer the same `0x78 3F`
