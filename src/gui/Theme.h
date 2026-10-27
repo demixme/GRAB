@@ -40,6 +40,11 @@ namespace grab::theme
 namespace grab
 {
 
+/** Decode a UTF-8 string literal into a juce::String. Needed because juce::String(const char*)
+    decodes as ASCII/Latin-1 (each byte -> one codepoint), which mangles multi-byte UTF-8 (an
+    em-dash becomes "â<box><box>"). Use this for ANY non-ASCII UI text, e.g. grab::u8("… — …"). */
+inline juce::String u8 (const char* utf8) { return juce::String::fromUTF8 (utf8); }
+
 /** Dark ROLI-flavoured look, set as the default LookAndFeel for the whole app. */
 class GrabLookAndFeel  : public juce::LookAndFeel_V4
 {
@@ -80,6 +85,11 @@ public:
         setColour (juce::PopupMenu::highlightedBackgroundColourId, accent);
         setColour (juce::PopupMenu::highlightedTextColourId,       windowBg);
 
+        // Alert / confirmation dialogs (e.g. factory reset) — match the app surface.
+        setColour (juce::AlertWindow::backgroundColourId, panelBg);
+        setColour (juce::AlertWindow::textColourId,       textPrimary);
+        setColour (juce::AlertWindow::outlineColourId,    outline);
+
         setColour (juce::TextEditor::backgroundColourId, panelBgAlt);
         setColour (juce::TextEditor::textColourId,       textPrimary);
         setColour (juce::TextEditor::outlineColourId,    outline);
@@ -87,6 +97,29 @@ public:
 
         setColour (juce::ScrollBar::thumbColourId,        outline.brighter (0.25f));
         setColour (juce::CaretComponent::caretColourId,   accent);
+    }
+
+    // Buttons: dark panel by default, accent (cyan) highlight on hover/press and when toggled on,
+    // so everything — including the factory-reset dialog — shares GRAB's accent language.
+    void drawButtonBackground (juce::Graphics& g, juce::Button& b, const juce::Colour&,
+                               bool isOver, bool isDown) override
+    {
+        using namespace grab::theme;
+        auto r = b.getLocalBounds().toFloat().reduced (0.5f);
+        const float corner = 5.0f;
+        const bool on = b.getToggleState();
+
+        juce::Colour fill = on   ? accent.withAlpha (0.90f)
+                          : isDown ? accent.withAlpha (0.28f)
+                          : isOver ? panelBg.brighter (0.18f)
+                          :          panelBg;
+        if (! b.isEnabled())
+            fill = panelBg.withAlpha (0.45f);
+
+        g.setColour (fill);
+        g.fillRoundedRectangle (r, corner);
+        g.setColour ((on || isOver || isDown) && b.isEnabled() ? accent : outline);
+        g.drawRoundedRectangle (r, corner, (isOver || isDown) ? 1.4f : 1.0f);
     }
 };
 

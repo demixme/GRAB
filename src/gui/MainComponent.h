@@ -103,12 +103,17 @@ private:
     void touchChanged (roli::TouchSurface&, const roli::TouchSurface::Touch&) override;
     void contribute();
     void openDialog (juce::Component* panel, const juce::String& title); // owns panel in a DialogWindow
+    void showHelpWanted();   // the "how you can help" dialog
+    void maybeShowWelcome(); // show it once, on first launch (flag in settings.properties)
     void fetchNames (const juce::String& family, const juce::String& type);
     void onNamesFetched (juce::String type, grab::LearnedMap learned);
     void requestConfig();
     void rebuildRows();
     void saveToDevice();
     void reloadFromDevice();
+    void factoryReset();   // Blocks only: library block->factoryReset(), behind a confirm dialog
+    void populatePresetBox();                 // fill the ROLI-preset picker for the current device type
+    void applyBlockPreset (const juce::String& name);   // apply a built-in ROLI preset (live-writes)
     void loadPreset();
     void savePreset();
     void onItemChanged (juce::uint32 id, juce::int32 value); // from a row or a curve
@@ -168,6 +173,7 @@ private:
     juce::TextButton   saveButton    { "Save to device" };
     juce::TextButton   loadPresetBtn { "Load preset..." };
     juce::TextButton   savePresetBtn { "Save preset..." };
+    juce::ComboBox     presetBox;   // built-in ROLI presets (MPE/Multi/Single/Piano); Seaboard only for now
     juce::Viewport     viewport;
     juce::Component    rowHolder;
     std::vector<std::unique_ptr<ConfigRow>> rows;
@@ -186,6 +192,8 @@ private:
 
     FooterBar footer;                           // hover-help strip along the bottom
     KeyboardView keyboardView;                  // stylised keywave at the top (keyboard devices)
+    juce::Label  busyLabel;                     // centred overlay shown while the device reboots
+    double resettingSinceMs = 0.0;              // >0 while a factory reset's reboot is expected
     juce::MidiDeviceListConnection deviceList;  // to pick up a RISE switched on after launch
 
     // Touch-surface listening for the live rings. Hold a Block::Ptr to each listened block so its

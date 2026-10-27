@@ -156,6 +156,41 @@ juce::String shortFaderLabel (juce::String n)
 
 constexpr int rowHeight = 30;
 constexpr int sectionHeaderHeight = 30;
+
+// Built-in ROLI presets for the Seaboard RISE, transcribed from ROLI Dashboard's own
+// Rise.littlefootModes/*.mode files. Values are config id -> value. Curve min/max are
+// omitted (set via curve nodes; read back as zeros on the original RISE). Note the RISE
+// "Piano" differs from the Block's: it's Single Channel with Glide Sensitivity 0 (the RISE
+// has no "Piano Mode" toggle), rather than a Piano-Mode flag with Slide/Press/Lift off.
+struct RisePreset { const char* name; std::vector<std::pair<juce::uint32, juce::int32>> values; };
+
+std::vector<std::pair<juce::uint32, juce::int32>> riseBase()
+{
+    return { { kGlideTracking, 1 }, { kPressTracking, 1 }, { kOctave, 0 }, { kTranspose, 0 },
+             { kSemitoneLegato, 1 }, { kFixedVelocity, 0 }, { kSlideCc, 74 }, { kSlideMode, 0 }, { kBend, 48 },
+             { kStrikeSens, 101 }, { kGlideSens, 127 }, { kSlideSens, 127 }, { kPressSens, 127 }, { kLiftSens, 127 },
+             { kFaderLeftCc, 107 }, { kFaderMiddleCc, 109 }, { kFaderRightCc, 111 },
+             { kXyXCc, 113 }, { kXyYCc, 114 }, { kPedalCc, 64 } };
+}
+
+std::vector<std::pair<juce::uint32, juce::int32>> withExtra (
+    std::vector<std::pair<juce::uint32, juce::int32>> v,
+    std::initializer_list<std::pair<juce::uint32, juce::int32>> extra)
+{
+    for (auto& e : extra) v.push_back (e);   // applied in order, so these override the base
+    return v;
+}
+
+const std::vector<RisePreset>& risePresets()
+{
+    static const std::vector<RisePreset> presets = {
+        { "MPE",            withExtra (riseBase(), { { kMode, 0 }, { kZone, 0 }, { kMembers, 15 } }) },
+        { "Multi Channel",  withExtra (riseBase(), { { kMode, 1 } }) },
+        { "Single Channel", withExtra (riseBase(), { { kMode, 2 }, { kChannel, 1 } }) },
+        { "Piano",          withExtra (riseBase(), { { kMode, 2 }, { kChannel, 1 }, { kGlideSens, 0 } }) }
+    };
+    return presets;
+}
 } // namespace
 
 //==============================================================================
@@ -176,6 +211,19 @@ Rise2Component::Rise2Component (seaprobe::RawLogger& loggerToUse) : logger (logg
     saveButton.setEnabled (false);
     loadPresetBtn.setEnabled (false);   // enabled once settings are shown (a verified read)
     savePresetBtn.setEnabled (false);
+
+    addAndMakeVisible (presetBox);
+    presetBox.setTextWhenNothingSelected ("Apply ROLI preset...");
+    { int id = 1; for (auto& p : risePresets()) presetBox.addItem (p.name, id++); }
+    presetBox.setEnabled (false);       // enabled with the preset buttons after a verified read
+    presetBox.onChange = [this]
+    {
+        if (presetBox.getSelectedId() > 0)
+        {
+            applyRisePreset (presetBox.getText());
+            presetBox.setSelectedId (0, juce::dontSendNotification);
+        }
+    };
 
     addAndMakeVisible (viewport);
     viewport.setViewedComponent (&rowHolder, false);
@@ -409,6 +457,7 @@ void Rise2Component::onState (rise2::State s)
         saveButton.setEnabled (false);
         loadPresetBtn.setEnabled (false);
         savePresetBtn.setEnabled (false);
+        presetBox.setEnabled (false);
         resized();
         return;
     }
@@ -420,6 +469,7 @@ void Rise2Component::onState (rise2::State s)
     rebuildRows();
     loadPresetBtn.setEnabled (true);    // settings are shown now, so presets apply
     savePresetBtn.setEnabled (true);
+    presetBox.setEnabled (true);
 
     if (expected.empty())
     {
@@ -748,6 +798,44 @@ void Rise2Component::loadPreset()
         });
 }
 
+void Rise2Component::applyRisePreset (const juce::String& name)
+{
+    if (pendingValues.empty())
+        return;
+
+    const RisePreset* preset = nullptr;
+    for (auto& p : risePresets())
+        if (name == p.name) { preset = &p; break; }
+    if (preset == nullptr)
+        return;
+
+    int applied = 0;
+    for (auto& [id, v] : preset->values)
+    {
+        if (pendingValues.find (id) == pendingValues.end())
+            continue;
+        pendingValues[id] = v;
+        const bool differs = deviceValues[id] != v;
+        for (auto& r : rows)
+            if (r->getId() == id) { r->setValue (v); r->setChangedFromDevice (differs); }
+        for (auto* c : curves)
+        {
+            if (c->getId()    == id)       { c->setSensitivity (v); c->setChanged (differs); }
+            if (c->getMinId() == (int) id) c->setMin (v);
+            if (c->getMaxId() == (int) id) c->setMax (v);
+        }
+        for (auto* f : faders)
+            if (f->getId() == id) { f->setValue (v); f->setChanged (differs); }
+        if (differs)
+            dirtyWrites.insert (id);
+        ++applied;
+    }
+
+    liveWriter.nudge();   // live-writes the changed items (mode group is sent as one midiMode)
+    updateEnabled();
+    setStatus ("Applied ROLI preset '" + name + "' (" + juce::String (applied) + " items).");
+}
+
 void Rise2Component::setStatus (const juce::String& s)
 {
     statusLabel.setText (s, juce::dontSendNotification);
@@ -766,6 +854,8 @@ void Rise2Component::resized()
     saveButton   .setBounds (buttons.removeFromLeft (165).reduced (2, 0));
     loadPresetBtn.setBounds (buttons.removeFromLeft (137).reduced (2, 0));
     savePresetBtn.setBounds (buttons.removeFromLeft (137).reduced (2, 0));
+    buttons.removeFromLeft (8);
+    presetBox.setBounds (buttons.removeFromLeft (170).reduced (2, 0));
     r.removeFromTop (6);
 
     viewport.setBounds (r);

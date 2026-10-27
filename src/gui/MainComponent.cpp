@@ -3,6 +3,7 @@
 #include "CapturePanel.h"
 #include "ProbePanel.h"
 #include "ExplorePanel.h"
+#include "WelcomePanel.h"
 #include "Help.h"
 
 #include <algorithm>
@@ -175,6 +176,16 @@ MainComponent::MainComponent()
     liveWriter.onTick     = [this] { flushLiveWrites(); };
     loadPresetBtn.onClick = [this] { loadPreset(); };
     savePresetBtn.onClick = [this] { savePreset(); };
+    addChildComponent (presetBox);   // shown only for devices with built-in presets (Seaboard)
+    presetBox.setTextWhenNothingSelected ("Apply ROLI preset...");
+    presetBox.onChange = [this]
+    {
+        if (presetBox.getSelectedId() > 0)
+        {
+            applyBlockPreset (presetBox.getText());
+            presetBox.setSelectedId (0, juce::dontSendNotification);   // back to the placeholder
+        }
+    };
     saveButton.setEnabled (false);
 
     addAndMakeVisible (transportLabel);
@@ -212,11 +223,17 @@ MainComponent::MainComponent()
         juce::PopupMenu m;
         m.addItem (1, "Raw MIDI capture...");
         m.addItem (2, "Active probe...");
+        m.addSeparator();
+        m.addItem (3, "Factory reset device...", block != nullptr);  // Blocks only; confirm dialog follows
+        m.addSeparator();
+        m.addItem (4, "How you can help...");
         m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (advancedBtn),
             [this] (int r)
             {
                 if      (r == 1) openDialog (new CapturePanel(), "Raw MIDI capture");
                 else if (r == 2) openDialog (new ProbePanel(),  "Active probe");
+                else if (r == 3) factoryReset();
+                else if (r == 4) showHelpWanted();
             });
     };
 
@@ -227,11 +244,16 @@ MainComponent::MainComponent()
     addAndMakeVisible (footer);
     addChildComponent (keyboardView);   // shown only for keyboard devices
 
+    addChildComponent (busyLabel);      // shown only while a factory reset reboots the device
+    busyLabel.setJustificationType (juce::Justification::centred);
+    busyLabel.setColour (juce::Label::textColourId, grab::theme::textSecondary);
+    busyLabel.setFont (juce::Font (juce::FontOptions (18.0f)));
+
     setSize (920, 910);   // tall enough for the RISE page + the keyboard graphic
     setWantsKeyboardFocus (true);   // so the secret RISE-preview shortcut reaches keyPressed
     // Grab focus once the window is on screen, so the shortcut works without clicking first.
     juce::Component::SafePointer<MainComponent> sp (this);
-    juce::MessageManager::callAsync ([sp] { if (sp != nullptr) sp->grabKeyboardFocus(); });
+    juce::MessageManager::callAsync ([sp] { if (sp != nullptr) { sp->grabKeyboardFocus(); sp->maybeShowWelcome(); } });
 
     // Logs go to a stable per-user dir (same base as settings.properties), not the
     // current working directory — a Finder/Explorer-launched app has an unpredictable
@@ -355,6 +377,8 @@ void MainComponent::setBlocksControlsVisible (bool visible)
     for (auto* c : std::initializer_list<juce::Component*> { &reloadButton, &saveButton, &loadPresetBtn, &savePresetBtn,
                                                             &blockLabel, &blockBox, &contributeBtn, &viewport })
         c->setVisible (visible);
+    if (! visible)
+        presetBox.setVisible (false);   // on the RISE page; populatePresetBox re-shows it for a Seaboard
 }
 
 void MainComponent::setStatus (const juce::String& s)
@@ -390,10 +414,26 @@ void MainComponent::topologyChanged()
         dirtyWrites.clear();
         liveWriter.cancel();
         saveButton.setEnabled (false);
-        if (deviceSeen)
-            setStatus ("Seaboard disconnected.");
-        // else: we never got a device on this connection — keep the "Connecting…"
-        // status; checkConnectTimeout() will give specific guidance if it stays empty.
+
+        // A factory reset drops the device off the bus while it reboots — that's expected, not a
+        // disconnect. Keep the "Resetting..." overlay/status until it comes back (or ~30s passes).
+        const bool rebooting = resettingSinceMs > 0.0
+                            && juce::Time::getMillisecondCounterHiRes() - resettingSinceMs < 30000.0;
+        if (rebooting)
+        {
+            busyLabel.setVisible (true);
+            busyLabel.toFront (false);
+            setStatus (grab::u8 ("Resetting \xe2\x80\x94 please wait for the device to reboot..."));
+        }
+        else
+        {
+            resettingSinceMs = 0.0;
+            busyLabel.setVisible (false);
+            if (deviceSeen)
+                setStatus ("Seaboard disconnected.");
+            // else: we never got a device on this connection — keep the "Connecting…"
+            // status; checkConnectTimeout() will give specific guidance if it stays empty.
+        }
         return;
     }
 
@@ -505,6 +545,8 @@ void MainComponent::updateKeyboardForBlock()
         keyboardView.setVisible (false);
         setTouchListening ({});
     }
+
+    populatePresetBox();   // ROLI preset picker: shown + filled only for a Seaboard
 }
 
 void MainComponent::setTouchListening (const std::vector<roli::Block::UID>& members)
@@ -597,6 +639,24 @@ void MainComponent::openDialog (juce::Component* panel, const juce::String& titl
     o.useNativeTitleBar = true;
     o.resizable = true;
     o.launchAsync();
+}
+
+void MainComponent::showHelpWanted()
+{
+    openDialog (new WelcomePanel(), "How you can help");
+}
+
+void MainComponent::maybeShowWelcome()
+{
+    juce::PropertiesFile::Options po; po.millisecondsBeforeSaving = 0;
+    juce::PropertiesFile props (juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                                    .getChildFile ("GRAB").getChildFile ("settings.properties"), po);
+    if (props.getBoolValue ("welcomeShown", false))
+        return;
+
+    props.setValue ("welcomeShown", true);
+    props.saveIfNeeded();
+    showHelpWanted();
 }
 
 void MainComponent::contribute()
@@ -795,6 +855,10 @@ void MainComponent::applyLiveConfigChange (const roli::Block::ConfigMetaData& me
 
 void MainComponent::rebuildRows()
 {
+    // Config is back (e.g. the device finished rebooting after a factory reset): clear the overlay.
+    resettingSinceMs = 0.0;
+    busyLabel.setVisible (false);
+
     cards.clear();          // un-parents the rows/curves it holds
     rows.clear();
     curveRows.clear();
@@ -1033,6 +1097,58 @@ void MainComponent::reloadFromDevice()
     requestConfig();
 }
 
+void MainComponent::factoryReset()
+{
+    if (block == nullptr)
+        return;
+
+    // Reset every block in the DNA cluster (they're shown as one device). Uses the library's
+    // block->factoryReset(): it restores config defaults and reboots — settings only, firmware
+    // untouched, recoverable. Blocks only; the RISE 0x78 reset is unknown and not offered here.
+    auto targets = writeTargets();
+    const int n = (int) targets.size();
+    const juce::String name = blockBox.getText().isNotEmpty() ? blockBox.getText() : juce::String ("this device");
+
+    // JUCE's 2-button AlertWindow gives the FIRST button Enter + return value 1, and the
+    // SECOND Escape + return value 0 (and Escape always returns 0). So to keep the panic key
+    // (Escape) safe we must make Cancel the second button; the reset fires only on result 1.
+    auto opts = juce::MessageBoxOptions()
+        .withIconType (juce::MessageBoxIconType::WarningIcon)
+        .withTitle ("Factory reset")
+        .withMessage ("Reset " + name + (n > 1 ? "  (" + juce::String (n) + " chained blocks)" : juce::String())
+                      + " to factory defaults?\n\n"
+                      "This restores every setting to its default and reboots the device. "
+                      "It can't be undone — but it only touches settings; firmware is left alone.")
+        .withButton ("Factory reset")     // button 1: the action (Enter); Escape/Cancel both abort
+        .withButton ("Cancel");           // button 2: returns 0, bound to Escape
+
+    juce::Component::SafePointer<MainComponent> sp (this);
+    juce::AlertWindow::showAsync (opts, [sp, targets, n] (int result)
+    {
+        if (sp == nullptr || result != 1)   // 1 = "Factory reset"; 0 = Cancel/Escape
+            return;
+
+        for (auto& t : targets)
+            if (t != nullptr)
+                t->factoryReset();
+
+        // Drop any unsaved edits; the device reboots and we re-read fresh defaults on reconnect.
+        sp->dirtyWrites.clear();
+        sp->liveWriter.cancel();
+        sp->pendingValues = sp->deviceValues;
+
+        // The device will drop off the bus and reboot. Show a clear "resetting" overlay so the
+        // empty UI isn't mistaken for a disconnect; cleared when config comes back (rebuildRows).
+        sp->resettingSinceMs = juce::Time::getMillisecondCounterHiRes();
+        sp->busyLabel.setText (grab::u8 ("Resetting \xe2\x80\x94 please wait for the device to reboot..."),
+                               juce::dontSendNotification);
+        sp->busyLabel.setVisible (true);
+        sp->busyLabel.toFront (false);
+        sp->setStatus ("Resetting " + juce::String (n) + grab::u8 (" block(s) \xe2\x80\x94 please wait for the device to reboot..."));
+        sp->logger->line ("FACTORY RESET sent to " + juce::String (n) + " block(s) (user-confirmed).");
+    });
+}
+
 void MainComponent::savePreset()
 {
     if (rows.empty())
@@ -1106,6 +1222,91 @@ void MainComponent::loadPreset()
             updateSaveEnabled();
             setStatus ("Preset loaded (" + juce::String (applied) + " items). Review, then Save to device.");
         });
+}
+
+//==============================================================================
+// Built-in ROLI presets for the Seaboard Block, transcribed from ROLI Dashboard's
+// own .mode files (Seaboard.littlefootModes/*.mode). Values are config id -> value.
+// These are factual setting bundles (not ROLI's files), applied via live-write.
+namespace
+{
+    struct BlockPreset { const char* name; std::vector<std::pair<juce::uint32, juce::int32>> values; };
+
+    // Fields common to the three MIDI-mode presets (everything but the mode itself).
+    static std::vector<std::pair<juce::uint32, juce::int32>> withMode (juce::int32 midiMode)
+    {
+        std::vector<std::pair<juce::uint32, juce::int32>> v {
+            { 0, 1 }, { 2, midiMode }, { 3, 48 }, { 4, 0 }, { 5, 0 }, { 6, 74 }, { 7, 0 },
+            { 10, 127 }, { 11, 102 }, { 12, 127 }, { 13, 127 }, { 14, 127 },
+            { 15, 0 }, { 16, 127 }, { 17, 0 }, { 18, 0 }, { 19, 0 }, { 24, 0 },
+            { 30, 1 }, { 31, 1 }, { 32, 1 }   // Glide/Slide/Pressure Tracking = Last Played (1)
+        };
+        return v;
+    }
+
+    static const std::vector<BlockPreset>& seaboardPresets()
+    {
+        static const std::vector<BlockPreset> presets = {
+            { "MPE",            withMode (1) },   // id 2: Multi=0, MPE=1, Single=2
+            { "Multi Channel",  withMode (0) },
+            { "Single Channel", withMode (2) },
+            // Piano = Single Channel + Piano Mode on, with Slide/Press/Lift off. ROLI's
+            // Piano.mode leaves Glide Sensitivity (id 11) untouched, so we omit it too.
+            { "Piano", { { 0, 1 }, { 2, 2 }, { 3, 48 }, { 4, 0 }, { 5, 0 }, { 6, 74 }, { 7, 0 },
+                         { 10, 127 }, { 12, 0 }, { 13, 0 }, { 14, 0 },
+                         { 15, 0 }, { 16, 127 }, { 17, 1 }, { 18, 0 }, { 19, 0 }, { 24, 0 },
+                         { 30, 1 }, { 31, 1 }, { 32, 1 } } }
+        };
+        return presets;
+    }
+}
+
+void MainComponent::populatePresetBox()
+{
+    presetBox.clear (juce::dontSendNotification);
+    // Seaboard only for now — other Block types have their own presets (reports welcome).
+    const bool seaboard = block != nullptr && block->getType() == roli::Block::Type::seaboardBlock;
+    if (seaboard)
+    {
+        int id = 1;
+        for (auto& p : seaboardPresets())
+            presetBox.addItem (p.name, id++);
+    }
+    presetBox.setSelectedId (0, juce::dontSendNotification);
+    presetBox.setVisible (seaboard);
+    resized();
+}
+
+void MainComponent::applyBlockPreset (const juce::String& name)
+{
+    if (block == nullptr || rows.empty())
+        return;
+
+    const BlockPreset* preset = nullptr;
+    for (auto& p : seaboardPresets())
+        if (name == p.name) { preset = &p; break; }
+    if (preset == nullptr)
+        return;
+
+    int applied = 0;
+    for (auto& [id, v] : preset->values)
+    {
+        if (pendingValues.find (id) == pendingValues.end())
+            continue;   // only items this device actually reports
+        pendingValues[id] = v;
+        const bool differs = deviceValues.count (id) && deviceValues[id] != v;
+        for (auto& r : rows)
+            if (r->getId() == id) { r->setValue (v); r->setChangedFromDevice (differs); }
+        for (auto* c : curves)
+            if (c->getId() == id) { c->setSensitivity (v); c->setChanged (differs); }
+        if (differs)
+            dirtyWrites.insert (id);
+        ++applied;
+    }
+
+    liveWriter.nudge();          // live-write flushes the changed items to the device
+    updateSaveEnabled();
+    setStatus ("Applied ROLI preset '" + name + "' (" + juce::String (applied) + " items).");
 }
 
 bool MainComponent::keyPressed (const juce::KeyPress& key)
@@ -1191,6 +1392,11 @@ void MainComponent::resized()
     saveButton   .setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
     loadPresetBtn.setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
     savePresetBtn.setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
+    if (presetBox.isVisible())
+    {
+        buttons.removeFromLeft (8);
+        presetBox.setBounds (buttons.removeFromLeft (170).reduced (2, 0));
+    }
     r.removeFromTop (6);
 
     auto trow = r.removeFromTop (26);
@@ -1206,6 +1412,7 @@ void MainComponent::resized()
 
     placeKeyboard (r);
     viewport.setBounds (r);
+    busyLabel.setBounds (r);   // overlay centred over the content area (shown during a reset)
     layoutCardGrid (viewport, rowHolder, cards, "Sensitivity");
 }
 

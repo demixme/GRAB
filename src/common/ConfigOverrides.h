@@ -24,15 +24,37 @@ inline void applyConfigOverrides (roli::Block::ConfigMetaData& meta)
         "Major7", "minor7", "9th", "minor9", "Diminished", "Augmented", "m7b5"
     };
 
-    const char* const* names = nullptr;
-    int count = 0;
+    // Glide/Slide Tracking (ids 30/31): the vendored SDK lists these as
+    // { Multi-Channel, Last Played, Highest, Lowest } with min 1, so value 1 wrongly
+    // read as "Multi-Channel". The device actually encodes value 1 = Last Played —
+    // confirmed against ROLI Dashboard and a Piano-mode read (raw 1 shown as "Last
+    // Played"), and matching our RISE note (1 Last Played, 2 Highest, 3 Lowest). The
+    // Block adds Multi-Channel as the 4th value. Range (1..4) is kept as the device
+    // reports it; combo index = value - range.start, so names are listed for values 1..4.
+    static const char* const trackNames[] = { "Last Played", "Highest", "Lowest", "Multi-Channel" };
 
     switch ((roli::BlocksProtocol::BlockConfigId) meta.item)
     {
         case roli::BlocksProtocol::chord:
-            names = chordNames;
-            count = (int) (sizeof (chordNames) / sizeof (chordNames[0]));
-            break;
+        {
+            const int count = (int) (sizeof (chordNames) / sizeof (chordNames[0]));
+            meta.type  = CT::options;
+            meta.range = { 0, count - 1 };
+            for (int i = 0; i < roli::Block::ConfigMetaData::numOptionNames; ++i)
+                meta.optionNames[i] = (i < count) ? juce::String (chordNames[i]) : juce::String();
+            return;
+        }
+
+        case roli::BlocksProtocol::xTrackingMode:   // Glide Tracking
+        case roli::BlocksProtocol::yTrackingMode:   // Slide Tracking
+        {
+            meta.type = CT::options;   // keep the device-reported range (1..4)
+            const int span = meta.range.getEnd() - meta.range.getStart() + 1;
+            const int have = (int) (sizeof (trackNames) / sizeof (trackNames[0]));
+            for (int i = 0; i < roli::Block::ConfigMetaData::numOptionNames; ++i)
+                meta.optionNames[i] = (i < span && i < have) ? juce::String (trackNames[i]) : juce::String();
+            return;
+        }
 
         // TODO: scale (id 22) is also "Should be options" in the library — add its
         // names here once confirmed from Dashboard.
@@ -40,11 +62,6 @@ inline void applyConfigOverrides (roli::Block::ConfigMetaData& meta)
         default:
             return;
     }
-
-    meta.type  = CT::options;
-    meta.range = { 0, count - 1 };
-    for (int i = 0; i < roli::Block::ConfigMetaData::numOptionNames; ++i)
-        meta.optionNames[i] = (i < count) ? juce::String (names[i]) : juce::String();
 }
 
 } // namespace seaprobe
