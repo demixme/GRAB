@@ -224,7 +224,7 @@ MainComponent::MainComponent()
         m.addItem (1, "Raw MIDI capture...");
         m.addItem (2, "Active probe...");
         m.addSeparator();
-        m.addItem (3, "Factory reset device...", block != nullptr);  // Blocks only; confirm dialog follows
+        m.addItem (3, "Factory reset (presets only)...", block != nullptr);  // Blocks only; confirm dialog follows
         m.addSeparator();
         m.addItem (4, "How you can help...");
         m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (advancedBtn),
@@ -1116,7 +1116,7 @@ void MainComponent::factoryReset()
     // (Escape) safe we must make Cancel the second button; the reset fires only on result 1.
     auto opts = juce::MessageBoxOptions()
         .withIconType (juce::MessageBoxIconType::WarningIcon)
-        .withTitle ("Factory reset")
+        .withTitle ("Factory reset (presets only)")
         .withMessage ("Reset " + name + (n > 1 ? "  (" + juce::String (n) + " chained blocks)" : juce::String())
                       + " to factory defaults?\n\n"
                       "This restores every setting to its default and reboots the device. "

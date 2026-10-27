@@ -112,7 +112,7 @@ private:
             "\n"
             "D)  Presets & factory reset  (Seaboard / Blocks)\n"
             "     1. Use \"Apply ROLI preset...\" to load MPE / Multi / Single / Piano, and check it matches Dashboard's same preset.\n"
-            "     2. Advanced \xe2\x96\xb8 Factory reset device \xe2\x80\x94 confirm the device reboots and returns to defaults, then \"Contribute...\" to capture its factory values.\n"
+            "     2. Advanced \xe2\x96\xb8 Factory reset (presets only) \xe2\x80\x94 confirm the device reboots and returns to defaults, then \"Contribute...\" to capture its factory values.\n"
             "\n"
             "E)  Seaboard RISE / GRAND owners\n"
             "     - Original RISE (25/49): writing is new here \xe2\x80\x94 change a setting, reconnect, and confirm it stuck. Please report success or problems.\n"
