@@ -265,6 +265,24 @@ replies `firmwareUpdateACK` (MessageFromDevice `0x03`: `code(7) + detail(32)`).
 Dashboard brackets it with `hardware_firmware_update_begin`/`_end` and reports
 `firmware-update-progress`.
 
+**ROLI's own "no-Dashboard" method (archived RISE support articles, 2019/2022):** for a RISE
+that Dashboard won't recognise, ROLI told users to flash the `.syx` **with a generic SysEx tool**
+— **SysEx Librarian** (macOS) or **MIDI-OX** (Windows): drag the `RISE 1.1.8.syx` onto the tool,
+set the destination to `Seaboard RISE`, and send. So **the `.syx` is the entire flash stream**
+— no special per-packet handshake beyond streaming the file; the device restarts (~30 s) when
+done. Crucially, the RISE is first put into **bootloader mode physically**: connect USB and
+**hold both octave-shift buttons while switching it on**, then release. That manual gesture is a
+real safety gate — the device only accepts a flash when the user has deliberately entered
+bootloader mode, so a config tool can't brick it by accident. (In normal mode, Dashboard instead
+drags the `.syx` onto its visualizer.)
+
+**RISE vs GRAND firmware — suggestive, NOT confirmed:** ROLI's reset article is titled
+*"Resetting the Seaboard RISE / GRAND"* and treats the two together for factory reset, which
+hints they share firmware. But the firmware **server has no GRAND build** (`Seaboard GRAND` →
+`204`, no download), and the firmware page is RISE-specific (`RISE 1.1.8.syx`). So whether a
+GRAND can run the RISE `.syx` is **unverified** — do not assume it; it would need testing on a
+GRAND (with the brick risk that implies), and the GRAND's bootloader-entry gesture is unknown.
+
 **Firmware catalogue — latest versions (captured 2026-10-16, servers still up):**
 These are the `-latest` builds the download endpoint returned; archived so the
 version check survives ROLI's shutdown.
