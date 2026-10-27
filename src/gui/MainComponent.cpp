@@ -223,6 +223,7 @@ MainComponent::MainComponent()
         juce::PopupMenu m;
         m.addItem (1, "Raw MIDI capture...");
         m.addItem (2, "Active probe...");
+        m.addItem (5, "Download firmware for archiving...", roliProductName().isNotEmpty());
         m.addSeparator();
         m.addItem (3, "Factory reset (presets only)...", block != nullptr);  // Blocks only; confirm dialog follows
         m.addSeparator();
@@ -234,6 +235,7 @@ MainComponent::MainComponent()
                 else if (r == 2) openDialog (new ProbePanel(),  "Active probe");
                 else if (r == 3) factoryReset();
                 else if (r == 4) showHelpWanted();
+                else if (r == 5) downloadFirmware();
             });
     };
 
@@ -1109,6 +1111,45 @@ void MainComponent::reloadFromDevice()
     }
     setStatus ("Reloading from device...");
     requestConfig();
+}
+
+// ROLI's firmware download URLs are keyed by a product *name*. We only map names we've
+// confirmed resolve on my.roli.com (Seaboard Block). Others (Piano/LUMI/Lightpad/GRAND/RISE 2)
+// aren't confirmed yet — notably "Lightpad Block" 404s — so they stay unmapped for now.
+juce::String MainComponent::roliProductName() const
+{
+    if (block != nullptr && block->getType() == roli::Block::Type::seaboardBlock)
+        return "Seaboard Block";
+    return {};
+}
+
+// Download-only, never flashes. Opens ROLI's version-robust "update_to" URL in the user's
+// browser; their my.roli.com login authenticates it and the latest firmware (.syx.zip) downloads.
+// GRAB holds no credentials — the browser session does the auth.
+void MainComponent::downloadFirmware()
+{
+    const auto product = roliProductName();
+    if (product.isEmpty())
+        return;
+
+    // Name-based + any version -> ROLI resolves to the latest build (no hard-coded versionId).
+    const auto url = "https://my.roli.com/firmware_versions/update_to/"
+                   + juce::URL::addEscapeChars (product, false) + "/1.0.0";  // any version -> ROLI returns latest
+
+    auto opts = juce::MessageBoxOptions()
+        .withIconType (juce::MessageBoxIconType::InfoIcon)
+        .withTitle ("Download firmware for archiving")
+        .withMessage ("This opens ROLI's download page for your " + product + " in your web browser.\n\n"
+                      "You must be signed in to your ROLI account (my.roli.com). It downloads the latest "
+                      "firmware as a .syx.zip so you can archive it while ROLI's servers are still up.\n\n"
+                      + grab::u8 ("GRAB does NOT flash firmware \xe2\x80\x94 this is download-only."))
+        .withButton ("Open in browser")   // button 1: Enter / returns 1
+        .withButton ("Cancel");           // button 2: Escape / returns 0
+    juce::AlertWindow::showAsync (opts, [url] (int result)
+    {
+        if (result == 1)
+            juce::URL (url).launchInDefaultBrowser();
+    });
 }
 
 void MainComponent::factoryReset()

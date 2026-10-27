@@ -308,6 +308,16 @@ archived locally (`captures/firmware/`, gitignored — ROLI's copyrighted files,
 committed). We do NOT flash firmware (hard rule; a bad flash bricks the device) —
 this is archival + version-reference only.
 
+**Download auth (re-probed 2026-10-27):** both `my.roli.com` hops require auth — the
+`X-API-Key` header *or* a logged-in browser session cookie (confirmed working). The
+chain is `update_to` → `303` → `build_redirect` → `303` → a **public signed S3 URL**
+on `builds.roli.com` serving `…/<name>/<ver>/<file>.syx.zip` (the `.syx` ships zipped).
+GRAB offers **Advanced ▸ Download firmware for archiving…** for devices whose ROLI
+product name we've confirmed (currently **Seaboard Block** only — `Lightpad Block`
+404s, others unverified). It opens the name-based `update_to` URL in the user's
+browser, so **GRAB holds no credential** — the browser's ROLI login does the auth, and
+nothing is ever sent to the device.
+
 ## 13. Still open (not needed for the config tool)
 - The `updateUserConfig` (0x05) layout (user-config metadata) — not yet seen.
 - `setConfigState` (0x06) exact fields — Dashboard never sent it, so unobserved.

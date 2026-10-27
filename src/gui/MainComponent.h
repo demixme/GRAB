@@ -113,6 +113,8 @@ private:
     void saveToDevice();
     void reloadFromDevice();
     void factoryReset();   // Blocks only: library block->factoryReset(), behind a confirm dialog
+    juce::String roliProductName() const;  // ROLI download product name for the connected device, or empty
+    void downloadFirmware();               // open ROLI's firmware download page in the browser (archival; never flashes)
     void populatePresetBox();                 // fill the ROLI-preset picker for the current device type
     void applyBlockPreset (const juce::String& name);   // apply a built-in ROLI preset (live-writes)
     void loadPreset();
