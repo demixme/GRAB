@@ -33,6 +33,17 @@ inline void applyConfigOverrides (roli::Block::ConfigMetaData& meta)
     // reports it; combo index = value - range.start, so names are listed for values 1..4.
     static const char* const trackNames[] = { "Last Played", "Highest", "Lowest", "Multi-Channel" };
 
+    // Scale (id 22): the library ships this as a plain integer 0..18 ("Should be options").
+    // Names are in device order from ROLI Dashboard's LittleFoot library (Scale.littlefoot),
+    // contributed and tested on a ROLI Piano 49 (fw 1.5.0). Value 0 = Major. With the active
+    // mode's Color Scheme set to User, the Piano lights only the in-scale keys natively — see
+    // PIANO.md. (19 names need numOptionNames >= 19; raised to 20 in the vendored lib, see P3.)
+    static const char* const scaleNames[] = {
+        "Major", "Minor", "Harmonic Minor", "Pentatonic Neutral", "Pentatonic Major",
+        "Pentatonic Minor", "Blues", "Dorian", "Phrygian", "Lydian", "Mixolydian", "Locrian",
+        "Whole Tone", "Arabic (A)", "Arabic (B)", "Japanese", "Ryukyu", "8-Tone Spanish", "Chromatic"
+    };
+
     switch ((roli::BlocksProtocol::BlockConfigId) meta.item)
     {
         case roli::BlocksProtocol::chord:
@@ -56,8 +67,15 @@ inline void applyConfigOverrides (roli::Block::ConfigMetaData& meta)
             return;
         }
 
-        // TODO: scale (id 22) is also "Should be options" in the library — add its
-        // names here once confirmed from Dashboard.
+        case roli::BlocksProtocol::scale:
+        {
+            const int count = (int) (sizeof (scaleNames) / sizeof (scaleNames[0]));
+            meta.type  = CT::options;
+            meta.range = { 0, count - 1 };
+            for (int i = 0; i < roli::Block::ConfigMetaData::numOptionNames; ++i)
+                meta.optionNames[i] = (i < count) ? juce::String (scaleNames[i]) : juce::String();
+            return;
+        }
 
         default:
             return;

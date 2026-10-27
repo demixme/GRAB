@@ -275,7 +275,7 @@ static constexpr juce::uint8 numberOfUserConfigs = 32;
 static constexpr juce::uint8 maxConfigId = 255;
 
 static constexpr juce::uint8 configUserConfigNameLength = 32;
-static constexpr juce::uint8 configMaxOptions = 16;
+static constexpr juce::uint8 configMaxOptions = 20;  // GRAB P3: was 16; kept == ConfigMetaData::numOptionNames
 static constexpr juce::uint8 configOptionNameLength = 16;
 
 //==============================================================================

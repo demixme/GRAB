@@ -388,7 +388,7 @@ public:
     /** Metadata for a given config item */
     struct ConfigMetaData
     {
-        static constexpr juce::int32 numOptionNames = 16;
+        static constexpr juce::int32 numOptionNames = 20;  // GRAB P3: was 16; Scale (id 22) has 19 options
 
         enum class ConfigType
         {

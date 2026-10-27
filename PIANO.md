@@ -49,6 +49,47 @@ talks over the `0x77` topology handshake.)
 Items **34** (Global Key Color) and **35** (Root Key Color) are written as **32-bit
 ARGB** (e.g. `0xFF3D0707`); the keys change immediately.
 
+## Scales & scale lighting
+
+**Scale** (config id **22**, range 0..18) selects a musical scale, but the device reports
+**no names** for the values — the library even flags it *"Should be options"*. The names and
+note masks below come from ROLI Dashboard's own LittleFoot library (`Scale.littlefoot`), in
+device order, and were contributed and tested on a **ROLI Piano 49 (fw 1.5.0)**. GRAB names
+these in [src/common/ConfigOverrides.h](src/common/ConfigOverrides.h) (needs `numOptionNames`
+≥ 19 — raised to 20 in the vendored library, patch **P3** in [PATCHES.md](PATCHES.md)).
+
+The mask is a 12-bit set of the semitones in the scale: **bit n set ⇒ note n semitones above
+the root is in the scale** (e.g. Major `0xab5` = semitones 0,2,4,5,7,9,11).
+
+| # | Scale | Mask | | # | Scale | Mask |
+|---|---|---|---|---|---|---|
+| 0 | Major | 0xab5 | | 10 | Mixolydian | 0x6b5 |
+| 1 | Minor | 0x5ad | | 11 | Locrian | 0x56b |
+| 2 | Harmonic Minor | 0x9ad | | 12 | Whole Tone | 0x555 |
+| 3 | Pentatonic Neutral | 0x4a5 | | 13 | Arabic (A) | 0xb6d |
+| 4 | Pentatonic Major | 0x295 | | 14 | Arabic (B) | 0x575 |
+| 5 | Pentatonic Minor | 0x4a9 | | 15 | Japanese | 0x8d1 |
+| 6 | Blues | 0x4e9 | | 16 | Ryukyu | 0x8b1 |
+| 7 | Dorian | 0x6ad | | 17 | 8-Tone Spanish | 0x57b |
+| 8 | Phrygian | 0x5ab | | 18 | Chromatic | 0xfff |
+| 9 | Lydian | 0xad5 | | | | |
+
+**Scale lighting is native to the Piano's firmware — no LittleFoot program needed.** Set the
+**active mode's Color Scheme** (ids 100/107/114/121) to **User** (value **1**) and the Piano
+lights only the keys of the selected **Scale** (22) relative to the root **Key** (27); moving
+Scale changes the lit keys live, and **Chromatic** (18) lights every key. In the default
+Major / C / User setup this just looks like "white keys lit, black keys off". GRAB already
+exposes Color Scheme as a named dropdown (0 Pro, 1 User, 2 Piano, 3 Stage, 4 Rainbow), so
+Scale-selection + Color Scheme = User gives scale lighting with plain `setConfig` writes that
+persist like any setting — no program upload.
+
+**Not used:** the SDK defines `mode*_showScale` (ids 104/111/118/125, "Show Scales"), but the
+Piano does **not** report those items, so GRAB doesn't write them. A per-key example program
+(`third_party/roli_blocks_basics/littlefoot/scripts/Example Scripts/ROLIPianoExample.littlefoot`)
+exists for temporary custom lighting but is unrelated to native scale display and untested.
+
+_Contributed by Legitimate_Horror_72 (Piano 49, fw 1.5.0)._
+
 ## Config items reported (id · name · range / choices)
 
 | id | name | range / choices |
@@ -66,7 +107,7 @@ ARGB** (e.g. `0xFF3D0707`); the keys change immediately.
 | 15 | Fixed Velocity | 0..1 |
 | 16 | Fixed Velocity Value | 1..127 |
 | 20 | Active Mode | 0..3 (Mode 1..4) |
-| 22 | Scale | 0..18 (no names reported; 0 = Major) |
+| 22 | Scale | 0..18 — named by GRAB (device reports no names); see **Scales & scale lighting** |
 | 27 | Key | 0..11 (C..B) |
 | 30 | Pitch Bend Tracking | 1 Multi-Channel, 2 Last Played, 3 Highest, 4 Lowest |
 | 32 | Pressure Tracking | 0 Poly Aftertouch, 1 Channel Pressure |

@@ -60,6 +60,23 @@ produced no bytes and all config items read back as inactive defaults. The
 **Behavioural impact on wire protocol:** none for the stock path (same object either
 way); enables config traffic for custom transports.
 
+### P3 — raise option-name capacity 16 → 20
+**Files:** `blocks/roli_Block.h` (`ConfigMetaData::numOptionNames`) and
+`protocol/roli_BlocksProtocolDefinitions.h` (`configMaxOptions`)
+**Change:** both `16` → `20` (a `static_assert` in `roli_BlockConfigManager.h` requires the
+two to stay equal).
+
+**Why:** the ROLI Piano's **Scale** config item (id 22) has **19** named values
+(Major … Chromatic), but the metadata only held 16 option names, so a named Scale
+dropdown would truncate. The constant bounds a fixed `juce::String optionNames[N]`
+array and every loop over it; function-parameter array sizes decay to pointers and
+braced option lists pad with `nullptr`, so enlarging it is purely additive — the
+existing option sets (Color Scheme 5, Chord 15, …) are unaffected. App-side metadata
+only; **nothing is sent over the wire**. GRAB names the Scale values in
+`src/common/ConfigOverrides.h`.
+
+**Behavioural impact on wire protocol:** none.
+
 ## Safety note (for Phase 2, not yet acted on)
 The module exposes these destructive operations as explicit methods only — none
 observed to fire automatically from this grep, but the connect/topology
