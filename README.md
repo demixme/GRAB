@@ -13,17 +13,20 @@ instruments configurable and self-documents their protocol.
        alt="GRAB configuring a Seaboard Block: colour-coded 5D sensitivity curves with live touch rings on the keyboard graphic, and MIDI settings, pitch and play-mode cards below.">
 </p>
 
-## Where it's at — v0.1.20
+## Where it's at — v0.1.24
 **Live editing** (changes write as you make them, like Dashboard), one-click **ROLI presets**
 (MPE / Multi / Single / Piano), and **factory reset** for Blocks — on **Windows, macOS and
-Linux**. Recent wins: the **Seaboard GRAND** is confirmed to speak the RISE protocol, and the
-first **LUMI Keys / Piano M** report arrived.
+Linux**. Recent additions: a **Diagnose connection** helper for the common "port is busy / no
+device found" problems; a preliminary **Seaboard GRAND** config page (it's configured with the
+same protocol as the RISE); **Download firmware for archiving** (Advanced ▸, Seaboard Block)
+while ROLI's servers are up; named **scales + native scale lighting** on the ROLI Piano; and —
+with **Windows MIDI Services** — GRAB can now run **alongside your DAW** without quitting it.
 
-**Still needed — contributions very welcome:** a settings capture from a **Seaboard GRAND** (its
-owner sees the exact steps in-app on connect); anonymised profiles from **LUMI Keys / Piano M,
-Lightpad, and Live / Loop / Touch**; and testers for the new **Linux** build. In GRAB, use
-**Contribute…** or **Advanced ▸ How you can help** — everything is anonymised and nothing is
-sent unless you click.
+**Still needed — contributions very welcome:** a full settings capture from a **Seaboard GRAND**
+(to finish its config page); anonymised profiles from **LUMI Keys / Piano M, Lightpad, and
+Live / Loop / Touch**; and testers for the **Linux** build. In GRAB, use **Contribute…**,
+**Advanced ▸ How you can help**, or **Diagnose…** — everything is anonymised and nothing is sent
+unless you click.
 
 ## Supported devices
 | Device | Status |
@@ -35,7 +38,7 @@ sent unless you click.
 | Pad & control **BLOCKS** (Lightpad/Pad, Live, Loop, Touch) · **Airwave** | ◻️ out of scope *for now* — they connect and GRAB shows their basic shared settings, but ROLI's per-app/mode config (Note Grid, Fader Block, Drum Block, …) isn't managed by GRAB (see **Scope** below). **Contributions to add them are welcome** |
 | Multiple BLOCKS (DNA-connected cluster) | ✅ identical chained blocks (e.g. two Seaboard Blocks) shown as one device — shared config, writes fan out to the whole chain, drawn as one continuous keyboard |
 | Seaboard **RISE 25/49** (original) | ✅ live read/write + ROLI presets — same `0x78`/RPN protocol as the RISE 2, confirmed on a RISE 25 (one caveat: min/max aren't shown — this firmware doesn't report them back) · [RISE-GRAND.md](RISE-GRAND.md) |
-| Seaboard **GRAND** | ⛔ not mapped yet — **owners: click Help add device…** so we can see its protocol (likely the same as the RISE); reads could follow, then writes via [tools/CAPTURE-DASHBOARD.md](tools/CAPTURE-DASHBOARD.md) · [issue #1](../../issues/1) |
+| Seaboard **GRAND** | 🟡 preliminary — configured with the **same `0x78` protocol as the RISE** (confirmed from a Dashboard capture): 4D (no slide), 3 pedals. Writing works via the RISE path; a page is drafted but a **full Dashboard capture is still needed** to finish the param map · [RISE-GRAND.md](RISE-GRAND.md) · [issue #6](../../issues/6) |
 
 Got an **unsupported** device? Run GRAB, click **Help add device…** → **Run & submit** —
 one click, read-only, and it's how the next devices get added.
@@ -131,9 +134,10 @@ otherwise). *Want to build or improve GRAB?* See [Building from source](#buildin
 and [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Troubleshooting — my device won't connect
-GRAB auto-detects on launch; the **status line at the top** says what it found. Work
-through whichever case matches, then (if it's still stuck) send a report — that's how
-devices get fixed and added.
+GRAB auto-detects on launch; the **status line at the top** says what it found. The quickest
+help is the **Diagnose…** button — it lists the MIDI ports GRAB can see, flags a port that's
+**held by another app**, and gives platform-specific steps. Otherwise work through whichever case
+below matches, then (if it's still stuck) send a report — that's how devices get fixed and added.
 
 **Nothing detected ("No … Seaboard found")**
 - **USB:** plug the device in directly — no driver needed; try another cable/port. ROLI
