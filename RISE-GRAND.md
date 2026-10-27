@@ -142,6 +142,13 @@ any fw 1.x RISE as editable and **hides only** the Strike/Press/Lift min/max blo
 back as zeros on that firmware — writable, just not readable), via `isCurveMinMax()` in
 `Rise2Component.cpp`.
 
+**Field-confirmed post-release (Oct 2026, GRAB 0.1.21, macOS).** An independent, in-the-wild
+RISE 49 auto-explore capture reproduced the same `3A` reply: model `RISE1.001.1.0`, firmware
+**1.1.8** (main + second image), BLE module `0.0.4`, 218-byte body. Two things validated on
+real hardware: (1) RISE 49 read works on the latest build on macOS, and (2) the serial/MAC
+block came back **fully redacted** (`58 58 …` = `X`), confirming the `0x78` identify-reply
+anonymiser shipped in **v0.1.20** scrubs correctly against a live device — no identifiers leaked.
+
 #### Write protocol confirmed (fw 1.x, from a RISE 25 Dashboard capture)
 
 A contributed macOS Dashboard↔RISE-25 capture (see [tools/CAPTURE-DASHBOARD.md](tools/CAPTURE-DASHBOARD.md))
@@ -195,10 +202,11 @@ aren't BLOCKS devices). Confirmed so far:
 
 | Model | OS seen | MIDI port name | USB IDs |
 |---|---|---|---|
-| **Seaboard RISE 49** (original, 2016) | Windows 11 | `ROLI Seaboard RISE 49` | `vid_2af4 pid_0210` |
+| **Seaboard RISE 49** (original, 2016) | Windows 11 **+ macOS** | `ROLI Seaboard RISE 49` / `Seaboard RISE 49` | `vid_2af4 pid_0210` |
 | **Seaboard RISE** (likely RISE 2) | macOS | `Seaboard RISE` | (CoreMIDI UID only) |
 | **Seaboard RISE 2**, firmware 2.0.2 | macOS | `Seaboard RISE 2` | (CoreMIDI UID only) |
 | **Seaboard GRAND** ("GRAND 62") | macOS | `Seaboard GRAND` | (CoreMIDI UID only) |
+| **ROLI Airwave Expression** | macOS | `ROLI Airwave Expression` | (CoreMIDI UID only; **input only** seen — see below) |
 
 ## Seaboard GRAND — first capture (Oct 2026)
 A contributed auto-explore capture (macOS) settles the big question: **the GRAND is a `0x78`
@@ -227,6 +235,20 @@ is still open for them is whether their `0x78 3D` write params match the RISE 2'
 operate the device (and change settings on it) → **Save to file** → attach the `.txt` to
 an issue. That recording is the raw material for adding support; the `<param>` encoding
 in the tables below still needs confirming against such a capture.
+
+## ROLI Airwave Expression — first sighting (Oct 2026, not yet probed)
+A macOS auto-explore capture (GRAB 0.1.21) is the first time an **Airwave Expression** has
+connected to GRAB. GRAB saw it as a MIDI **input** (`ROLI Airwave Expression`) but logged
+**`Output: (none)`** — it found no matching output port, so it could not send the
+`0x78 3F` identify and captured **no protocol data** (the record holds only the port listing).
+Nothing about its dialect is known yet.
+
+Open question: whether the Airwave is genuinely **input-only** — plausible, since it's a
+hand-tracking *expression* sensor that streams MPE out and may expose nothing to configure —
+or whether GRAB's input↔output port pairing simply didn't match its output port name. Either
+way, active probing needs an output port. **Next step:** an owner capture that lists all ports
+(to see if an Airwave output exists at all), and, if one does, an identify probe like the GRAND
+/ RISE 25 sessions above. Until then the Airwave is **detect-only, unprobed**.
 
 ## Confirmed from captures (RISE 25 **and** RISE 2, playing): performance = plain MPE
 Captures of both a **RISE 25** and a **RISE 2** being played contained **only standard
