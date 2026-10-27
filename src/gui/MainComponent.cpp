@@ -1475,17 +1475,28 @@ void MainComponent::forcePianoPreview()
 
 // The GRAND is a 0x78 RISE-family device, but its settings are NOT in its identify reply and
 // are still unmapped (see RISE-GRAND.md), so there is no config page to show — this previews
-// the identity-only state a real GRAND owner sees, and points them at "How you can help".
+// the provisional config page (4D, 3 pedals) on the RISE component — layout only, not yet
+// wired to real GRAND hardware (its 87-byte reply layout is still being decoded).
 void MainComponent::forceGrandPreview()
 {
-    if (grandPreview) { connect (seaprobe::Transport::Auto); return; }  // toggle off
+    if (grandPreview)   // toggle off -> back to a real device
+    {
+        grandPreview = false;
+        if (rise2Page != nullptr) { removeChildComponent (rise2Page.get()); rise2Page.reset(); }
+        setBlocksControlsVisible (true);
+        connect (seaprobe::Transport::Auto);
+        return;
+    }
 
     if (source != nullptr) { source->setActive (false); source.reset(); }
     block = nullptr;
     simConfig.clear();
     stopTimer();
-    if (rise2Page != nullptr) { removeChildComponent (rise2Page.get()); rise2Page.reset(); }
-    rebuildRows();   // clears any existing rows (block + simConfig both empty)
+    if (rise2Page == nullptr)
+    {
+        rise2Page = std::make_unique<Rise2Component> (*logger);
+        addAndMakeVisible (*rise2Page);
+    }
     setBlocksControlsVisible (false);
     grandPreview = true;
 
@@ -1493,9 +1504,8 @@ void MainComponent::forceGrandPreview()
     keyboardView.setOctaves (5);   // GRAND is large
     keyboardView.setBlocks (1);
     keyboardView.setVisible (true);
-    setStatus ("Seaboard GRAND preview - identity only; settings not yet mapped.  Ctrl+Alt+Shift+G to exit.");
-    if (logger != nullptr) logger->line ("DEV: Seaboard GRAND preview (identity only)");
-    showHelpWanted();
+    rise2Page->previewSyntheticGrand();
+    if (logger != nullptr) logger->line ("DEV: Seaboard GRAND preview (RISE page, preliminary 4D/3-pedal)");
     resized();
 }
 

@@ -19,6 +19,7 @@ public:
 
     /** Add a child row/panel with a fixed height, stacked under the title. */
     void addItem (juce::Component& c, int h) { addAndMakeVisible (c); items.push_back ({ &c, h }); }
+    bool isEmpty() const { return items.empty(); }
 
     /** Height this card needs to show its title and all its rows. */
     int contentHeight() const

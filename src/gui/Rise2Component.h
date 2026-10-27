@@ -40,6 +40,10 @@ public:
         original RISE (1.1.8, the "not verified" path). No real serial/MAC. */
     void previewSyntheticState (bool verifiedFirmware);
 
+    /** Dev/preview: render a provisional **GRAND** page (4D, no slide/strike, 3 pedals), from
+        the partial Dashboard capture. No device, no real values — layout preview only. */
+    void previewSyntheticGrand();
+
     void resized() override;
 
 private:
@@ -82,6 +86,7 @@ private:
     bool awaitingState = false;
     int  stateRetries = 0;
     bool minMaxReliable = true;   // false on the original RISE: min/max read back as zeros, so hidden
+    bool grand = false;           // true: render the GRAND field set (4D, 3 pedals, no slide/strike/faders)
 
     juce::Label      statusLabel;
     juce::Label      infoLabel;

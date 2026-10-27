@@ -21,7 +21,9 @@ enum : juce::uint32
     kStrikeSens, kGlideSens, kSlideSens, kPressSens, kLiftSens,
     kStrikeMin, kStrikeMax, kPressMin, kPressMax, kLiftMin, kLiftMax,
     kFaderLeftCc, kFaderMiddleCc, kFaderRightCc, kXyXCc, kXyYCc, kPedalCc,
-    kSleepTime
+    kSleepTime,
+    // GRAND-only: three piano pedals (params 0x08/0x0A/0x0C — confirmed from a Dashboard capture).
+    kPedal1Cc, kPedal2Cc, kPedal3Cc
 };
 
 struct Field
@@ -100,9 +102,33 @@ const std::vector<Field>& fields()
         // Dashboard steps this by 60. The unit is not confirmed.
         { kSleepTime, "Sleep Time", "Power", CT::integer, 0, 16383, {},
           [] (const rise2::State& s) { return s.sleepTime(); }, rise2::sleepTime },
+
+        // GRAND-only pedals. Params 0x08/0x0A/0x0C confirmed from the Dashboard capture; the
+        // reply offsets aren't decoded yet, so read lambdas return a placeholder (preview only).
+        { kPedal1Cc, "Pedal 1 CC (Sustain)",    "Pedals", CT::integer, 0, 127, {}, [] (const rise2::State&) { return 64; }, param (0x08) },
+        { kPedal2Cc, "Pedal 2 CC (Sostenuto)",  "Pedals", CT::integer, 0, 127, {}, [] (const rise2::State&) { return 67; }, param (0x0a) },
+        { kPedal3Cc, "Pedal 3 CC (Soft)",       "Pedals", CT::integer, 0, 127, {}, [] (const rise2::State&) { return 66; }, param (0x0c) },
     };
     return f;
 }
+
+// The GRAND is a 4D instrument with 3 pedals: no Slide or Strike axis, no touch faders/XY pad,
+// and three pedal CCs instead of the RISE's single pedal. These predicates drive which fields
+// each page shows. (Provisional — confirmed from a partial Dashboard capture; see RISE-GRAND.md.)
+bool isRiseOnlyField (juce::uint32 id)
+{
+    switch (id)
+    {
+        case kSlideCc: case kSlideMode: case kSlideSens:
+        case kStrikeSens: case kStrikeMin: case kStrikeMax:
+        case kFaderLeftCc: case kFaderMiddleCc: case kFaderRightCc: case kXyXCc: case kXyYCc:
+        case kPedalCc:
+            return true;
+        default:
+            return false;
+    }
+}
+bool isGrandOnlyField (juce::uint32 id) { return id == kPedal1Cc || id == kPedal2Cc || id == kPedal3Cc; }
 
 const Field* findField (juce::uint32 id)
 {
@@ -287,6 +313,38 @@ void Rise2Component::previewSyntheticState (bool verifiedFirmware)
     onState (std::move (s));
 }
 
+void Rise2Component::previewSyntheticGrand()
+{
+    using namespace rise2;
+
+    stopTimer();
+    closePorts();
+    portName = "Seaboard GRAND (preview)";
+    grand = true;   // rebuildRows() then shows the GRAND field set (4D, 3 pedals)
+
+    // Synthetic reply reusing the RISE layout for the shared fields — the GRAND's real 87-byte
+    // layout is only partly decoded, so this is a layout preview, not device-accurate values.
+    std::vector<std::uint8_t> raw ((size_t) offset::replySize, 0);
+    raw[0] = 0xf0; raw[1] = 0x00; raw[2] = 0x21; raw[3] = 0x10; raw[4] = 0x78; raw[5] = 0x3a;
+    raw[(size_t) offset::replySize - 1] = 0xf7;
+    auto put = [&raw] (int o, const char* s) { for (int i = 0; s[i] != 0; ++i) raw[(size_t) (o + i)] = (std::uint8_t) s[i]; };
+    put (offset::model,    "GRND1.01");
+    put (offset::firmware, "0.6.9");
+    put (offset::serial,   "PREVIEW00000000");   // not a real serial
+    raw[offset::firstMember] = 1; raw[offset::lastMember] = 15; raw[offset::masterChannel] = 0;
+    raw[offset::mpeOn] = 1; raw[offset::bendRange] = 48; raw[offset::octave] = 4;   // -> 0
+    raw[offset::glideTracking] = 1; raw[offset::pressTracking] = 1;
+    raw[offset::glideSens] = 80; raw[offset::pressSens] = 100; raw[offset::liftSens] = 60;
+    raw[offset::transpose] = 64;  // -> 0
+
+    State s; s.raw = std::move (raw);
+    awaitingState = true;
+    onState (std::move (s));
+    setStatus ("Seaboard GRAND preview (simulated, PRELIMINARY).  Ctrl+Alt+Shift+G to exit.");
+    infoLabel.setText ("Provisional GRAND layout from a partial Dashboard capture \xe2\x80\x94 4D (no slide/strike), "
+                       "3 pedals; controls and values are not final.", juce::dontSendNotification);
+}
+
 void Rise2Component::openPorts()
 {
     for (auto& d : juce::MidiOutput::getAvailableDevices())
@@ -442,7 +500,7 @@ void Rise2Component::onState (rise2::State s)
     const bool verified = firmware.startsWith ("2.");
     const bool oldRise  = firmware.startsWith ("1.");   // original RISE 25/49, same 0x78 dump
 
-    if (! verified && ! oldRise)
+    if (! verified && ! oldRise && ! grand)   // GRAND is editable via the same 0x78 3D writes
     {
         setStatus ("'" + portName + "' firmware " + firmware + " is not verified yet, so settings are not shown. "
                    "Use Help add device... (or Advanced... -> Raw MIDI capture) to help add it.");
@@ -516,7 +574,12 @@ void Rise2Component::rebuildRows()
 
     const auto onChange = [this] (juce::uint32 id, juce::int32 v) { onItemChanged (id, v); };
 
-    const char* groupOrder[] = { "Sensitivity", "MIDI Settings", "Play mode", "MIDI CC Assignments", "Power" };
+    // GRAND hides the RISE-only controls (slide/strike/faders/XY/single pedal) and shows its
+    // three pedals instead; the RISE hides the GRAND-only pedal fields.
+    const auto include = [this] (juce::uint32 id)
+    { return grand ? ! isRiseOnlyField (id) : ! isGrandOnlyField (id); };
+
+    const char* groupOrder[] = { "Sensitivity", "MIDI Settings", "Play mode", "MIDI CC Assignments", "Pedals", "Power" };
     for (auto* g : groupOrder)
     {
         const juce::String group (g);
@@ -543,7 +606,8 @@ void Rise2Component::rebuildRows()
             curveRow = std::make_unique<CurveRow>();
             for (auto& d : dims)
             {
-                const bool hasMinMax = d.minId != 0 && minMaxReliable;   // old RISE can't read min/max back
+                if (! include (d.id)) continue;   // GRAND: no Strike/Slide curve
+                const bool hasMinMax = d.minId != 0 && minMaxReliable && ! grand;   // old RISE / GRAND can't read min/max back
                 const int minId = hasMinMax ? (int) d.minId : -1;
                 const int maxId = hasMinMax ? (int) d.maxId : -1;
                 curves.push_back (curveRow->add (std::make_unique<CurveComponent> (
@@ -559,7 +623,7 @@ void Rise2Component::rebuildRows()
             // The three touch faders + XY-pad axes as vertical faders; pedal stays a row.
             faderPanel = std::make_unique<FaderPanel>();
             for (auto& f : fields())
-                if (juce::String (f.group) == group && isFaderField (f.id))
+                if (juce::String (f.group) == group && isFaderField (f.id) && include (f.id))
                 {
                     auto* fader = faderPanel->add (std::make_unique<Fader> (
                         f.id, shortFaderLabel (f.name), deviceValues[f.id], f.lo, f.hi, onChange));
@@ -570,18 +634,21 @@ void Rise2Component::rebuildRows()
                 card->addItem (*faderPanel, 150);
 
             for (auto& f : fields())
-                if (juce::String (f.group) == group && ! isFaderField (f.id) && ! isCurve (f.id))
+                if (juce::String (f.group) == group && ! isFaderField (f.id) && ! isCurve (f.id) && include (f.id))
                     addRow (f);
         }
         else
         {
             for (auto& f : fields())
-                if (juce::String (f.group) == group && ! isCurve (f.id) && ! isCurveMinMax (f.id))
+                if (juce::String (f.group) == group && ! isCurve (f.id) && ! isCurveMinMax (f.id) && include (f.id))
                     addRow (f);
         }
 
-        rowHolder.addAndMakeVisible (*card);
-        cards.push_back (std::move (card));
+        if (! card->isEmpty())   // skip a section with no fields for this device (e.g. Pedals on a RISE)
+        {
+            rowHolder.addAndMakeVisible (*card);
+            cards.push_back (std::move (card));
+        }
     }
 
     resized();
