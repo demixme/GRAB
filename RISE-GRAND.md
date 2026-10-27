@@ -239,16 +239,22 @@ in the tables below still needs confirming against such a capture.
 ## ROLI Airwave Expression — first sighting (Oct 2026, not yet probed)
 A macOS auto-explore capture (GRAB 0.1.21) is the first time an **Airwave Expression** has
 connected to GRAB. GRAB saw it as a MIDI **input** (`ROLI Airwave Expression`) but logged
-**`Output: (none)`** — it found no matching output port, so it could not send the
-`0x78 3F` identify and captured **no protocol data** (the record holds only the port listing).
-Nothing about its dialect is known yet.
+**`Output: (none)`**, so it could not send the `0x78 3F` identify and captured **no protocol
+data** (the record holds only the port listing). Nothing about its dialect is known yet.
 
-Open question: whether the Airwave is genuinely **input-only** — plausible, since it's a
-hand-tracking *expression* sensor that streams MPE out and may expose nothing to configure —
-or whether GRAB's input↔output port pairing simply didn't match its output port name. Either
-way, active probing needs an output port. **Next step:** an owner capture that lists all ports
-(to see if an Airwave output exists at all), and, if one does, an identify probe like the GRAND
-/ RISE 25 sessions above. Until then the Airwave is **detect-only, unprobed**.
+**This is confirmed device behaviour, not a GRAB bug.** `ExplorePanel::pickRoli` matches any
+port whose name contains `roli`/`seaboard`/`rise`/`grand`, and it matched the Airwave *input*
+fine — the capture's own `# port OUT …` listing shows **no ROLI output port at all** (only IAC
+buses and a Stream Deck). So the Airwave enumerates as **input-only**: it streams MPE out but
+exposes no MIDI *destination* to send an identify (or any SysEx) to. Plausible for a
+hand-tracking *expression* sensor — it may simply have nothing to configure over MIDI, or its
+configuration travels over a non-MIDI transport (e.g. a USB vendor interface or BLE GATT).
+
+**Implication:** the Airwave can't be active-probed the way the Seaboards/RISE are, because
+there's no output endpoint. It stays **detect-only** unless (a) an owner reports an Airwave
+output port on another OS/firmware, or (b) its config turns out to live on a different
+transport we'd need to investigate separately. No code change is warranted on the strength of
+this one capture.
 
 ## Confirmed from captures (RISE 25 **and** RISE 2, playing): performance = plain MPE
 Captures of both a **RISE 25** and a **RISE 2** being played contained **only standard
