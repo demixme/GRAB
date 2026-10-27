@@ -756,12 +756,27 @@ void MainComponent::checkConnectTimeout()
     if (detector != nullptr && ! detector->getSelectedPairs().empty())
         name = detector->getSelectedPairs().front().input.name;
 
-    const bool riseGrand = name.containsIgnoreCase ("rise") || name.containsIgnoreCase ("grand");
+    const bool isGrand   = name.containsIgnoreCase ("grand");
+    const bool riseGrand = isGrand || name.containsIgnoreCase ("rise");
     const auto path = logFolder.getFullPathName();
 
-    if (riseGrand)
-        setStatus ("Found '" + name + "' but it isn't a BLOCKS device. The Seaboard GRAND uses a "
-                   "different protocol GRAB doesn't support yet — click 'Help add device…' to pitch in.");
+    if (isGrand)
+    {
+        // The GRAND speaks the RISE 0x78 dialect but doesn't return its settings in the identify
+        // reply, so we can't configure it yet — we need a capture. Make sure the owner sees how.
+        setStatus ("Seaboard GRAND detected! It speaks the RISE protocol and we're close to supporting "
+                   "it - we just need a capture of its settings. See 'How you can help' (opening now, "
+                   "also in the Advanced menu), or click 'Help add device...' to send a report.");
+        if (! grandHelpShown)
+        {
+            grandHelpShown = true;
+            juce::Component::SafePointer<MainComponent> sp (this);
+            juce::MessageManager::callAsync ([sp] { if (sp != nullptr) sp->showHelpWanted(); });
+        }
+    }
+    else if (riseGrand)
+        setStatus ("Found '" + name + "' - looks like a Seaboard RISE. If its settings page didn't open, "
+                   "try the other Transport, or click 'Help add device...'.");
     else
         setStatus ("Opened '" + name + "' but no ROLI BLOCKS device replied. It may be an unsupported "
                    "device, or the port is held by another app — try the other Transport, or 'Help add device…'");

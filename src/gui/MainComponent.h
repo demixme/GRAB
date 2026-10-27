@@ -146,6 +146,7 @@ private:
     double sourceActiveAtMs   = 0.0;
     bool   deviceSeen         = false;
     bool   connectTimeoutShown = false;
+    bool   grandHelpShown      = false;   // auto-open the help dialog once for a GRAND owner
     juce::File logFolder;     // where the log is written, to point users at for reports
     void checkConnectTimeout();
 
