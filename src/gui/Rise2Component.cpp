@@ -222,6 +222,7 @@ const std::vector<RisePreset>& risePresets()
 //==============================================================================
 Rise2Component::Rise2Component (seaprobe::RawLogger& loggerToUse) : logger (loggerToUse)
 {
+    liveCc.fill (-1);   // no CC data yet
     addAndMakeVisible (statusLabel);
     addAndMakeVisible (infoLabel);
     infoLabel.setColour (juce::Label::textColourId, juce::Colours::white.withAlpha (0.7f));
@@ -462,9 +463,17 @@ void Rise2Component::timerCallback()
 
 void Rise2Component::handleIncomingMidiMessage (juce::MidiInput*, const juce::MidiMessage& message)
 {
+    // Capture CC values for the live fader / XY-pad meters (MIDI thread; single int writes are
+    // safe to read unlocked from the UI timer - worst case a one-frame-stale value).
+    if (message.isController())
+        liveCc[(size_t) juce::jlimit (0, 127, message.getControllerNumber())] = message.getControllerValue();
+
     const auto* d = message.getRawData();
     const auto size = message.getRawDataSize();
-    logger.midi ("IN ", d, (std::size_t) size, "rise2");
+
+    // Only log SysEx (identify replies etc.) - logging every performance CC/note would flood it.
+    if (message.isSysEx())
+        logger.midi ("IN ", d, (std::size_t) size, "rise2");
 
     if (! rise2::State::isIdentifyReply (d, size))
         return;
@@ -620,17 +629,26 @@ void Rise2Component::rebuildRows()
 
         if (group == "MIDI CC Assignments")
         {
-            // The three touch faders + XY-pad axes as vertical faders; pedal stays a row.
+            // Three touch faders as vertical faders + the XY pad as a 2D control; pedal is a row.
+            // Each shows a live meter of its assigned CC (animated from the device's MIDI).
             faderPanel = std::make_unique<FaderPanel>();
             for (auto& f : fields())
-                if (juce::String (f.group) == group && isFaderField (f.id) && include (f.id))
+                if (juce::String (f.group) == group && isFaderField (f.id) && include (f.id)
+                    && f.id != kXyXCc && f.id != kXyYCc)
                 {
                     auto* fader = faderPanel->add (std::make_unique<Fader> (
                         f.id, shortFaderLabel (f.name), deviceValues[f.id], f.lo, f.hi, onChange));
                     fader->setTooltip (grab::helpForParameter (f.name));
                     faders.push_back (fader);
                 }
-            if (! faderPanel->faders.empty())
+            if (include (kXyXCc))
+            {
+                auto* pad = faderPanel->setXYPad (std::make_unique<XYPad> (
+                    kXyXCc, kXyYCc, deviceValues[kXyXCc], deviceValues[kXyYCc], onChange));
+                pad->setTooltip (grab::helpForParameter ("XY Pad X CC"));
+            }
+            faderPanel->setLiveSource (liveCc.data());
+            if (! faderPanel->faders.empty() || faderPanel->xy != nullptr)
                 card->addItem (*faderPanel, 150);
 
             for (auto& f : fields())
