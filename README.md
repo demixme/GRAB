@@ -83,7 +83,8 @@ connect, and run.
    [**latest release**](../../releases/latest):
    - **Windows** → `GRAB-<version>-windows.zip`
    - **macOS** → `GRAB-<version>-macos.zip` (universal — Apple Silicon + Intel)
-   - **Linux** → `GRAB-<version>-linux.tar.gz` (x86_64; built on Ubuntu 22.04 for wide compatibility)
+   - **Linux** → `GRAB-<version>-linux.tar.gz` (x86_64; built on Ubuntu 22.04 for wide
+     compatibility) — **new, not yet tested on real hardware; feedback welcome**
 
    Each archive also includes the `seaprobe` / `seadecode` command-line tools.
 2. **Unzip, then clear the "downloaded from the internet" flag** so the OS will open
