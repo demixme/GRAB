@@ -22,7 +22,9 @@ namespace rise2
 using Message  = std::vector<std::uint8_t>;
 using Messages = std::vector<Message>;
 
-inline bool isRisePort (const juce::String& name) { return name.containsIgnoreCase ("Seaboard RISE"); }
+// Match any RISE naming: "Seaboard RISE 25/49", "Seaboard RISE 2", and the Bluetooth form on
+// macOS which drops "Seaboard" entirely ("RISE49 <serial> Bluetooth", "RISE25 …", "RISE2 …").
+inline bool isRisePort (const juce::String& name) { return name.containsIgnoreCase ("rise"); }
 
 inline Message sysex (std::initializer_list<std::uint8_t> body)
 {

@@ -300,9 +300,10 @@ MainComponent::MainComponent()
         {
             return d.identifier.containsIgnoreCase ("vid_2af4")
                 || d.name.containsIgnoreCase ("roli")     || d.name.containsIgnoreCase ("seaboard")
-                || d.name.containsIgnoreCase ("grand")    || d.name.containsIgnoreCase ("piano")
-                || d.name.containsIgnoreCase ("lumi")     || d.name.containsIgnoreCase ("lightpad")
-                || d.name.containsIgnoreCase ("airwave")  || d.name.containsIgnoreCase ("block")
+                || d.name.containsIgnoreCase ("rise")     || d.name.containsIgnoreCase ("grand")
+                || d.name.containsIgnoreCase ("piano")    || d.name.containsIgnoreCase ("lumi")
+                || d.name.containsIgnoreCase ("lightpad") || d.name.containsIgnoreCase ("airwave")
+                || d.name.containsIgnoreCase ("block")
                 || d.identifier.containsIgnoreCase ("seaboardblock") || d.identifier.containsIgnoreCase ("pianofortynine");
         };
         for (auto& d : juce::MidiInput::getAvailableDevices())

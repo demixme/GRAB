@@ -77,16 +77,17 @@ private:
     {
         return d.identifier.containsIgnoreCase ("vid_2af4")
             || d.name.containsIgnoreCase ("roli")     || d.name.containsIgnoreCase ("seaboard")
-            || d.name.containsIgnoreCase ("grand")    || d.name.containsIgnoreCase ("piano")
-            || d.name.containsIgnoreCase ("lumi")     || d.name.containsIgnoreCase ("lightpad")
-            || d.name.containsIgnoreCase ("airwave")  || d.name.containsIgnoreCase ("block")
+            || d.name.containsIgnoreCase ("rise")     || d.name.containsIgnoreCase ("grand")
+            || d.name.containsIgnoreCase ("piano")    || d.name.containsIgnoreCase ("lumi")
+            || d.name.containsIgnoreCase ("lightpad") || d.name.containsIgnoreCase ("airwave")
+            || d.name.containsIgnoreCase ("block")
             || d.identifier.containsIgnoreCase ("seaboardblock") || d.identifier.containsIgnoreCase ("pianofortynine");
     }
     static bool isBle  (const juce::MidiDeviceInfo& d)
     { return d.identifier.containsIgnoreCase ("blemidi") || d.identifier.containsIgnoreCase ("bthle")
           || d.identifier.containsIgnoreCase ("bluetooth"); }
     static bool isRise (const juce::MidiDeviceInfo& d)
-    { return d.name.containsIgnoreCase ("seaboard rise") || d.name.containsIgnoreCase ("grand"); }
+    { return d.name.containsIgnoreCase ("rise") || d.name.containsIgnoreCase ("grand"); }
 
     void run()
     {

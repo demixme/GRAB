@@ -290,7 +290,7 @@ private:
     // avoided — these tokens are specific enough not to catch unrelated ports.
     static bool isBlocksDevice (const juce::MidiDeviceInfo& d)
     {
-        if (d.name.containsIgnoreCase ("seaboard rise"))   // RISE: handled by Rise2Component
+        if (d.name.containsIgnoreCase ("rise"))   // any RISE (incl. BLE "RISE49"): handled by Rise2Component
             return false;
 
         return d.identifier.containsIgnoreCase ("vid_2af4")        // ROLI USB vendor id (Windows)
