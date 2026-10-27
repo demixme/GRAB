@@ -253,7 +253,7 @@ MainComponent::MainComponent()
     setWantsKeyboardFocus (true);   // so the secret RISE-preview shortcut reaches keyPressed
     // Grab focus once the window is on screen, so the shortcut works without clicking first.
     juce::Component::SafePointer<MainComponent> sp (this);
-    juce::MessageManager::callAsync ([sp] { if (sp != nullptr) { sp->grabKeyboardFocus(); sp->maybeShowWelcome(); } });
+    juce::MessageManager::callAsync ([sp] { if (sp != nullptr) { sp->grabKeyboardFocus(); sp->showHelpWanted(); } });
 
     // Logs go to a stable per-user dir (same base as settings.properties), not the
     // current working directory — a Finder/Explorer-launched app has an unpredictable
@@ -644,19 +644,6 @@ void MainComponent::openDialog (juce::Component* panel, const juce::String& titl
 void MainComponent::showHelpWanted()
 {
     openDialog (new WelcomePanel(), "How you can help");
-}
-
-void MainComponent::maybeShowWelcome()
-{
-    juce::PropertiesFile::Options po; po.millisecondsBeforeSaving = 0;
-    juce::PropertiesFile props (juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                                    .getChildFile ("GRAB").getChildFile ("settings.properties"), po);
-    if (props.getBoolValue ("welcomeShown", false))
-        return;
-
-    props.setValue ("welcomeShown", true);
-    props.saveIfNeeded();
-    showHelpWanted();
 }
 
 void MainComponent::contribute()

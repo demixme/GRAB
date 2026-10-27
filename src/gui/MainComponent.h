@@ -103,8 +103,7 @@ private:
     void touchChanged (roli::TouchSurface&, const roli::TouchSurface::Touch&) override;
     void contribute();
     void openDialog (juce::Component* panel, const juce::String& title); // owns panel in a DialogWindow
-    void showHelpWanted();   // the "how you can help" dialog
-    void maybeShowWelcome(); // show it once, on first launch (flag in settings.properties)
+    void showHelpWanted();   // the "how you can help" dialog (shown on every launch)
     void fetchNames (const juce::String& family, const juce::String& type);
     void onNamesFetched (juce::String type, grab::LearnedMap learned);
     void requestConfig();
