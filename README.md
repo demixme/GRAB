@@ -13,6 +13,18 @@ instruments configurable and self-documents their protocol.
        alt="GRAB configuring a Seaboard Block: colour-coded 5D sensitivity curves with live touch rings on the keyboard graphic, and MIDI settings, pitch and play-mode cards below.">
 </p>
 
+## Where it's at — v0.1.20
+**Live editing** (changes write as you make them, like Dashboard), one-click **ROLI presets**
+(MPE / Multi / Single / Piano), and **factory reset** for Blocks — on **Windows, macOS and
+Linux**. Recent wins: the **Seaboard GRAND** is confirmed to speak the RISE protocol, and the
+first **LUMI Keys / Piano M** report arrived.
+
+**Still needed — contributions very welcome:** a settings capture from a **Seaboard GRAND** (its
+owner sees the exact steps in-app on connect); anonymised profiles from **LUMI Keys / Piano M,
+Lightpad, and Live / Loop / Touch**; and testers for the new **Linux** build. In GRAB, use
+**Contribute…** or **Advanced ▸ How you can help** — everything is anonymised and nothing is
+sent unless you click.
+
 ## Supported devices
 | Device | Status |
 |---|---|
