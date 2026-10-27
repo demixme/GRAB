@@ -69,7 +69,7 @@ public:
         // Fit the popover on small or scaled displays: the picker shrinks, the presets don't.
         int height = 430;
         if (auto* d = juce::Desktop::getInstance().getDisplays().getDisplayForRect (getScreenBounds()))
-            height = juce::jlimit (300, 430, d->userArea.getHeight() - 80);
+            height = juce::jlimit (300, 430, d->userBounds.getLargestIntegerWithin().getHeight() - 80);
 
         auto panel = std::make_unique<Panel> (colour, height, juce::Component::SafePointer<ColourWell> (this));
         juce::CallOutBox::launchAsynchronously (std::move (panel), getScreenBounds(), nullptr);
