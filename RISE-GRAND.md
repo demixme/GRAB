@@ -5,8 +5,10 @@ write.** The RISE 2 was verified on fw 2.0.2 (macOS); the original RISE returns 
 224-byte state dump** and uses the **same `0x78 3D` / RPN / NRPN write protocol**, confirmed
 from a contributed RISE 25 Dashboard capture (see "Write protocol confirmed" below). The one
 caveat on the original: the Strike/Press/Lift **min/max block reads back as zeros**, so GRAB
-hides those (they're writable, just not readable on that firmware). The **GRAND** is still
-unconfirmed. The RISE 2 protocol below is confirmed on that device; the rest of this document
+hides those (they're writable, just not readable on that firmware). The **GRAND** now has a
+first capture (Oct 2026) — it **is** a `0x78` RISE-family device, but its settings aren't in the
+identify reply (see "Seaboard GRAND — first capture" below), so its config model still needs a
+probe. The RISE 2 protocol below is confirmed on that device; the rest of this document
 collects what is known so far for the other models.
 
 **Presets (v0.1.19):** GRAB's RISE page ships ROLI's four built-in presets — **MPE / Multi
@@ -196,6 +198,25 @@ aren't BLOCKS devices). Confirmed so far:
 | **Seaboard RISE 49** (original, 2016) | Windows 11 | `ROLI Seaboard RISE 49` | `vid_2af4 pid_0210` |
 | **Seaboard RISE** (likely RISE 2) | macOS | `Seaboard RISE` | (CoreMIDI UID only) |
 | **Seaboard RISE 2**, firmware 2.0.2 | macOS | `Seaboard RISE 2` | (CoreMIDI UID only) |
+| **Seaboard GRAND** ("GRAND 62") | macOS | `Seaboard GRAND` | (CoreMIDI UID only) |
+
+## Seaboard GRAND — first capture (Oct 2026)
+A contributed auto-explore capture (macOS) settles the big question: **the GRAND is a `0x78`
+RISE-family device**, not a BLOCKS (`0x77`) one. It answers the ROLI identify
+`F0 00 21 10 78 3F F7` with a `0x78 3A` reply, and emits ordinary MPE (pitch bend, channel
+pressure, notes). It did **not** stream any `0x77` BLOCKS traffic (so, unlike the Piano 49, it
+is *not* dual-protocol).
+
+But the GRAND's `3A` reply is **short (~87 bytes) — identity only**, not the RISE's full
+224-byte settings dump. Decoded header (differs from the RISE layout):
+- offset 6: model `GRND` + format version `1.01`
+- offset 14: a hardware/ID code (`SBG-...`; now redacted by the anonymiser)
+- then sub-versions `0.0.7` and `0.6.9`, then the serial/MAC block (redacted)
+
+So the dialect matches the RISE, but **the GRAND does not return its settings in the identify
+reply** the way the RISE does. Next step to map its config: an **active probe on a GRAND**
+(send `0x78 3C <param>` reads like the RISE 25 probe session, or set/read a `3D` param), or a
+**ROLI Dashboard capture** of the GRAND's config tab. Until then, GRAND stays read-identify only.
 
 Vendor `2af4` is shared across ROLI devices (the Seaboard **Block** is `vid_2af4 pid_0700`);
 the PID identifies the model. The **original RISE 25 and 49** both answer the same `0x78 3F`
