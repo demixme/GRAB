@@ -163,18 +163,19 @@ A port opened but the device never answered — usually one of:
   installed, the **"ROLI Hardware Driver"** Windows service can keep the port open. Stop
   that service (or uninstall Connect) and reconnect. GRAB itself needs **no** ROLI driver.
 
-> **Why can ROLI Dashboard run with my DAW open, but GRAB can't (yet)?** Dashboard talks to
-> the device through ROLI's own background stack (that **"ROLI Hardware Driver"** service),
-> which brokers the hardware so several apps can share it at once. GRAB deliberately uses
-> **no** ROLI driver — it opens the MIDI port directly with Windows' legacy API (WinMM),
-> which is **single-client / exclusive**, so one app at a time. Letting GRAB coexist with a
-> DAW means moving it onto the **multi-client** Windows MIDI Services stack — that's on the
-> roadmap ([issue #7](../../issues/7)). On **macOS** (CoreMIDI) and **Linux** (ALSA) the MIDI
-> layer is already multi-client, so concurrent use is more feasible there.
+> **Can I run GRAB alongside my DAW on Windows?** Yes — if **Windows MIDI Services** is your
+> active MIDI stack. That new stack reroutes even legacy apps so MIDI ports are **no longer
+> exclusive**: several apps (your DAW *and* GRAB) share one device at once. We've confirmed
+> this on hardware — GRAB read and operated a Seaboard Block over USB while another app held
+> the same port ([issue #7](../../issues/7)). Windows MIDI Services is built into recent
+> Windows 11 builds and installable on older ones (see the Bluetooth note above) — it's the
+> same stack we already recommend for reliable BLE.
 >
-> Interim: most DAWs let you toggle the Seaboard's MIDI input off/on in preferences without
-> fully quitting — switch in GRAB in between. And since modes/settings live on the device,
-> GRAB can stay closed while you play once it's set.
+> The old "quit everything first" rule only applies on the **legacy** Windows MIDI stack,
+> which *is* single-client/exclusive (one app per port). On **macOS** (CoreMIDI) and **Linux**
+> (ALSA) the MIDI layer is already multi-client, so concurrent use works there too. (By
+> contrast, ROLI Dashboard sidesteps the legacy limit via its own **"ROLI Hardware Driver"**
+> background service, which brokers the device; GRAB needs no such driver.)
 - **It's a Seaboard RISE** — RISE uses a different protocol (GRAB shows a separate RISE
   page). The **RISE 2** and the **original RISE 25/49** are both supported (read/write);
   the **GRAND** isn't supported yet — GRAB says so in the status line; please help add it.
