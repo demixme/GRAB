@@ -209,6 +209,26 @@ aren't BLOCKS devices). Confirmed so far:
 | **Seaboard GRAND** ("GRAND 62") | macOS | `Seaboard GRAND` | (CoreMIDI UID only) |
 | **ROLI Airwave Expression** | macOS | `ROLI Airwave Expression` | (CoreMIDI UID only; **input only** seen — see below) |
 
+### Device-name aliases (for detection)
+GRAB matches a port by **substring**, case-insensitive, over the name **and** identifier, so
+any alias a device reports is caught: `seaboard`, `rise`, `grand`, `piano`, `lumi`, `lightpad`,
+`airwave`, `block`, `roli`, plus the USB vendor id `vid_2af4` and the identifier tokens
+`seaboardblock` / `pianofortynine`. Known names/aliases so far:
+- **Seaboard GRAND** — `Seaboard GRAND`; also marketed as **Seaboard Grand 88** and the
+  **Stage / Studio / Limited** editions; key-count suffixes seen like **GRAND 62** / **GRAND 88**.
+  (Firmware server: only `Seaboard GRAND` is registered, and it returns **204 — no build**; all
+  size/edition names 404. See [PROTOCOL.md](PROTOCOL.md) §12.)
+- **Seaboard RISE** — `Seaboard RISE`, `Seaboard RISE 25`, `Seaboard RISE 49`,
+  `ROLI Seaboard RISE 49`, `Seaboard RISE 2`. Firmware products: `Seaboard RISE` (49 → 1.1.8),
+  `Seaboard RISE 25`, `Seaboard RISE2` (no space, RISE 2).
+- **Seaboard Block** — `Seaboard Block`, `Seaboard Block M`, `Seaboard BLOCK (6x3)`.
+- **ROLI Piano (49)** — name contains `Piano`/`ROLI`; identifier `pianofortynine`.
+- **LUMI Keys / Piano M** — `LUMI Keys`, `LUMI Keys Studio Edition`, `Piano M`.
+
+Note: `Seaboard RISE…` routes to the RISE page; the **GRAND** currently still falls through to the
+BLOCKS path and times out with the "GRAND detected" guidance (real-hardware RISE-path routing is
+deferred until its 87-byte reply is fully decoded).
+
 ## Seaboard GRAND — first capture (Oct 2026)
 A contributed auto-explore capture (macOS) settles the big question: **the GRAND is a `0x78`
 RISE-family device**, not a BLOCKS (`0x77`) one. It answers the ROLI identify

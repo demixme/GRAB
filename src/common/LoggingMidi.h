@@ -298,8 +298,10 @@ private:
             || d.identifier.containsIgnoreCase ("pianofortynine")
             || d.name.containsIgnoreCase ("roli")
             || d.name.containsIgnoreCase ("seaboard")
+            || d.name.containsIgnoreCase ("grand")                 // Seaboard GRAND (any size: "GRAND 62/88", "Grand Stage", …)
             || d.name.containsIgnoreCase ("lightpad")
             || d.name.containsIgnoreCase ("lumi")
+            || d.name.containsIgnoreCase ("piano")                 // ROLI Piano / Piano M (also id "pianofortynine")
             || d.name.containsIgnoreCase ("airwave")
             || d.name.containsIgnoreCase ("block");                // Lightpad/Live/Loop/Touch "… Block"
     }
