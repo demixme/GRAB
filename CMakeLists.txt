@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(GRAB VERSION 0.1.18 LANGUAGES C CXX)  # bump with each release; tag vX.Y.Z to match
+project(GRAB VERSION 0.1.19 LANGUAGES C CXX)  # bump with each release; tag vX.Y.Z to match
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -98,6 +98,12 @@ target_compile_definitions(GRAB PRIVATE
     DONT_SET_USING_JUCE_NAMESPACE=1
     LOG_BLOCKS_CONNECTIVITY=1
     GRAB_VERSION="${PROJECT_VERSION}")
+
+# Treat source as UTF-8 and emit UTF-8 narrow literals (MSVC otherwise uses the system
+# codepage, mangling any non-ASCII text). Pair with grab::u8()/String::fromUTF8 to decode.
+if(MSVC)
+    target_compile_options(GRAB PRIVATE /utf-8)
+endif()
 
 target_link_libraries(GRAB PRIVATE
     sea_sysex
