@@ -9,6 +9,12 @@ hides those (they're writable, just not readable on that firmware). The **GRAND*
 unconfirmed. The RISE 2 protocol below is confirmed on that device; the rest of this document
 collects what is known so far for the other models.
 
+**Presets (v0.1.19):** GRAB's RISE page ships ROLI's four built-in presets — **MPE / Multi
+Channel / Single Channel / Piano** — transcribed from Dashboard's `Rise.littlefootModes/*.mode`
+files (see "Config parameters — reference" below). Note the RISE **Piano** preset is just
+Single Channel with **Glide Sensitivity 0** — the RISE has no "Piano Mode" flag (unlike the
+Seaboard Block, whose Piano preset sets that flag and zeroes Slide/Press/Lift instead).
+
 ## How RISE/GRAND differ from BLOCKS
 - `roli_blocks_basics` (the library this tool is built on) has **no RISE/GRAND
   device type** — ROLI Dashboard drives them through a *separate* code path, not

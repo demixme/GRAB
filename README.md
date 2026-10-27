@@ -10,7 +10,7 @@ instruments configurable and self-documents their protocol.
 
 <p align="center">
   <img src="docs/grab-screenshot.png" width="560"
-       alt="GRAB's interface: colour-coded 5D sensitivity curves across the top, with MIDI settings, play mode and a RISE MIDI CC fader panel in cards below.">
+       alt="GRAB configuring a Seaboard Block: colour-coded 5D sensitivity curves with live touch rings on the keyboard graphic, and MIDI settings, pitch and play-mode cards below.">
 </p>
 
 ## Supported devices
@@ -83,8 +83,9 @@ connect, and run.
    [**latest release**](../../releases/latest):
    - **Windows** → `GRAB-<version>-windows.zip`
    - **macOS** → `GRAB-<version>-macos.zip` (universal — Apple Silicon + Intel)
+   - **Linux** → `GRAB-<version>-linux.tar.gz` (x86_64; built on Ubuntu 22.04 for wide compatibility)
 
-   Each zip also includes the `seaprobe` / `seadecode` command-line tools.
+   Each archive also includes the `seaprobe` / `seadecode` command-line tools.
 2. **Unzip, then clear the "downloaded from the internet" flag** so the OS will open
    the unsigned app (the builds have no paid signing certificates):
    - **Windows:** right-click `GRAB.exe` → Properties → **Unblock** (or, in
@@ -189,8 +190,8 @@ prefilled GitHub issue** instead of submitting.
 ## Building from source
 Windows, Visual Studio 2022/2026 + MSVC. Built with **JUCE 8** + **CMake** (no
 Projucer); the code is portable and the `sea_sysex` decoder has no JUCE dependency.
-macOS/Linux build the same way (CMake picks the native generator). CI builds Windows
-and universal macOS on every push.
+macOS/Linux build the same way (CMake picks the native generator). CI builds
+**Windows, universal macOS, and Linux** for every tagged release.
 
 ```sh
 cmake -S . -B build -G "Visual Studio 18 2026" -A x64   # first run fetches JUCE 8
