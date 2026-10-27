@@ -293,6 +293,8 @@ MainComponent::~MainComponent()
 void MainComponent::connect (seaprobe::Transport transport)
 {
     requestedTransport = transport;
+    simConfig.clear();        // leave any dev preview
+    grandPreview = false;
 
     // Tear down any existing session.
     stopTimer();
@@ -871,7 +873,7 @@ void MainComponent::rebuildRows()
     dirtyWrites.clear();
     liveWriter.cancel();
 
-    if (block == nullptr)
+    if (block == nullptr && simConfig.empty())
         return;
 
     const auto onChange = [this] (juce::uint32 id, juce::int32 v) { onItemChanged (id, v); };
@@ -882,23 +884,33 @@ void MainComponent::rebuildRows()
     std::vector<juce::String> groupOrder;
     std::map<juce::String, std::vector<Item>> groups;
 
-    const auto maxId = block->getMaxConfigIndex();
-    for (juce::uint32 id = 0; id < maxId; ++id)
+    // One item -> its card/group, after overrides and learned names are applied.
+    const auto collect = [&] (roli::Block::ConfigMetaData meta, juce::int32 value)
     {
-        auto meta = block->getLocalConfigMetaData (id);
         if (! meta.isActive)            // only items the device actually reports
-            continue;
-        seaprobe::applyConfigOverrides (meta);        // built-in overrides (e.g. Chord)
+            return;
+        seaprobe::applyConfigOverrides (meta);        // built-in overrides (e.g. Chord, Scale)
         grab::applyLearnedNames (meta, learnedNames);  // names pulled from the store
 
-        const auto value = block->getLocalConfigValue (id);
-        deviceValues[id] = value;
-        pendingValues[id] = value;
+        deviceValues[meta.item] = value;
+        pendingValues[meta.item] = value;
 
         auto g = meta.group;
         if (std::find (groupOrder.begin(), groupOrder.end(), g) == groupOrder.end())
             groupOrder.push_back (g);
         groups[g].push_back ({ meta, value });
+    };
+
+    if (block != nullptr)
+    {
+        const auto maxId = block->getMaxConfigIndex();
+        for (juce::uint32 id = 0; id < maxId; ++id)
+            collect (block->getLocalConfigMetaData (id), block->getLocalConfigValue (id));
+    }
+    else
+    {
+        for (const auto& item : simConfig)   // dev preview: synthetic device
+            collect (item.first, item.second);
     }
 
     // Order sections roughly like ROLI Dashboard.
@@ -1315,11 +1327,17 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
 {
     // Secret dev shortcut: Ctrl+Alt+Shift+R forces a local RISE preview (synthetic data,
     // no hardware). Each press toggles the verified (RISE 2) / unverified (old RISE) view.
+    // Sibling shortcuts: +P previews a synthetic ROLI Piano page, +G an identity-only GRAND.
     const auto mods = key.getModifiers();
-    if (mods.isCtrlDown() && mods.isAltDown() && mods.isShiftDown() && key.getKeyCode() == 'R')
+    if (mods.isCtrlDown() && mods.isAltDown() && mods.isShiftDown())
     {
-        forceRisePreview();
-        return true;
+        switch (key.getKeyCode())
+        {
+            case 'R': forceRisePreview();  return true;
+            case 'P': forcePianoPreview(); return true;
+            case 'G': forceGrandPreview(); return true;
+            default:  break;
+        }
     }
     return false;
 }
@@ -1347,6 +1365,96 @@ void MainComponent::forceRisePreview()
                                       : "original RISE fw 1.1.8 (editable; min/max hidden)")
                + ".  Ctrl+Alt+Shift+R to toggle.");
     risePreviewVerified = ! risePreviewVerified;   // next press shows the other
+    resized();
+}
+
+// Build a synthetic config page for a device we may not have on hand. Metadata comes from the
+// vendored library's own default table (authentic names/ranges/types/options), with the items
+// a ROLI Piano reports (see PIANO.md) marked active and given representative values.
+void MainComponent::forcePianoPreview()
+{
+    if (! simConfig.empty()) { connect (seaprobe::Transport::Auto); return; }  // toggle off
+
+    if (source != nullptr) { source->setActive (false); source.reset(); }
+    block = nullptr;
+    stopTimer();
+    if (rise2Page != nullptr) { removeChildComponent (rise2Page.get()); rise2Page.reset(); }
+    setBlocksControlsVisible (true);
+    presetBox.setVisible (false);   // presets are Seaboard-only for now
+
+    using CT = roli::Block::ConfigMetaData::ConfigType;
+    const auto mk = [] (int id, juce::int32 val, const char* name, CT type, int mn, int mx,
+                        const char* group, std::initializer_list<const char*> opts)
+    {
+        const char* arr[roli::Block::ConfigMetaData::numOptionNames] = {};
+        int i = 0; for (auto* o : opts) if (i < roli::Block::ConfigMetaData::numOptionNames) arr[i++] = o;
+        return roli::Block::ConfigMetaData ((juce::uint32) id, val, { mn, mx }, true, name, type, arr, group);
+    };
+
+    // The items a Piano 49 reports (PIANO.md), with representative values. Scale (22) and the
+    // tracking items get their names from applyConfigOverrides in rebuildRows.
+    simConfig.clear();
+    auto add = [&] (roli::Block::ConfigMetaData m, juce::int32 v) { simConfig.push_back ({ m, v }); };
+    add (mk (2, 1, "MIDI Mode", CT::options, 0, 2, "MIDI Settings", { "Multi Channel", "MPE", "Single Channel" }), 1);
+    add (mk (9, 15, "No. MIDI Channels", CT::integer, 1, 15, "MIDI Settings", {}), 15);
+    add (mk (3, 48, "Pitch Bend Range", CT::integer, 0, 96, "Pitch", {}), 48);
+    add (mk (4, 0, "Octave", CT::integer, -4, 3, "Pitch", {}), 0);
+    add (mk (5, 0, "Transpose", CT::integer, -11, 11, "Pitch", {}), 0);
+    add (mk (41, 2, "Key Pitch Bend Amount", CT::integer, 1, 12, "Pitch", {}), 2);
+    add (mk (10, 70, "Strike Sensitivity", CT::integer, 0, 127, "Sensitivity", {}), 70);
+    add (mk (11, 64, "Glide Sensitivity", CT::integer, 0, 127, "Sensitivity", {}), 64);
+    add (mk (13, 90, "Pressure Sensitivity", CT::integer, 0, 127, "Sensitivity", {}), 90);
+    add (mk (14, 40, "Lift Sensitivity", CT::integer, 0, 127, "Sensitivity", {}), 40);
+    add (mk (15, 0, "Fixed Velocity", CT::boolean, 0, 1, "Sensitivity", {}), 0);
+    add (mk (16, 100, "Fixed Velocity Value", CT::integer, 1, 127, "Sensitivity", {}), 100);
+    add (mk (20, 0, "Active Mode", CT::options, 0, 3, "Play mode", { "Mode 1", "Mode 2", "Mode 3", "Mode 4" }), 0);
+    add (mk (22, 6 /* Blues: shows the Scale dropdown off its default */, "Scale", CT::integer, 0, 18, "Play mode", {}), 6);
+    add (mk (27, 0, "Key", CT::options, 0, 11, "Play mode",
+             { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" }), 0);
+    add (mk (30, 2, "Pitch Bend Tracking", CT::integer, 1, 4, "Play mode", {}), 2);
+    add (mk (32, 1, "Pressure Tracking", CT::options, 0, 1, "Play mode", { "Poly Aftertouch", "Channel Pressure" }), 1);
+    add (mk (34, (juce::int32) 0xFF3D0707, "Global Key Color", CT::colour, 0, 0, "Colors", {}), (juce::int32) 0xFF3D0707);
+    add (mk (35, (juce::int32) 0xFF0A84FF, "Root Key Color", CT::colour, 0, 0, "Colors", {}), (juce::int32) 0xFF0A84FF);
+    add (mk (36, 80, "Brightness", CT::integer, 0, 100, "Colors", {}), 80);
+    add (mk (47, 64, "Pedal Control Change", CT::integer, 0, 127, "Pedal", {}), 64);
+    add (mk (48, 0, "Pedal Type", CT::options, 0, 1, "Pedal", { "Sustain", "Expression" }), 0);
+    add (mk (100, 1 /* User: enables scale lighting */, "Color Scheme", CT::options, 0, 4, "Mode 1",
+             { "Pro", "User", "Piano", "Stage", "Rainbow" }), 1);
+    add (mk (102, 1, "Enable Pitch Bend", CT::boolean, 0, 1, "Mode 1", {}), 1);
+    add (mk (103, 1, "Enable Pressure", CT::boolean, 0, 1, "Mode 1", {}), 1);
+
+    keyboardView.setFamily (KeyboardView::Family::block);
+    keyboardView.setOctaves (4);   // Piano 49 ≈ 4 octaves
+    keyboardView.setBlocks (1);
+    keyboardView.setVisible (true);
+    setStatus ("ROLI Piano preview (simulated, no hardware).  Ctrl+Alt+Shift+P to exit.");
+    if (logger != nullptr) logger->line ("DEV: ROLI Piano preview (" + juce::String ((int) simConfig.size()) + " synthetic items)");
+    rebuildRows();
+}
+
+// The GRAND is a 0x78 RISE-family device, but its settings are NOT in its identify reply and
+// are still unmapped (see RISE-GRAND.md), so there is no config page to show — this previews
+// the identity-only state a real GRAND owner sees, and points them at "How you can help".
+void MainComponent::forceGrandPreview()
+{
+    if (grandPreview) { connect (seaprobe::Transport::Auto); return; }  // toggle off
+
+    if (source != nullptr) { source->setActive (false); source.reset(); }
+    block = nullptr;
+    simConfig.clear();
+    stopTimer();
+    if (rise2Page != nullptr) { removeChildComponent (rise2Page.get()); rise2Page.reset(); }
+    rebuildRows();   // clears any existing rows (block + simConfig both empty)
+    setBlocksControlsVisible (false);
+    grandPreview = true;
+
+    keyboardView.setFamily (KeyboardView::Family::grand);
+    keyboardView.setOctaves (5);   // GRAND is large
+    keyboardView.setBlocks (1);
+    keyboardView.setVisible (true);
+    setStatus ("Seaboard GRAND preview - identity only; settings not yet mapped.  Ctrl+Alt+Shift+G to exit.");
+    if (logger != nullptr) logger->line ("DEV: Seaboard GRAND preview (identity only)");
+    showHelpWanted();
     resized();
 }
 

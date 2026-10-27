@@ -84,6 +84,8 @@ private:
     void topologyChanged() override;
     void timerCallback() override;
     void forceRisePreview();   // secret dev shortcut: show the RISE page with synthetic data
+    void forcePianoPreview();  // secret dev shortcut: synthetic ROLI Piano config page (no hardware)
+    void forceGrandPreview();  // secret dev shortcut: synthetic GRAND (identity-only; settings unmapped)
 
     // Live config updates from the device (delivered on the message thread).
     void handleConfigItemChanged (roli::Block&, const roli::Block::ConfigMetaData&, juce::uint32 index) override;
@@ -155,6 +157,11 @@ private:
     // Preset-staged values are NOT in here — those still wait for an explicit Save.
     std::set<juce::uint32> dirtyWrites;
     ThrottledWriter        liveWriter;
+
+    // Dev preview (no hardware): when simConfig is non-empty, rebuildRows() builds the page
+    // from it instead of a real block. grandPreview shows the identity-only GRAND state.
+    std::vector<std::pair<roli::Block::ConfigMetaData, juce::int32>> simConfig;
+    bool grandPreview = false;
 
     grab::LearnedMap learnedNames;      // names pulled from the store for the current type
     juce::String     learnedForType;    // which device type learnedNames is for (avoid refetch)

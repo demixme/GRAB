@@ -49,6 +49,16 @@ talks over the `0x77` topology handshake.)
 Items **34** (Global Key Color) and **35** (Root Key Color) are written as **32-bit
 ARGB** (e.g. `0xFF3D0707`); the keys change immediately.
 
+## Previewing without the hardware (dev)
+
+GRAB has secret dev shortcuts (no device needed) to render a device page from synthetic data,
+handy for working on UI for instruments we don't own:
+- **Ctrl+Alt+Shift+P** — simulated **ROLI Piano** config page (the items in the table below,
+  incl. the named **Scale** dropdown and **Color Scheme**). Press again to exit.
+- **Ctrl+Alt+Shift+G** — **GRAND** identity-only preview (no config page — its settings are
+  unmapped; see [RISE-GRAND.md](RISE-GRAND.md)). Press again to exit.
+- **Ctrl+Alt+Shift+R** — RISE page preview (toggles RISE 2 / original RISE).
+
 ## Scales & scale lighting
 
 **Scale** (config id **22**, range 0..18) selects a musical scale, but the device reports
