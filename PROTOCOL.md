@@ -108,6 +108,17 @@ Spot-checks confirmed against ROLI Dashboard for this device:
 
 - The device also reports a per-item **min/max** that can differ from the static
   defaults (e.g. Pitch Bend Range range came back `[0..96]`, Octave `[-4..5]`).
+- **Glide/Slide Tracking option order [dev]:** the vendored SDK lists ids 30/31
+  (`xTrackingMode`/`yTrackingMode`) as `{Multi-Channel, Last Played, Highest, Lowest}`
+  with min 1, so value 1 wrongly labels as "Multi-Channel". The device actually encodes
+  **value 1 = Last Played** — confirmed vs ROLI Dashboard and a Piano-mode read, and
+  matching the RISE note (1 Last Played, 2 Highest, 3 Lowest). GRAB overrides the order to
+  `{Last Played, Highest, Lowest, Multi-Channel}` (Multi-Channel as the Block's 4th value).
+- **ROLI preset bundles:** ROLI Dashboard ships its presets as plain XML `.mode` files
+  (`ROLI Dashboard/Littlefoot/<device>.littlefootModes/*.mode`), listing each setting's
+  value by name — the authoritative source for the MPE/Multi/Single/Piano bundles GRAB
+  applies, for Seaboard and RISE alike. (Seaboard Piano = Piano-Mode flag + Slide/Press/Lift
+  off; RISE Piano = Single Channel + Glide Sensitivity 0 — the RISE has no Piano-Mode flag.)
 - **"Persisted" flag:** not directly exposed by this API. `ConfigMetaData.isActive`
   means "the device reported this item in this session", which we print as the
   `active` column. The protocol's flash-persist bit (`setConfigState`) is
