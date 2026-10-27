@@ -81,6 +81,13 @@ Piano M, firmware 1.3.9, USB on macOS, ROLI software closed:
   with GRAB's colour picker (swatch → popover; the keys follow live while dragging, presets
   work). Values are stored and read back; with a User-scheme mode active the scale keys showed blue and the root
   pinkish-magenta.
+- **Chained pair** (two Piano M, both fw 1.3.9, one on USB): GRAB shows **2 block(s)** as one
+  device, "ROLI Piano M (6x3) x2 (chained)". Scale, Key and both colours (including live
+  picker drags) change on both keyboards, and the notes run low to high across the pair (one
+  48-key keyboard). On connecting, the second keyboard took on the first one's settings by
+  itself, without GRAB. The pair only linked with a particular keyboard on the left; with the
+  sides swapped the USB keyboard reported a single block, so if a chain doesn't appear, try
+  the other order before suspecting GRAB.
 - **Persistence:** after being switched off for an hour, the key colours, Scale, Key and the
   per-mode Color Schemes all survived. Only the **active mode** didn't: the Piano M started
   in a different mode, and pressing its mode button back to the User-scheme mode brought
@@ -103,7 +110,8 @@ shows and what the keys do.
    **Chromatic** lights every key.
 5. **Persistence:** unplug/replug, then a full power cycle. Do the colours, scale and key
    survive each? The keyboard may start in another mode; switch back before judging.
-6. **Chained pair** (if available): shows as one keyboard; writes reach both blocks.
+6. **Chained pair** (if available): shows as one keyboard; writes reach both blocks. If only
+   one block appears, swap which keyboard is on the left.
 
 The same writes from the command line, one item at a time:
 
