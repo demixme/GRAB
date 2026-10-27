@@ -102,7 +102,7 @@ shows and what the keys do.
 4. **Scale** (22) and **Key** (27): the lit keys follow the scale relative to the root;
    **Chromatic** lights every key.
 5. **Persistence:** unplug/replug, then a full power cycle. Do the colours, scale and key
-   survive each? (Captures suggest a power cycle resets them.)
+   survive each? The keyboard may start in another mode; switch back before judging.
 6. **Chained pair** (if available): shows as one keyboard; writes reach both blocks.
 
 The same writes from the command line, one item at a time:

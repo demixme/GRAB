@@ -2,7 +2,8 @@
 // macOS shows a colour well — a swatch plus its hex code. Clicking it (or Space/Return when
 // focused) opens a popover with a colour picker and a row of quick presets; every change is
 // reported live, so the keys follow as you drag (the owner's ThrottledWriter coalesces the
-// writes). The device stores 32-bit ARGB; alpha is always written as opaque.
+// writes). The device stores 32-bit ARGB: the well keeps whatever the device reported (so a
+// right-click reset restores it exactly), and edits made in the picker are written opaque.
 
 #pragma once
 
@@ -26,7 +27,7 @@ public:
 
     void setSwatchColour (juce::Colour c)
     {
-        colour = c.withAlpha (1.0f);
+        colour = c;
         setTitle ("Colour " + hexOf (colour));   // read out by screen readers, not just shown
         repaint();
     }
@@ -43,7 +44,7 @@ public:
         // Swatch: fixed width on the left, hex code beside it so the value never relies on
         // colour alone (and stays readable for very dark or very light colours).
         auto sw = r.removeFromLeft (juce::jmin (52.0f, r.getWidth() * 0.5f)).reduced (0.0f, 3.0f);
-        g.setColour (colour);
+        g.setColour (colour.withAlpha (1.0f));
         g.fillRoundedRectangle (sw, 5.0f);
         g.setColour (highlighted || down ? accent : outline.brighter (0.4f));
         g.drawRoundedRectangle (sw, 5.0f, highlighted || down ? 1.5f : 1.0f);
@@ -60,19 +61,68 @@ public:
         g.drawText (hexOf (colour), r, juce::Justification::centredLeft, false);
     }
 
-    void clicked() override
+    void clicked (const juce::ModifierKeys& mods) override
     {
-        auto panel = std::make_unique<Panel> (colour, juce::Component::SafePointer<ColourWell> (this));
+        if (mods.isPopupMenu())   // right-click is the row's "reset to device value", not "open"
+            return;
+
+        // Fit the popover on small or scaled displays: the picker shrinks, the presets don't.
+        int height = 430;
+        if (auto* d = juce::Desktop::getInstance().getDisplays().getDisplayForRect (getScreenBounds()))
+            height = juce::jlimit (300, 430, d->userArea.getHeight() - 80);
+
+        auto panel = std::make_unique<Panel> (colour, height, juce::Component::SafePointer<ColourWell> (this));
         juce::CallOutBox::launchAsynchronously (std::move (panel), getScreenBounds(), nullptr);
     }
 
+    bool keyPressed (const juce::KeyPress& key) override
+    {
+        if (isEnabled() && key.isKeyCode (juce::KeyPress::spaceKey))   // Button only handles Return
+        {
+            triggerClick();
+            return true;
+        }
+        return juce::Button::keyPressed (key);
+    }
+
 private:
+    // A preset in the popover: painted as its own colour (the app LookAndFeel paints every
+    // TextButton in the panel colour), with a hover outline and a keyboard focus ring.
+    class PresetSwatch  : public juce::Button
+    {
+    public:
+        PresetSwatch (const char* name, juce::Colour c) : juce::Button (name), colour (c)
+        {
+            setTooltip (name);
+            setTitle (name);
+            setWantsKeyboardFocus (true);
+            setMouseCursor (juce::MouseCursor::PointingHandCursor);
+        }
+
+        void paintButton (juce::Graphics& g, bool highlighted, bool down) override
+        {
+            using namespace grab::theme;
+            auto r = getLocalBounds().toFloat().reduced (2.5f);
+            g.setColour (colour);
+            g.fillRoundedRectangle (r, 4.0f);
+            g.setColour (highlighted || down ? accent : outline.brighter (0.4f));
+            g.drawRoundedRectangle (r, 4.0f, highlighted || down ? 1.5f : 1.0f);
+            if (hasKeyboardFocus (true))
+            {
+                g.setColour (accent);
+                g.drawRoundedRectangle (r.expanded (1.5f), 5.0f, 2.0f);
+            }
+        }
+
+        const juce::Colour colour;
+    };
+
     // Popover content: HSV picker + RGB sliders, and quick presets underneath.
     class Panel  : public juce::Component,
                    private juce::ChangeListener
     {
     public:
-        Panel (juce::Colour start, juce::Component::SafePointer<ColourWell> ownerToUse)
+        Panel (juce::Colour start, int height, juce::Component::SafePointer<ColourWell> ownerToUse)
             : owner (ownerToUse),
               selector (juce::ColourSelector::showColourAtTop
                         | juce::ColourSelector::showSliders
@@ -87,13 +137,15 @@ private:
 
             for (const auto& p : presets())
             {
-                auto b = std::make_unique<juce::TextButton>();
-                b->setButtonText ({});
-                b->setTooltip (p.name);
-                b->setTitle (p.name);
-                b->setColour (juce::TextButton::buttonColourId, p.colour);
-                b->setColour (juce::TextButton::buttonOnColourId, p.colour);
-                b->onClick = [this, c = p.colour] { selector.setCurrentColour (c, juce::sendNotificationSync); };
+                auto b = std::make_unique<PresetSwatch> (p.name, p.colour);
+                // Set the selector silently, then report once: a notifying set updates the
+                // R/G/B sliders one at a time, and each re-reads the others while they still
+                // hold the old colour (White -> Blue came out cyan).
+                b->onClick = [this, c = p.colour]
+                {
+                    selector.setCurrentColour (c, juce::dontSendNotification);
+                    report();
+                };
                 addAndMakeVisible (*b);
                 presetButtons.push_back (std::move (b));
             }
@@ -108,7 +160,7 @@ private:
             hint.setFont (juce::FontOptions (13.0f));
             addAndMakeVisible (hint);
 
-            setSize (300, 430);
+            setSize (300, height);
         }
 
         ~Panel() override { selector.removeChangeListener (this); }
@@ -151,7 +203,9 @@ private:
             return p;
         }
 
-        void changeListenerCallback (juce::ChangeBroadcaster*) override
+        void changeListenerCallback (juce::ChangeBroadcaster*) override { report(); }
+
+        void report()
         {
             const auto c = selector.getCurrentColour().withAlpha (1.0f);
             if (auto* w = owner.getComponent())
@@ -165,7 +219,7 @@ private:
         juce::Component::SafePointer<ColourWell> owner;   // the row may be rebuilt while open
         juce::ColourSelector selector;
         juce::Label presetLabel, hint;
-        std::vector<std::unique_ptr<juce::TextButton>> presetButtons;
+        std::vector<std::unique_ptr<PresetSwatch>> presetButtons;
     };
 
     juce::Colour colour { juce::Colours::black };
