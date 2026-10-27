@@ -116,24 +116,26 @@ public:
         title.setColour (juce::Label::textColourId, grab::theme::textSecondary);
         addAndMakeVisible (title);
 
-        auto setupField = [this] (juce::Label& lab, const juce::String& prefix, int cc, juce::uint32 cid)
+        auto setupField = [this] (juce::Label& lab, const juce::String& prefix, int cc, juce::uint32 cid, int& assignRef)
         {
+            assignRef = cc;   // which CC this axis reads for its live value
             lab.setJustificationType (juce::Justification::centred);
             lab.setFont (juce::Font (juce::FontOptions (12.0f)));
             lab.setColour (juce::Label::backgroundColourId, grab::theme::panelBgAlt);
             lab.setColour (juce::Label::textColourId, grab::theme::textPrimary);
             lab.setText (prefix + " " + juce::String (cc), juce::dontSendNotification);
             lab.setEditable (true);
-            lab.onTextChange = [this, &lab, prefix, cid]
+            lab.onTextChange = [this, &lab, prefix, cid, &assignRef]
             {
                 const int v = juce::jlimit (0, 127, lab.getText().retainCharacters ("0123456789").getIntValue());
+                assignRef = v;
                 lab.setText (prefix + " " + juce::String (v), juce::dontSendNotification);
                 if (change != nullptr) change (cid, v);
             };
             addAndMakeVisible (lab);
         };
-        setupField (xField, "X", xCc, xId);
-        setupField (yField, "Y", yCc, yId);
+        setupField (xField, "X", xCc, xId, xAssign);
+        setupField (yField, "Y", yCc, yId, yAssign);
     }
 
     void setXy (int xCc, int yCc)
