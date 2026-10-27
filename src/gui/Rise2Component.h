@@ -36,12 +36,15 @@ public:
     static bool isConnected();
 
     /** ROLI firmware-download product name for the connected device, or "" if none is known.
-        Only the original RISE (fw 1.x) resolves ("Seaboard RISE" -> 1.1.8); RISE 2's product name
-        is unknown and the GRAND has no downloadable build. */
+        Confirmed on the server (2026-10-27): RISE 2 -> "Seaboard RISE2" (2.x), RISE 25 ->
+        "Seaboard RISE 25", original RISE 49 -> "Seaboard RISE" (1.1.8). The GRAND is registered
+        but has no downloadable build, so it stays "". */
     juce::String firmwareDownloadProduct() const
     {
         if (grand) return {};
-        if (firmware.startsWith ("1.")) return "Seaboard RISE";
+        if (firmware.startsWith ("2."))        return "Seaboard RISE2";   // RISE 2
+        if (portName.containsIgnoreCase ("25")) return "Seaboard RISE 25"; // original RISE 25 (its own build)
+        if (firmware.startsWith ("1."))        return "Seaboard RISE";    // original RISE 49 -> 1.1.8
         return {};
     }
 

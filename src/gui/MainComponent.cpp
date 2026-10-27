@@ -1176,9 +1176,9 @@ void MainComponent::downloadFirmware()
                 .withIconType (juce::MessageBoxIconType::InfoIcon)
                 .withTitle ("Download firmware for archiving")
                 .withMessage (grab::u8 ("GRAB doesn't have a confirmed firmware download for this device yet.\n\n"
-                              "Confirmed so far: Seaboard Block, and the original Seaboard RISE (25/49).\n\n"
+                              "Confirmed: Seaboard Block, and every Seaboard RISE (original 25 & 49, and RISE 2).\n\n"
                               "The Seaboard GRAND is registered with ROLI but has no downloadable firmware build. "
-                              "RISE 2, LUMI Keys, Lightpad and ROLI Piano aren't mapped yet.\n\n"
+                              "LUMI Keys, Lightpad and ROLI Piano aren't mapped yet.\n\n"
                               "You can still check my.roli.com in a browser, or use \"Help add device...\" to help."))
                 .withButton ("OK"),
             nullptr);

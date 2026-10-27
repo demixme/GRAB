@@ -318,15 +318,18 @@ ROLI login does the auth, and nothing is ever sent to the device.
 
 **Product-name probe (2026-10-27, authed):** `update_to/<name>/1.0.0` results —
 - `Seaboard Block` → **303** (downloadable, 1.4.3).
-- `Seaboard RISE` → **303** (downloadable, **1.1.8 = original RISE / MKI**). RISE 2 is a
-  *different* product: `Seaboard RISE 2` → **404**.
-- `Seaboard GRAND` → **204 No Content** — the product is **registered but has no
-  downloadable firmware build** (so GRAND firmware isn't fetchable, and it is *not* the
-  RISE build — a distinct product id).
-- `LUMI Keys`, `ROLI Piano`, `Lightpad Block` → **404** (names unknown).
+- `Seaboard RISE` → **303** (**1.1.8 = original RISE 49 / MKI**), product `…dd5`.
+- `Seaboard RISE 25` → **303** — its **own** product `…dd4` (separate RISE 25 build).
+- `Seaboard RISE2` (no space) → **303** — **RISE 2** build (product `63629716…`). Note
+  `Seaboard RISE 2` *with* a space → **404**; only the no-space name resolves.
+- `Seaboard GRAND` → **204 No Content** — **registered but no downloadable build** (so GRAND
+  firmware isn't fetchable, and it is *not* the RISE build — a distinct product id).
+- `Seaboard RISE 49`, `Seaboard Block M`, `LUMI Keys`, `ROLI Piano`, `Lightpad Block[ M]`,
+  `BLOCKS`, `Seaboard 2/M/Grand/Grand Stage`, `Piano M` → **404** (names unknown).
 
-So GRAB maps **Seaboard Block** and the **original RISE** (fw 1.x → `Seaboard RISE`); for
-anything else it shows an explanatory alert instead of a silent no-op.
+So GRAB maps **Seaboard Block** and **every Seaboard RISE** — RISE 2 (fw 2.x → `Seaboard
+RISE2`), RISE 25 (port name has "25" → `Seaboard RISE 25`), original RISE 49 (fw 1.x →
+`Seaboard RISE`). Anything else shows an explanatory alert instead of a silent no-op.
 
 ## 13. Still open (not needed for the config tool)
 - The `updateUserConfig` (0x05) layout (user-config metadata) — not yet seen.
