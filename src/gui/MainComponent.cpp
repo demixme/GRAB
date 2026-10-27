@@ -4,6 +4,7 @@
 #include "ProbePanel.h"
 #include "ExplorePanel.h"
 #include "WelcomePanel.h"
+#include "DiagnosePanel.h"
 #include "Help.h"
 
 #include <algorithm>
@@ -167,6 +168,8 @@ MainComponent::MainComponent()
 
     addAndMakeVisible (helpAddBtn);
     helpAddBtn.onClick = [this] { openDialog (new ExplorePanel(), "Help add this device"); };
+    addAndMakeVisible (diagnoseBtn);
+    diagnoseBtn.onClick = [this] { openDialog (new DiagnosePanel(), "Diagnose connection"); };
     addAndMakeVisible (reloadButton);
     addAndMakeVisible (saveButton);
     addAndMakeVisible (loadPresetBtn);
@@ -189,7 +192,7 @@ MainComponent::MainComponent()
     saveButton.setEnabled (false);
 
     addAndMakeVisible (transportLabel);
-    transportLabel.setText ("Transport:", juce::dontSendNotification);
+    transportLabel.setText ("Connection Type:", juce::dontSendNotification);
     transportLabel.setJustificationType (juce::Justification::centredRight);
     addAndMakeVisible (transportBox);
     transportBox.addItem ("Auto", 1);
@@ -221,6 +224,7 @@ MainComponent::MainComponent()
     advancedBtn.onClick = [this]
     {
         juce::PopupMenu m;
+        m.addItem (6, "Diagnose connection...");
         m.addItem (1, "Raw MIDI capture...");
         m.addItem (2, "Active probe...");
         m.addItem (5, "Download firmware for archiving...", roliProductName().isNotEmpty());
@@ -236,6 +240,7 @@ MainComponent::MainComponent()
                 else if (r == 3) factoryReset();
                 else if (r == 4) showHelpWanted();
                 else if (r == 5) downloadFirmware();
+                else if (r == 6) openDialog (new DiagnosePanel(), "Diagnose connection");
             });
     };
 
@@ -272,10 +277,28 @@ MainComponent::MainComponent()
 
     connect (seaprobe::Transport::Auto);
 
+    // Re-scan when the MIDI device list changes. Previously this only picked up a RISE; now,
+    // when nothing is connected, any ROLI device appearing (plugged in, paired, or freed by
+    // another app) triggers a (re-)connect using the current Connection Type - so "Auto" keeps
+    // watching instead of giving up after launch. A live session or dev preview is left alone.
     deviceList = juce::MidiDeviceListConnection::make ([this]
     {
-        if (source == nullptr && rise2Page == nullptr && Rise2Component::isConnected())
-            connect (seaprobe::Transport::Auto);
+        // Only (re-)scan when fully idle: a non-null source means a connect is already in
+        // progress or established, so leave it alone (don't interrupt it or loop).
+        if (source != nullptr || block != nullptr || rise2Page != nullptr
+            || ! simConfig.empty() || grandPreview)
+            return;
+        auto looksRoli = [] (const juce::MidiDeviceInfo& d)
+        {
+            return d.identifier.containsIgnoreCase ("vid_2af4")
+                || d.name.containsIgnoreCase ("roli")     || d.name.containsIgnoreCase ("seaboard")
+                || d.name.containsIgnoreCase ("lumi")     || d.name.containsIgnoreCase ("lightpad")
+                || d.name.containsIgnoreCase ("airwave")  || d.name.containsIgnoreCase ("block")
+                || d.name.containsIgnoreCase ("grand")
+                || d.identifier.containsIgnoreCase ("seaboardblock") || d.identifier.containsIgnoreCase ("pianofortynine");
+        };
+        for (auto& d : juce::MidiInput::getAvailableDevices())
+            if (looksRoli (d)) { connect (requestedTransport); return; }
     });
 }
 
@@ -363,7 +386,8 @@ void MainComponent::connect (seaprobe::Transport transport)
     if (detector->getSelectedPairs().empty())
     {
         setStatus ("No " + juce::String (seaprobe::transportName (transport)) + " Seaboard found. "
-                   "Check the cable / Bluetooth, and that ROLI Dashboard isn't holding the port.");
+                   "Check the cable / Bluetooth, and that ROLI Dashboard isn't holding the port - "
+                   "click 'Diagnose...' for help.");
         return;
     }
 
@@ -767,10 +791,10 @@ void MainComponent::checkConnectTimeout()
     }
     else if (riseGrand)
         setStatus ("Found '" + name + "' - looks like a Seaboard RISE. If its settings page didn't open, "
-                   "try the other Transport, or click 'Help add device...'.");
+                   "try another Connection Type, or click 'Help add device...'.");
     else
         setStatus ("Opened '" + name + "' but no ROLI BLOCKS device replied. It may be an unsupported "
-                   "device, or the port is held by another app — try the other Transport, or 'Help add device…'");
+                   "device, or the port is held by another app - click 'Diagnose...', or try 'Help add device...'");
 
     // Full guidance (incl. the log path to attach to a report) goes to the log.
     logger->line ("CONNECT TIMEOUT: opened '" + name + "' but received no BLOCKS topology in 6s."
@@ -1533,10 +1557,12 @@ void MainComponent::resized()
     {
         auto row = r.removeFromTop (30);
         helpAddBtn.setBounds (row.removeFromLeft (150).reduced (2, 0));
+        row.removeFromLeft (6);
+        diagnoseBtn.setBounds (row.removeFromLeft (100).reduced (2, 0));
         row.removeFromLeft (8);
         advancedBtn.setBounds (row.removeFromRight (92).reduced (2, 0));
         row.removeFromRight (10);
-        transportLabel.setBounds (row.removeFromLeft (66));
+        transportLabel.setBounds (row.removeFromLeft (130));
         transportBox.setBounds (row.removeFromLeft (92).reduced (2, 0));
         r.removeFromTop (6);
         placeKeyboard (r);
@@ -1564,8 +1590,10 @@ void MainComponent::resized()
     contributeBtn.setBounds (trow.removeFromRight (100).reduced (2, 0));
     advancedBtn.setBounds (trow.removeFromRight (92).reduced (2, 0));
     trow.removeFromRight (10);
-    transportLabel.setBounds (trow.removeFromLeft (66));
+    transportLabel.setBounds (trow.removeFromLeft (130));
     transportBox.setBounds (trow.removeFromLeft (92).reduced (2, 0));
+    trow.removeFromLeft (8);
+    diagnoseBtn.setBounds (trow.removeFromLeft (100).reduced (2, 0));
     trow.removeFromLeft (10);
     blockLabel.setBounds (trow.removeFromLeft (84));
     blockBox.setBounds (trow.reduced (2, 0));
