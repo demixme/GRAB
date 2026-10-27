@@ -74,8 +74,8 @@ inline juce::String helpForParameter (const juce::String& name)
         { "Scale",             "The musical scale used by scale-aware modes." },
         { "Active Mode",       "Which of the device's saved modes is active." },
         { "Brightness",        "LED brightness." },
-        { "Global Key Color",  "Colour of the non-root keys (32-bit ARGB)." },
-        { "Root Key Color",    "Colour of the root-note keys (32-bit ARGB)." },
+        { "Global Key Color",  "Colour of the in-scale keys. Click to pick; shows when the active mode's Color Scheme is User." },
+        { "Root Key Color",    "Colour of the root-note keys. Click to pick; shows when the active mode's Color Scheme is User." },
         { "Key Pitch Bend Amount", "Pitch-bend span for key-based bends." },
     };
 

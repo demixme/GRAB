@@ -62,6 +62,11 @@ ConfigRow::ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value
             break;
 
         case ConfigType::colour:
+            colourWell.setSwatchColour (juce::Colour ((juce::uint32) value));
+            colourWell.onColourChanged = [this] (juce::Colour) { fireChange(); };
+            control = &colourWell;
+            break;
+
         case ConfigType::floating:
         default:
             readOnly.setText (juce::String (value) + "  (read-only)", juce::dontSendNotification);
@@ -112,6 +117,7 @@ juce::int32 ConfigRow::getValue() const
         case ConfigType::boolean: return toggle.getToggleState() ? 1 : 0;
         case ConfigType::options: return range.getStart() + (combo.getSelectedId() - 1);
         case ConfigType::integer: return (juce::int32) juce::roundToInt (slider.getValue());
+        case ConfigType::colour:  return (juce::int32) colourWell.getSwatchColour().getARGB();
         default:                  return readOnly.getText().getIntValue();
     }
 }
@@ -123,6 +129,7 @@ void ConfigRow::setValue (juce::int32 v)
         case ConfigType::boolean: toggle.setToggleState (v != 0, juce::dontSendNotification); break;
         case ConfigType::options: combo.setSelectedId ((v - range.getStart()) + 1, juce::dontSendNotification); break;
         case ConfigType::integer: slider.setValue ((double) v, juce::dontSendNotification); break;
+        case ConfigType::colour:  colourWell.setSwatchColour (juce::Colour ((juce::uint32) v)); break;
         default:                  readOnly.setText (juce::String (v) + "  (read-only)", juce::dontSendNotification); break;
     }
 }

@@ -13,6 +13,7 @@
 #include "ConfigOverrides.h"
 #include "LearnedNames.h"
 #include "CurveComponent.h"
+#include "ColourWell.h"
 #include "SectionCard.h"
 #include "FooterBar.h"
 #include "KeyboardView.h"
@@ -58,7 +59,8 @@ private:
     juce::Slider     slider;     // integer
     juce::ToggleButton toggle;   // boolean
     juce::ComboBox   combo;      // options (combo index = value - range start)
-    juce::Label      readOnly;   // colour / float — shown, not edited
+    grab::ColourWell colourWell; // colour (ARGB)
+    juce::Label      readOnly;   // float — shown, not edited
 
     juce::Component* control = nullptr;
     ChangeFn change;

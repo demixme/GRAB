@@ -34,7 +34,7 @@ unless you click.
 | Seaboard **Block** (now sold as **Seaboard Block M**) | ✅ supported — live config read/write, ROLI presets, factory reset |
 | Seaboard **RISE 2** | ✅ supported — live config read/write, ROLI presets (firmware 2.x) — own protocol |
 | **ROLI Piano** (49) | ✅ confirmed (config read/write, key colours, named scales + native scale lighting; firmware 1.5.0, Windows) — same BLOCKS protocol · [PIANO.md](PIANO.md) |
-| **Piano M** (24, formerly **LUMI Keys** / LUMI Keys Studio Edition — same hardware, rebranded) | 🟡 keyboard-family — connects and shows its basic shared settings; full support (scales, lighting) not done yet. DNA-linkable, so a chained pair should show like two Seaboard Blocks once we get a report — **contributions welcome** |
+| **Piano M** (24, formerly **LUMI Keys** / LUMI Keys Studio Edition — same hardware, rebranded) | ✅ confirmed (config read/write, named scales, key, colour schemes, key colours; firmware 1.3.9, macOS) — same config items as the ROLI Piano · [LUMI.md](LUMI.md). DNA-linkable, so a chained pair should show like two Seaboard Blocks once we get a report — **contributions welcome** |
 | Pad & control **BLOCKS** (Lightpad/Pad, Live, Loop, Touch) · **Airwave** | ◻️ out of scope *for now* — they connect and GRAB shows their basic shared settings, but ROLI's per-app/mode config (Note Grid, Fader Block, Drum Block, …) isn't managed by GRAB (see **Scope** below). **Contributions to add them are welcome** |
 | Multiple BLOCKS (DNA-connected cluster) | ✅ identical chained blocks (e.g. two Seaboard Blocks) shown as one device — shared config, writes fan out to the whole chain, drawn as one continuous keyboard |
 | Seaboard **RISE 25/49** (original) | ✅ live read/write + ROLI presets — same `0x78`/RPN protocol as the RISE 2, confirmed on a RISE 25 (one caveat: min/max aren't shown — this firmware doesn't report them back) · [RISE-GRAND.md](RISE-GRAND.md) |
@@ -76,8 +76,8 @@ usable whatever happens to ROLI's software and servers.
 
 **It is *not* (yet):**
 - A drop-in **replacement for ROLI Dashboard.** It deliberately does **not** flash
-  firmware, upload Littlefoot programs/apps, or customise lighting — and it doesn't
-  reproduce Dashboard's full workflow.
+  firmware, upload Littlefoot programs/apps, or run custom per-key lighting (it only sets
+  the device's own key colours) — and it doesn't reproduce Dashboard's full workflow.
 - Finished or polished — expect rough edges. **Confirmed on real hardware: the Seaboard
   Block, the Seaboard RISE 2, and the ROLI Piano 49** so far. Other BLOCKS (Lightpad, Live,
   Loop, Touch, Piano M / LUMI, Airwave) connect and show the config they report, but **app- and
