@@ -28,9 +28,32 @@ inline std::vector<std::uint8_t> anonymize (const std::uint8_t* d, std::size_t n
         && d[0] == 0xf0 && d[1] == 0x00 && d[2] == 0x21 && d[3] == 0x10 && d[4] == 0x78 && d[5] == 0x3a;
 
     if (identifyReply)
+    {
+        // Known serial + MAC block (RISE 2 / original RISE layout).
         for (int i = rise2::offset::mac; i < rise2::offset::firstMember; ++i)
             if (out[(size_t) i] != 0)
                 out[(size_t) i] = 'X';
+
+        // The header region (version slots) holds only a model string (kept, at offset 6) and
+        // firmware versions on the RISE — but other models reuse these slots for a hardware/
+        // serial code (e.g. the Seaboard GRAND's "SBG-..." at offset 14). Redact any field here
+        // that isn't a plain dotted version, so an unknown-layout device can't leak an id.
+        auto isVersionByte = [] (std::uint8_t c) { return (c >= '0' && c <= '9') || c == '.'; };
+        for (int i = rise2::offset::extraVersion; i < rise2::offset::mac && i < (int) n; )
+        {
+            int j = i;
+            bool looksVersion = true;
+            while (j < rise2::offset::mac && j < (int) n && out[(size_t) j] != 0)
+            {
+                if (! isVersionByte (out[(size_t) j])) looksVersion = false;
+                ++j;
+            }
+            if (j > i && ! looksVersion)              // a non-empty, non-version field -> redact
+                for (int k = i; k < j; ++k) out[(size_t) k] = 'X';
+            i = (j > i) ? j : i + 1;
+            while (i < rise2::offset::mac && i < (int) n && out[(size_t) i] == 0) ++i;  // skip padding
+        }
+    }
 
     return out;
 }
