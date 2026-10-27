@@ -839,7 +839,12 @@ void MainComponent::handleConfigItemChanged (roli::Block& b, const roli::Block::
 bool MainComponent::controlExistsFor (juce::uint32 id) const
 {
     for (auto& r : rows)   if (r->getId() == id) return true;
-    for (auto* c : curves) if (c->getId() == id) return true;
+    // A curve owns its sensitivity id AND its min/max end-node ids (50-55). Those have no row
+    // of their own, so without this a live-write echo of a min/max value looked like the visible
+    // set had changed and triggered a full rebuildRows() mid-drag (jerky handles, flashing Save).
+    for (auto* c : curves)
+        if (c->getId() == id || c->getMinId() == (int) id || c->getMaxId() == (int) id)
+            return true;
     return false;
 }
 
