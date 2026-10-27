@@ -18,7 +18,7 @@ instruments configurable and self-documents their protocol.
 (MPE / Multi / Single / Piano), and **factory reset** for Blocks — on **Windows, macOS and
 Linux**. Recent additions: a **Diagnose connection** helper for the common "port is busy / no
 device found" problems; a preliminary **Seaboard GRAND** config page (it's configured with the
-same protocol as the RISE); **Download firmware for archiving** (Advanced ▸, Seaboard Block)
+same protocol as the RISE); **Download firmware for archiving** (Advanced ▸ — Seaboard **Block** and every **RISE**)
 while ROLI's servers are up; named **scales + native scale lighting** on the ROLI Piano; and —
 with **Windows MIDI Services** — GRAB can now run **alongside your DAW** without quitting it.
 
