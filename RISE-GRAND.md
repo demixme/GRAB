@@ -8,9 +8,12 @@ caveat on the original: the Strike/Press/Lift **min/max block reads back as zero
 hides those (they're writable, just not readable on that firmware). The **GRAND** is confirmed (Oct 2026) a
 `0x78` RISE-family device **configured with the same `3D` set-param protocol as the RISE** (from
 a Dashboard↔GRAND capture — see "Seaboard GRAND" below); it is **4D (no slide)** with **3 pedal
-CCs**, and its 87-byte reply is shorter than the RISE's 224-byte dump. Writing works via the
-existing RISE code; a systematic capture is still needed to complete its param map. The RISE 2 protocol below is confirmed on that device; the rest of this document
-collects what is known so far for the other models.
+CCs**, and its 87-byte reply is shorter than the RISE's 224-byte dump. A **full Dashboard
+capture** (BabeleDunnit, issue #6) was then received and decoded: a real GRAND now routes to the
+RISE page and shows the fields confirmed end-to-end — **three pedal CCs + glide sensitivity** (read
+from its decoded `3A` reply, written via `3D`); MIDI mode / bend / transpose follow once verified on
+hardware. The RISE 2 protocol below is confirmed on that device; the rest of this document collects
+what is known so far for the other models.
 
 **Presets (v0.1.19):** GRAB's RISE page ships ROLI's four built-in presets — **MPE / Multi
 Channel / Single Channel / Piano** — transcribed from Dashboard's `Rise.littlefootModes/*.mode`
@@ -259,14 +262,14 @@ Params seen written (mapped against `Rise2Protocol.h` set-param ids):
 - `0x0E` = **MIDI mode** (0 = Single, 1 = MPE).
 - `0x17` = **Glide sensitivity**.
 - No Strike/Slide params — the GRAND is **4D (no slide axis)**; its Dashboard has no Strike
-  Sensitivity or Slide CC. This capture is **partial** (the contributor couldn't exercise
-  every control), so the full param set still needs a systematic per-setting capture.
+  Sensitivity or Slide CC. This **first** capture was partial; a **full** capture followed and is
+  decoded in the next section.
 
 **The 87-byte `3A` reply carries live settings, not just identity.** Its ~22-byte tail is
 `3E 01 0F 00 01 | 3C 00 43 00 42 00 | 01 00 01 00 | 30 | 40 40 | 00 0C 00 00` + checksum —
 and `3C 00 43 00 42 00` = the three pedal CCs (60/67/66) **echoing the values written**. So the
-GRAND is **writable like a RISE and partially readable** via a GRAND-specific (compact, not
-224-byte) offset map that still needs fully decoding.
+GRAND is **writable like a RISE and readable** via a GRAND-specific (compact, not 224-byte) offset
+map — now decoded in the next section from the full capture.
 
 ### Full Dashboard capture (Oct 2026, BabeleDunnit) — GRAND `3A` offset map
 

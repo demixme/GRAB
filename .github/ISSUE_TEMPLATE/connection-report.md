@@ -5,9 +5,10 @@ title: "[connect] <model> - "
 labels: connection
 ---
 
-<!-- Note: Seaboard RISE and GRAND use a different protocol and are NOT supported yet
-     (see https://github.com/demixme/GRAB/issues/1). GRAB may detect the port but never
-     finish connecting — this report still helps us add support, so please file it. -->
+<!-- Note: Seaboard RISE and GRAND use a different protocol and open a separate RISE page.
+     The RISE 2 and original RISE 25/49 are supported (read/write); the GRAND is provisional
+     (pedals + glide confirmed). If GRAB detects the port but the settings page doesn't appear,
+     this report helps — please file it. -->
 
 **Device model:** (e.g. Seaboard Block, Seaboard RISE 25, Seaboard RISE 2, Seaboard GRAND)
 **Firmware version (if known):**
