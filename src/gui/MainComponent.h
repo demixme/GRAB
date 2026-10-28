@@ -111,6 +111,7 @@ private:
     void contribute();
     void openDialog (juce::Component* panel, const juce::String& title); // owns panel in a DialogWindow
     void openCaptureWindow();   // Advanced ▸ Capture MIDI: the unified capture + decode tool
+    void checkForUpdate();      // async: ask GitHub for the latest release, light up the footer if newer
     // Friendly name + formatted value for a config item id (applies overrides + learned names).
     // Passed to the capture tool so device→host config echoes read as "Pressure Sensitivity = 46".
     std::pair<juce::String, juce::String> describeConfig (juce::uint32 item, juce::int32 value) const;

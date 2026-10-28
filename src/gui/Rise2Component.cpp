@@ -10,7 +10,8 @@
 namespace
 {
 using ConfigType = roli::Block::ConfigMetaData::ConfigType;
-namespace off = rise2::offset;
+namespace off  = rise2::offset;
+namespace goff = rise2::goffset;
 
 // Control ids, local to this page.
 enum : juce::uint32
@@ -41,6 +42,12 @@ struct Field
 std::function<int (const rise2::State&)> byte (int o, int bias = 0)
 {
     return [o, bias] (const rise2::State& s) { return s.at (o) + bias; };
+}
+
+// A field read that uses a different offset on the GRAND (its reply layout differs from the RISE's).
+std::function<int (const rise2::State&)> gbyte (int riseOff, int grandOff, int bias = 0)
+{
+    return [riseOff, grandOff, bias] (const rise2::State& s) { return s.at (s.grand ? grandOff : riseOff) + bias; };
 }
 
 std::function<rise2::Messages (int)> param (std::uint8_t p)
@@ -79,7 +86,7 @@ const std::vector<Field>& fields()
 
         // Curves (sensitivities) are drawn as panels, these follow as rows.
         { kStrikeSens, "Strike", "Sensitivity", CT::integer, 0, 127, {}, byte (off::strikeSens), param (0x1a) },
-        { kGlideSens,  "Glide",  "Sensitivity", CT::integer, 0, 127, {}, byte (off::glideSens),  param (0x17) },
+        { kGlideSens,  "Glide",  "Sensitivity", CT::integer, 0, 127, {}, gbyte (off::glideSens, goff::glideSens), param (0x17) },
         { kSlideSens,  "Slide",  "Sensitivity", CT::integer, 0, 127, {}, byte (off::slideSens),  param (0x18) },
         { kPressSens,  "Press",  "Sensitivity", CT::integer, 0, 127, {}, byte (off::pressSens),  param (0x19) },
         { kLiftSens,   "Lift",   "Sensitivity", CT::integer, 0, 127, {}, byte (off::liftSens),   param (0x1b) },
@@ -103,11 +110,11 @@ const std::vector<Field>& fields()
         { kSleepTime, "Sleep Time", "Power", CT::integer, 0, 16383, {},
           [] (const rise2::State& s) { return s.sleepTime(); }, rise2::sleepTime },
 
-        // GRAND-only pedals. Params 0x08/0x0A/0x0C confirmed from the Dashboard capture; the
-        // reply offsets aren't decoded yet, so read lambdas return a placeholder (preview only).
-        { kPedal1Cc, "Pedal 1 CC (Sustain)",    "Pedals", CT::integer, 0, 127, {}, [] (const rise2::State&) { return 64; }, param (0x08) },
-        { kPedal2Cc, "Pedal 2 CC (Sostenuto)",  "Pedals", CT::integer, 0, 127, {}, [] (const rise2::State&) { return 67; }, param (0x0a) },
-        { kPedal3Cc, "Pedal 3 CC (Soft)",       "Pedals", CT::integer, 0, 127, {}, [] (const rise2::State&) { return 66; }, param (0x0c) },
+        // GRAND-only pedals. Params 0x08/0x0A/0x0C and the reply offsets are both confirmed from
+        // BabeleDunnit's full Dashboard capture (CC stored as the low byte of a 2-byte pair).
+        { kPedal1Cc, "Pedal 1 CC (Sustain)",    "Pedals", CT::integer, 0, 127, {}, byte (goff::pedal1Cc), param (0x08) },
+        { kPedal2Cc, "Pedal 2 CC (Sostenuto)",  "Pedals", CT::integer, 0, 127, {}, byte (goff::pedal2Cc), param (0x0a) },
+        { kPedal3Cc, "Pedal 3 CC (Soft)",       "Pedals", CT::integer, 0, 127, {}, byte (goff::pedal3Cc), param (0x0c) },
     };
     return f;
 }
@@ -129,6 +136,15 @@ bool isRiseOnlyField (juce::uint32 id)
     }
 }
 bool isGrandOnlyField (juce::uint32 id) { return id == kPedal1Cc || id == kPedal2Cc || id == kPedal3Cc; }
+
+// The fields a real GRAND shows. Deliberately limited to what the capture confirms end-to-end
+// (read offset AND write param): the three pedal CCs and glide sensitivity. Other GRAND settings
+// (MIDI mode, bend, transpose...) are writable but their reply offsets aren't nailed down yet, so
+// they're left off until verified on hardware rather than shown with a guessed value.
+bool isGrandField (juce::uint32 id)
+{
+    return id == kGlideSens || id == kPedal1Cc || id == kPedal2Cc || id == kPedal3Cc;
+}
 
 const Field* findField (juce::uint32 id)
 {
@@ -323,27 +339,23 @@ void Rise2Component::previewSyntheticGrand()
     portName = "Seaboard GRAND (preview)";
     grand = true;   // rebuildRows() then shows the GRAND field set (4D, 3 pedals)
 
-    // Synthetic reply reusing the RISE layout for the shared fields — the GRAND's real 87-byte
-    // layout is only partly decoded, so this is a layout preview, not device-accurate values.
-    std::vector<std::uint8_t> raw ((size_t) offset::replySize, 0);
+    // Build a real GRAND-shaped 0x3a reply (87 bytes, goffset layout) with the values from
+    // BabeleDunnit's capture, so the preview matches what a real GRAND shows.
+    std::vector<std::uint8_t> raw (87, 0);
     raw[0] = 0xf0; raw[1] = 0x00; raw[2] = 0x21; raw[3] = 0x10; raw[4] = 0x78; raw[5] = 0x3a;
-    raw[(size_t) offset::replySize - 1] = 0xf7;
+    raw[86] = 0xf7;
     auto put = [&raw] (int o, const char* s) { for (int i = 0; s[i] != 0; ++i) raw[(size_t) (o + i)] = (std::uint8_t) s[i]; };
-    put (offset::model,    "GRND1.01");
-    put (offset::firmware, "0.6.9");
-    put (offset::serial,   "PREVIEW00000000");   // not a real serial
-    raw[offset::firstMember] = 1; raw[offset::lastMember] = 15; raw[offset::masterChannel] = 0;
-    raw[offset::mpeOn] = 1; raw[offset::bendRange] = 48; raw[offset::octave] = 4;   // -> 0
-    raw[offset::glideTracking] = 1; raw[offset::pressTracking] = 1;
-    raw[offset::glideSens] = 80; raw[offset::pressSens] = 100; raw[offset::liftSens] = 60;
-    raw[offset::transpose] = 64;  // -> 0
+    put (goff::model,    "GRND1.01");
+    put (goff::firmware, "0.6.9");
+    raw[goff::keyCount] = 62;
+    raw[goff::pedal1Cc] = 60; raw[goff::pedal2Cc] = 67; raw[goff::pedal3Cc] = 66;
+    raw[goff::bendRange] = 48; raw[goff::transpose] = 64;  // -> 0
+    raw[goff::glideSens] = 80; raw[goff::pressSens] = 100;
 
     State s; s.raw = std::move (raw);
     awaitingState = true;
     onState (std::move (s));
-    setStatus ("Seaboard GRAND preview (simulated, PRELIMINARY).  Ctrl+Alt+Shift+G to exit.");
-    infoLabel.setText ("Provisional GRAND layout from a partial Dashboard capture \xe2\x80\x94 4D (no slide/strike), "
-                       "3 pedals; controls and values are not final.", juce::dontSendNotification);
+    setStatus (grab::u8 ("Seaboard GRAND preview (simulated, PRELIMINARY).  Ctrl+Alt+Shift+G to exit."));
 }
 
 void Rise2Component::openPorts()
@@ -353,6 +365,7 @@ void Rise2Component::openPorts()
         {
             midiOut = juce::MidiOutput::openDevice (d.identifier);
             portName = d.name;
+            grand = rise2::isGrandName (d.name);   // provisional; confirmed from the reply's model in onState
         }
 
     for (auto& d : juce::MidiInput::getAvailableDevices())
@@ -495,13 +508,29 @@ void Rise2Component::onState (rise2::State s)
     stopTimer();
     state = std::move (s);
 
-    firmware = state.text (off::firmware, 8);   // stored for preset metadata
-    const auto extra    = state.text (off::extraVersion, 8);
-    const auto ble      = state.text (off::bleFirmware, 8);
-    infoLabel.setText (portName + "   fw " + firmware + (extra.isNotEmpty() ? " (" + extra + ")" : juce::String())
-                           + (ble.isNotEmpty() ? "   Bluetooth " + ble : juce::String())
-                           + "   battery " + juce::String (state.at (off::battery)) + "/7",
-                       juce::dontSendNotification);
+    // The model string is authoritative: a GRAND replies "GRND..." (shorter 0x3a dump). Set it on
+    // the state so the grand-aware reads resolve to the right offsets.
+    grand = state.text (off::model, 4).startsWithIgnoreCase ("GRND");
+    state.grand = grand;
+
+    if (grand)
+    {
+        firmware = state.text (goff::firmware, 8);   // stored for preset metadata
+        infoLabel.setText (portName + "   fw " + firmware + "   " + juce::String (state.at (goff::keyCount)) + " keys"
+                               + "   " + grab::u8 ("\xe2\x80\x94") + " provisional GRAND page (pedals + glide confirmed; "
+                                 "more coming as it's verified on hardware)",
+                           juce::dontSendNotification);
+    }
+    else
+    {
+        firmware = state.text (off::firmware, 8);   // stored for preset metadata
+        const auto extra    = state.text (off::extraVersion, 8);
+        const auto ble      = state.text (off::bleFirmware, 8);
+        infoLabel.setText (portName + "   fw " + firmware + (extra.isNotEmpty() ? " (" + extra + ")" : juce::String())
+                               + (ble.isNotEmpty() ? "   Bluetooth " + ble : juce::String())
+                               + "   battery " + juce::String (state.at (off::battery)) + "/7",
+                           juce::dontSendNotification);
+    }
 
     // The write protocol is confirmed on both the RISE 2 (fw 2.x) and the original RISE
     // (fw 1.x) - the original returns the same dump and uses the same 0x78/RPN/NRPN writes
@@ -586,7 +615,7 @@ void Rise2Component::rebuildRows()
     // GRAND hides the RISE-only controls (slide/strike/faders/XY/single pedal) and shows its
     // three pedals instead; the RISE hides the GRAND-only pedal fields.
     const auto include = [this] (juce::uint32 id)
-    { return grand ? ! isRiseOnlyField (id) : ! isGrandOnlyField (id); };
+    { return grand ? isGrandField (id) : ! isGrandOnlyField (id); };
 
     const char* groupOrder[] = { "Sensitivity", "MIDI Settings", "Play mode", "MIDI CC Assignments", "Pedals", "Power" };
     for (auto* g : groupOrder)

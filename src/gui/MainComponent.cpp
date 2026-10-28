@@ -9,12 +9,19 @@
 
 #include <algorithm>
 #include <map>
+#include <thread>
+
+#ifndef GRAB_VERSION
+ #define GRAB_VERSION "0.0.0-dev"
+#endif
 
 namespace
 {
 // Rough key-range (octaves) for the keyboard graphic, from the device's port/name.
 int keyboardOctavesForName (const juce::String& name)
 {
+    if (name.containsIgnoreCase ("grand"))                                        // Seaboard GRAND
+        return name.contains ("88") ? 7 : name.contains ("61") ? 5 : 5;          // GRAND 88 / 61 / 62
     if (name.contains ("25")) return 2;                                           // RISE 25
     if (name.contains ("49")) return 4;                                           // RISE 49 / Piano 49
     if (name.containsIgnoreCase ("RISE 2") || name.containsIgnoreCase ("RISE2"))  // RISE 2 (61 keys)
@@ -257,6 +264,8 @@ MainComponent::MainComponent()
     viewport.setScrollBarsShown (true, false);
 
     addAndMakeVisible (footer);
+    footer.setVersion (GRAB_VERSION);
+    checkForUpdate();   // ask GitHub for the latest release; lights up the footer if newer
     addChildComponent (keyboardView);   // shown only for keyboard devices
 
     addChildComponent (busyLabel);      // shown only while a factory reset reboots the device
@@ -676,6 +685,53 @@ void MainComponent::openDialog (juce::Component* panel, const juce::String& titl
     o.useNativeTitleBar = true;
     o.resizable = true;
     o.launchAsync();
+}
+
+void MainComponent::checkForUpdate()
+{
+    // Compare dotted versions ("0.1.31" vs "0.1.30"); returns true if `latest` is newer than `cur`.
+    auto isNewer = [] (juce::String latest, juce::String cur)
+    {
+        latest = latest.trimCharactersAtStart ("vV");
+        cur    = cur.trimCharactersAtStart ("vV");
+        juce::StringArray a, b;
+        a.addTokens (latest, ".", ""); b.addTokens (cur, ".", "");
+        for (int i = 0; i < juce::jmax (a.size(), b.size()); ++i)
+        {
+            const int x = i < a.size() ? a[i].getIntValue() : 0;
+            const int y = i < b.size() ? b[i].getIntValue() : 0;
+            if (x != y) return x > y;
+        }
+        return false;
+    };
+
+    juce::Component::SafePointer<MainComponent> safe (this);
+    std::thread ([safe, isNewer]
+    {
+        juce::String tag, htmlUrl;
+        {
+            juce::URL url ("https://api.github.com/repos/demixme/GRAB/releases/latest");
+            juce::WebInputStream web (url, false);
+            web.withExtraHeaders ("Accept: application/vnd.github+json\r\nUser-Agent: GRAB");
+            web.withConnectionTimeout (8000);
+            if (web.connect (nullptr) && web.getStatusCode() == 200)
+            {
+                const auto json = juce::JSON::parse (web.readEntireStreamAsString());
+                tag     = json.getProperty ("tag_name", {}).toString();
+                htmlUrl = json.getProperty ("html_url", {}).toString();
+            }
+        }
+        if (tag.isEmpty())
+            return;
+
+        juce::MessageManager::callAsync ([safe, tag, htmlUrl, isNewer]
+        {
+            auto* p = safe.getComponent();
+            if (p != nullptr && isNewer (tag, GRAB_VERSION))
+                p->footer.setUpdateAvailable (tag, htmlUrl.isNotEmpty() ? htmlUrl
+                                                  : "https://github.com/demixme/GRAB/releases/latest");
+        });
+    }).detach();
 }
 
 void MainComponent::openCaptureWindow()

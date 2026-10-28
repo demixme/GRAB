@@ -225,9 +225,11 @@ any alias a device reports is caught: `seaboard`, `rise`, `grand`, `piano`, `lum
 - **ROLI Piano (49)** — name contains `Piano`/`ROLI`; identifier `pianofortynine`.
 - **LUMI Keys / Piano M** — `LUMI Keys`, `LUMI Keys Studio Edition`, `Piano M`.
 
-Note: `Seaboard RISE…` routes to the RISE page; the **GRAND** currently still falls through to the
-BLOCKS path and times out with the "GRAND detected" guidance (real-hardware RISE-path routing is
-deferred until its 87-byte reply is fully decoded).
+Note: both `Seaboard RISE…` and `Seaboard GRAND` route to the RISE page (the `0x78` path). As of
+v0.1.31 `isBlocksDevice()` excludes "grand" and `rise2::isRisePort()` includes it, so a real GRAND
+no longer gets grabbed by the BLOCKS detector (which left it showing no controls while `0x77` timed
+out). The GRAND page is provisional: it shows the fields confirmed end-to-end — the three pedal CCs
+and glide sensitivity — and reads them from the GRAND offset map below.
 
 ## Seaboard GRAND — first capture (Oct 2026)
 A contributed auto-explore capture (macOS) settles the big question: **the GRAND is a `0x78`
@@ -266,10 +268,31 @@ and `3C 00 43 00 42 00` = the three pedal CCs (60/67/66) **echoing the values wr
 GRAND is **writable like a RISE and partially readable** via a GRAND-specific (compact, not
 224-byte) offset map that still needs fully decoding.
 
-**Next step to finish GRAND support:** a systematic Dashboard capture that changes **every**
-GRAND setting one at a time (like the RISE 25 session) to complete the `3D` param map and the
-87-byte reply layout; then route the GRAND to the RISE page with a GRAND profile (4D, 3 pedals,
-no slide). Writing already works through GRAB's existing RISE `setParam` code.
+### Full Dashboard capture (Oct 2026, BabeleDunnit) — GRAND `3A` offset map
+
+A **complete** GRAND 62 Dashboard capture (MIDI Monitor `.mmon`, every pedal + mode + glide
+exercised) was decoded by diffing its **28 `0x3A` state dumps**. The reply body (after
+`F0 00 21 10 78 3A`) is 80 bytes; offsets below are **from `F0`** (what `rise2::State::at()` uses),
+and are the `goffset::` constants in `Rise2Protocol.h`. Verified: pedals read 60/67/66, glide
+tracked a 0→127 sweep, key count = 62.
+
+| offset (from F0) | field | notes |
+|---|---|---|
+| 6 | model | `GRND1.01` |
+| 38 | firmware | `0.6.9` |
+| 62 | key count | `0x3E` = 62 (GRAND **62**) |
+| 67 / 69 / 71 | pedal 1 / 2 / 3 CC | low byte of a 2-byte pair; 60 / 67 / 66 |
+| 77 | pitch bend range | 48 default (seen 12/48/60/72) |
+| 78 | transpose | 64 = centre |
+| 80 / 81 | glide / press sensitivity | 0..127 |
+
+Write params (`3D`), confirmed from the same capture: pedals `08/0A/0C` (+ companion toggles
+`09/0B/0D`), MIDI mode `0E` (0 Single / 1 MPE), glide sensitivity `17`.
+
+**Still to confirm (left off the page until verified on hardware):** the reply offsets for MIDI
+mode / MPE members / zone / octave, and whether bend/transpose are writable via `3D` or RPN on the
+GRAND. GRAB now routes a real GRAND to the RISE page showing pedals + glide; extend from there as
+BabeleDunnit verifies more fields.
 
 Vendor `2af4` is shared across ROLI devices (the Seaboard **Block** is `vid_2af4 pid_0700`);
 the PID identifies the model. The **original RISE 25 and 49** both answer the same `0x78 3F`
