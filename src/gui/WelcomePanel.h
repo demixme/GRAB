@@ -1,6 +1,6 @@
-// WelcomePanel — a first-launch "how you can help" dialog. GRAB is community-driven, so it
-// explains the outstanding gaps and exactly what a user can do on their setup + in GRAB to help.
-// Shown once (a flag in settings.properties); reopenable from Advanced ▸ How you can help.
+// WelcomePanel — the "how you can help" dialog shown on launch. GRAB is community-driven, so it
+// explains, briefly and plainly, the single most useful thing a user can contribute (a Dashboard
+// capture) plus the quick one-click option. Reopenable from Advanced ▸ How you can help.
 
 #pragma once
 
@@ -29,6 +29,11 @@ public:
         body.setColour (juce::TextEditor::outlineColourId,    grab::theme::outline);
         body.setText (content(), false);
 
+        addAndMakeVisible (guideBtn);
+        guideBtn.setButtonText ("Open capture guide");
+        guideBtn.setTooltip ("Opens the step-by-step Dashboard capture guide on GitHub in your browser.");
+        guideBtn.onClick = [] { juce::URL (kGuideUrl).launchInDefaultBrowser(); };
+
         addAndMakeVisible (closeBtn);
         closeBtn.setButtonText ("Got it");
         closeBtn.onClick = [this]
@@ -37,7 +42,7 @@ public:
                 juce::MessageManager::callAsync ([dw] { delete dw; });
         };
 
-        setSize (660, 640);
+        setSize (660, 600);
     }
 
     void paint (juce::Graphics& g) override
@@ -50,7 +55,10 @@ public:
         auto r = getLocalBounds().reduced (16);
         title.setBounds (r.removeFromTop (30));
         r.removeFromTop (6);
-        closeBtn.setBounds (r.removeFromBottom (32).removeFromRight (120));
+        auto bottom = r.removeFromBottom (32);
+        closeBtn.setBounds (bottom.removeFromRight (120));
+        bottom.removeFromRight (8);
+        guideBtn.setBounds (bottom.removeFromRight (170));
         r.removeFromBottom (8);
         body.setBounds (r);
     }
@@ -58,98 +66,60 @@ public:
 private:
     static juce::String content()
     {
-        // Lines are word-wrapped by the editor, so each item is one line (no mid-sentence breaks).
+        // Lines are word-wrapped by the editor, so each paragraph is one line (no mid-sentence breaks).
         const char* utf8 =
-            "GRAB reads and writes ROLI MPE device settings directly over MIDI \xe2\x80\x94 no ROLI software needed. "
-            "It's community-driven: reports from real hardware are how it grows, and how we confirm it's safe on "
-            "devices we don't own. Here's how to help.\n"
+            "GRAB reads and writes ROLI device settings over MIDI \xe2\x80\x94 no ROLI software needed. It grows from "
+            "what people with real hardware send in. Everything is anonymised, and nothing is sent unless you click.\n"
             "\n"
-            "IMPORTANT \xe2\x80\x94 ONE APP AT A TIME (on the legacy MIDI stack)\n"
-            "On the classic Windows MIDI stack, ports are exclusive: ROLI Dashboard / Connect (and DAWs) hold the "
-            "port, so GRAB can't read your device while they're open. Always QUIT ROLI Dashboard and close any DAW "
-            "before opening GRAB (and vice versa).\n"
-            "Exception: if you run the new Windows MIDI Services stack (built into recent Windows 11, installable on "
-            "older builds), ports are shared \xe2\x80\x94 GRAB can run alongside your DAW, no need to quit it (confirmed on "
-            "hardware). On macOS and Linux, sharing already works too.\n"
-            "If GRAB can't find your device, or a port seems busy, click \"Diagnose...\" \xe2\x80\x94 it checks "
-            "your MIDI ports and gives step-by-step help.\n"
+            "HOW YOU CAN HELP\n"
             "\n"
-            "WHAT WORKS TODAY  (what we believe, and how sure we are)\n"
+            "1.  Easy, one click \xe2\x80\x94 \"Contribute...\"\n"
+            "     If GRAB shows your device and its settings, click Contribute to send an anonymised profile. We now "
+            "have these for every ROLI family, so this is quick and always welcome for confirming control names and "
+            "ranges.\n"
             "\n"
-            "Seaboard Block / Block M  \xe2\x80\x94  confirmed on hardware\n"
-            "     Read, live editing, ROLI presets, and factory reset. USB + Bluetooth. Chained blocks show as one device.\n"
+            "2.  The big one, a little technical \xe2\x80\x94 capture ROLI Dashboard\n"
+            "     This is the one piece we're still missing, for every device. GRAB can read what a device reports, "
+            "but it cannot see what ROLI Dashboard SENDS to the device when you change a setting \xe2\x80\x94 and that "
+            "\"write\" traffic is how we unlock the features GRAB can't reach yet: LUMI scales & lighting, the "
+            "Lightpad's pads & modes, the Seaboard GRAND's full settings, RISE 2 extras, and the exact name of every "
+            "control.\n"
+            "     To capture it, run a USB/MIDI monitor next to Dashboard and change a few settings:\n"
+            "       \xe2\x80\xa2  Windows:  Wireshark + USBPcap (both free) \xe2\x80\x94 record the Seaboard's USB while you edit "
+            "in Dashboard.\n"
+            "       \xe2\x80\xa2  macOS:  MIDI Monitor (Snoize, free) with Spy enabled on the output \xe2\x80\x94 record the "
+            "\"to device\" stream.\n"
+            "     Then save it and attach it to a GitHub issue. For the full step-by-step, click \"Open capture "
+            "guide\" below (tools/CAPTURE-DASHBOARD.md). This is the single most valuable thing a technical user can "
+            "send \xe2\x80\x94 it's exactly how we cracked the GRAND.\n"
+            "     (GRAB's own Advanced \xe2\x96\xb8 Capture MIDI records and decodes the device side, which helps too, but "
+            "Dashboard's writes only appear in a USB/MIDI monitor as above.)\n"
             "\n"
-            "Seaboard RISE 2  \xe2\x80\x94  supported\n"
-            "     Read, live editing, ROLI presets. (No factory reset yet \xe2\x80\x94 that command is still unknown for RISE.)\n"
+            "WHERE THINGS STAND\n"
+            "     Reading settings works now:  Seaboard Block / Block M, Seaboard RISE (25 / 49 / 2), ROLI Piano, "
+            "LUMI Keys / Piano M (scales, key, colours), Lightpad \xe2\x80\x94 they all connect and report their settings.\n"
+            "     The frontier:  ROLI Dashboard's write protocol (host \xe2\x86\x92 device) for device-specific features and "
+            "exact control names. That needs the capture above \xe2\x80\x94 we have almost none of it yet.\n"
             "\n"
-            "Seaboard RISE 25 / 49 (original)  \xe2\x80\x94  editable, wants more field reports\n"
-            "     Read and live editing (confirmed from a RISE 25 capture), plus ROLI presets (new \xe2\x80\x94 please test). Min/max are hidden on fw 1.x. No factory reset yet.\n"
-            "\n"
-            "ROLI Piano (49)  \xe2\x80\x94  confirmed on hardware\n"
-            "     Read, live editing, key colours, and named scales + native scale lighting (fw 1.5.0). Same BLOCKS protocol.\n"
-            "\n"
-            "Piano M / LUMI Keys  \xe2\x80\x94  confirmed on hardware\n"
-            "     Read, live editing, named scales, key, colour schemes and key colours (fw 1.3.9, macOS). Factory reset not tried yet.\n"
-            "\n"
-            "Lightpad / Note Grid, and Live / Loop / Touch  \xe2\x80\x94  detection only\n"
-            "     GRAB sees them; full settings support needs your profiles / captures.\n"
-            "\n"
-            "Seaboard GRAND  \xe2\x80\x94  preliminary\n"
-            "     It's configured with the same protocol as the RISE (confirmed from a Dashboard capture) \xe2\x80\x94 4D, 3 pedals, no slide. A draft page exists and writing works; we still need a full capture to finish it. GRAND owners \xe2\x80\x94 please help, see E) below.\n"
-            "\n"
-            "HOW TO TEST  (pick whatever fits your device)\n"
-            "\n"
-            "A)  Does GRAB read your device correctly?\n"
-            "     1. Quit ROLI Dashboard / your DAW.\n"
-            "     2. Open GRAB \xe2\x80\x94 it should list your device and show its settings.\n"
-            "     3. If it looks right, click \"Contribute...\" to send an anonymised profile. If anything looks wrong, see HOW TO REPORT.\n"
-            "\n"
-            "B)  Do GRAB and ROLI Dashboard agree?  (really useful)\n"
-            "     1. In ROLI Dashboard, choose a preset or change some settings (save if it asks).\n"
-            "     2. QUIT ROLI Dashboard.\n"
-            "     3. Open GRAB and check the same settings match what Dashboard showed.\n"
-            "     4. Click \"Contribute...\", and tell us about any mismatch.\n"
-            "\n"
-            "C)  Does editing work and stick?\n"
-            "     1. In GRAB, change a control (a sensitivity, octave, a mode...). Edits write to the device straight away \xe2\x80\x94 play it and you should hear the change.\n"
-            "     2. Click \"Reload from device\" \xe2\x80\x94 the value should read back the same.\n"
-            "     3. Optional: re-open ROLI Dashboard and confirm it agrees.\n"
-            "\n"
-            "D)  Presets & factory reset  (Seaboard / Blocks)\n"
-            "     1. Use \"Apply ROLI preset...\" to load MPE / Multi / Single / Piano, and check it matches Dashboard's same preset.\n"
-            "     2. Advanced \xe2\x96\xb8 Factory reset (presets only) \xe2\x80\x94 confirm the device reboots and returns to defaults, then \"Contribute...\" to capture its factory values.\n"
-            "\n"
-            "E)  Seaboard RISE / GRAND owners\n"
-            "     - Original RISE (25/49): writing is new here \xe2\x80\x94 change a setting, reconnect, and confirm it stuck. Please report success or problems.\n"
-            "     - RISE 2: supported \xe2\x80\x94 just Contribute a profile.\n"
-            "     - Seaboard GRAND: good news \xe2\x80\x94 it uses the RISE protocol, so we're close. The missing piece is its SETTINGS. Please help by either: (a) clicking \"Help add device...\" and submitting, and/or (b) capturing ROLI Dashboard while you edit your GRAND's config (see tools/CAPTURE-DASHBOARD.md) and sending it. That data is what lets us add full GRAND support.\n"
-            "\n"
-            "HOW TO REPORT\n"
-            "     - \"Contribute...\"  \xe2\x80\x94 sends an anonymised settings profile (needs a connected device).\n"
-            "     - \"Help add device...\"  \xe2\x80\x94 for a device GRAB doesn't detect: a safe, read-only identity probe + report.\n"
-            "     - Advanced \xe2\x96\xb8 Raw MIDI capture  \xe2\x80\x94 logs exactly what your device sends (read-only), to submit or attach to a GitHub issue.\n"
-            "\n"
-            "WHAT WE'RE WORKING ON\n"
-            "     - Finishing Seaboard GRAND configuration (a draft page exists; needs a full capture)\n"
-            "     - Confirming presets + factory reset across the whole Block family\n"
-            "     - Friendly names for every setting (built from your contributed profiles)\n"
-            "     - Running GRAB alongside a DAW everywhere (already works with Windows MIDI Services)\n"
-            "\n"
-            "ARCHIVE YOUR FIRMWARE  (while ROLI's servers are up)\n"
-            "     Advanced \xe2\x96\xb8 Download firmware for archiving opens ROLI's download page in your browser (sign in "
-            "to ROLI first). Works for the Seaboard Block and every Seaboard RISE (25 / 49 / 2). Grab a copy now \xe2\x80\x94 "
-            "it's the firmware we can't re-host for you.\n"
-            "\n"
-            "PRIVACY\n"
-            "     Nothing leaves your machine unless you click Contribute / Report / Submit. Serials are SHA-256 hashed; serial & MAC are stripped from any raw capture.\n"
+            "GOOD TO KNOW\n"
+            "     One app at a time:  quit ROLI Dashboard and your DAW before opening GRAB \xe2\x80\x94 unless you run the new "
+            "Windows MIDI Services, which lets them share (Mac and Linux already share). For the Dashboard capture "
+            "above you WANT both open at once.\n"
+            "     Archive firmware:  Advanced \xe2\x96\xb8 Download firmware for archiving grabs a copy of your Block / RISE "
+            "firmware while ROLI's servers are still up.\n"
+            "     Private & safe:  serials are hashed, serial & MAC are stripped from captures, and nothing leaves "
+            "your machine until you click. GRAB never flashes firmware.\n"
             "\n"
             "Thanks for helping!  Reopen this any time from Advanced \xe2\x96\xb8 How you can help.";
         return juce::String::fromUTF8 (utf8);
     }
 
+    static constexpr const char* kGuideUrl =
+        "https://github.com/demixme/GRAB/blob/main/tools/CAPTURE-DASHBOARD.md";
+
     juce::Label      title;
     juce::TextEditor body;
-    juce::TextButton closeBtn;
+    juce::TextButton guideBtn, closeBtn;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (WelcomePanel)
 };

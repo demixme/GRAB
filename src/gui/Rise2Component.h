@@ -12,6 +12,7 @@
 #include "Rise2Protocol.h"
 #include "ThrottledWriter.h"
 
+#include <array>
 #include <map>
 #include <memory>
 #include <set>
@@ -91,6 +92,9 @@ private:
     juce::String firmware;   // last-read firmware string, for preset metadata
 
     rise2::State state;
+    // Latest value per MIDI CC (0..127), written on the MIDI thread from incoming performance
+    // messages; the fader panel polls it to animate the touch faders / XY pad. -1 = none yet.
+    std::array<int, 128> liveCc;
     std::map<juce::uint32, juce::int32> deviceValues;
     std::map<juce::uint32, juce::int32> pendingValues;
     std::map<juce::uint32, juce::int32> expected;  // after a save, what the device should report

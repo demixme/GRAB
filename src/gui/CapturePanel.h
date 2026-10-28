@@ -1,7 +1,13 @@
-// CapturePanel — "Raw MIDI capture" dialog. Opens any chosen MIDI input and logs
-// every message it emits (hex + ROLI-sysex annotation), so an owner of an
-// unsupported device (Seaboard RISE/GRAND especially) can record what it sends and
-// attach it to a GitHub issue. Strictly READ-ONLY: it listens, never transmits.
+// CapturePanel — the one MIDI capture tool. Opens any chosen MIDI input and logs every message it
+// emits, decoding each from the bytes themselves: ROLI config changes become plain English + value
+// (via a describe callback that applies the connected device's names), and everything else (keepalives,
+// topology, notes, touch, unknown devices' traffic) is annotated by message type. Strictly READ-ONLY:
+// it listens, never transmits.
+//
+// One tool, three ways out: Save to file, Open a prefilled GitHub issue, or Submit to the self-learn
+// store. The log is a selectable table (copy a row or the lot) showing English + raw SysEx side by side.
+// This is how an owner of a device GRAB doesn't fully model (LUMI, Lightpad, RISE/GRAND) shows us what
+// it does — record while changing settings in ROLI Dashboard, then send it in.
 
 #pragma once
 
@@ -10,9 +16,13 @@
 #include <sea_sysex.h>
 
 #include "Anonymize.h"
+#include "Theme.h"
 
 #include <cstdint>
+#include <functional>
 #include <thread>
+#include <utility>
+#include <vector>
 
 #ifndef GRAB_VERSION
  #define GRAB_VERSION "0.0.0-dev"
@@ -20,16 +30,26 @@
 
 class CapturePanel  : public juce::Component,
                       private juce::MidiInputCallback,
+                      private juce::TableListBoxModel,
                       private juce::Timer
 {
 public:
-    CapturePanel()
+    // describe: item id + value -> (plain-English name, formatted value). Supplied by MainComponent so
+    // config changes read as "Pressure Sensitivity = 46" when the device is connected; falls back to
+    // "item N" otherwise. May be empty.
+    using DescribeFn = std::function<std::pair<juce::String, juce::String> (juce::uint32, juce::int32)>;
+
+    explicit CapturePanel (DescribeFn describeToUse = {})
+        : describe (std::move (describeToUse))
     {
-        title.setText ("Raw MIDI capture (read-only). Pick a port, press Start, then play or "
-                       "operate your device. GRAB only listens — it sends nothing. Save the "
-                       "capture and attach it to a GitHub issue to help add device support.",
+        title.setText (juce::String::fromUTF8 (
+                           "MIDI capture (read-only). Pick a port, press Start, then play or operate your device "
+                           "\xe2\x80\x94 or change settings in ROLI Dashboard to capture those. Config changes are "
+                           "shown in plain English; everything is logged raw. GRAB only listens, it never sends. "
+                           "Save, open a GitHub issue, or Submit to help add device support."),
                        juce::dontSendNotification);
         title.setJustificationType (juce::Justification::topLeft);
+        title.setColour (juce::Label::textColourId, grab::theme::textSecondary);
         addAndMakeVisible (title);
 
         addAndMakeVisible (portLabel);
@@ -39,11 +59,40 @@ public:
         refreshBtn.onClick = [this] { refreshPorts(); };
         refreshPorts();
 
-        logView.setMultiLine (true);
-        logView.setReadOnly (true);
-        logView.setFont (juce::Font (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), 12.0f, 0)));
-        logView.setCaretVisible (false);
-        addAndMakeVisible (logView);
+        addAndMakeVisible (guideBtn);
+        guideBtn.setButtonText ("Capture guide");
+        guideBtn.setTooltip ("Opens the step-by-step Dashboard/USB capture guide on GitHub.");
+        guideBtn.onClick = [] { juce::URL (kGuideUrl).launchInDefaultBrowser(); };
+
+        addAndMakeVisible (table);
+        table.setModel (this);
+        table.setColour (juce::TableListBox::backgroundColourId, grab::theme::panelBgAlt);
+        table.setColour (juce::TableListBox::outlineColourId,    grab::theme::outline);
+        table.setOutlineThickness (1);
+        table.setMultipleSelectionEnabled (true);
+        table.setHeaderHeight (24);
+        table.setRowHeight (22);
+        {
+            auto& h = table.getHeader();
+            const int f = juce::TableHeaderComponent::visible | juce::TableHeaderComponent::resizable;
+            h.addColumn ("Time",    colTime,    78,  60, 140, f);
+            h.addColumn ("Kind",    colKind,    74,  54, 120, f);
+            h.addColumn ("Message", colMsg,     230, 120, 460, f);
+            h.addColumn ("Value",   colValue,   110, 60,  260, f);
+            h.addColumn ("Raw MIDI / SysEx", colRaw, 340, 160, 10000, f);
+        }
+
+        addAndMakeVisible (configOnlyToggle);
+        configOnlyToggle.setButtonText ("Config changes only");
+        configOnlyToggle.setTooltip ("Hide keepalives, topology and performance data; show only setting changes.");
+        configOnlyToggle.onClick = [this] { rebuildView(); };
+
+        addAndMakeVisible (copyRowBtn);
+        copyRowBtn.setButtonText ("Copy row");
+        copyRowBtn.onClick = [this] { copySelected(); };
+        addAndMakeVisible (copyAllBtn);
+        copyAllBtn.setButtonText ("Copy all");
+        copyAllBtn.onClick = [this] { copyAll(); };
 
         addAndMakeVisible (notesLabel);
         notesLabel.setText ("Notes (device model, what you did):", juce::dontSendNotification);
@@ -71,7 +120,7 @@ public:
                 juce::MessageManager::callAsync ([dw] { delete dw; });
         };
 
-        setSize (640, 560);
+        setSize (1040, 620);
         setStatus ("Idle. Pick a port and press Start.");
     }
 
@@ -80,11 +129,12 @@ public:
     void resized() override
     {
         auto r = getLocalBounds().reduced (10);
-        title.setBounds (r.removeFromTop (54));
+        title.setBounds (r.removeFromTop (60));
         r.removeFromTop (4);
 
         auto top = r.removeFromTop (26);
         portLabel.setBounds (top.removeFromLeft (70));
+        guideBtn.setBounds (top.removeFromRight (104).reduced (2, 0));
         refreshBtn.setBounds (top.removeFromRight (80).reduced (2, 0));
         startBtn.setBounds (top.removeFromRight (70).reduced (2, 0));
         stopBtn.setBounds (top.removeFromRight (70).reduced (2, 0));
@@ -104,10 +154,94 @@ public:
         notesField.setBounds (notesRow);
         r.removeFromBottom (6);
 
-        logView.setBounds (r);
+        auto filterRow = r.removeFromBottom (26);
+        copyAllBtn.setBounds (filterRow.removeFromRight (84).reduced (2, 0));
+        copyRowBtn.setBounds (filterRow.removeFromRight (84).reduced (2, 0));
+        configOnlyToggle.setBounds (filterRow.withTrimmedLeft (2));
+        r.removeFromBottom (6);
+
+        table.setBounds (r);
+        stretchRawColumn();
+    }
+
+    bool keyPressed (const juce::KeyPress& k) override
+    {
+        if (k == juce::KeyPress ('c', juce::ModifierKeys::commandModifier, 0)) { copySelected(); return true; }
+        return false;
     }
 
 private:
+    enum ColumnIds { colTime = 1, colKind, colMsg, colValue, colRaw };
+
+    struct Row { juce::String time, kind, msg, value, raw; bool isConfig = false; };
+    struct Pending { juce::String time, kind, desc, rawHex; std::vector<sea::ConfigChange> changes; };
+
+    // Classify a message by what it IS (which is the strongest hint at where it came from): performance
+    // data is you touching the device; a setting change is ROLI Dashboard / GRAB / a hardware control;
+    // the rest is housekeeping. The capture port only sees device->host, so this is as far as the bytes
+    // alone can attribute a message.
+    static juce::String kindOf (const juce::MidiMessage& m, bool hasConfig)
+    {
+        if (hasConfig)                                     return "Setting";
+        if (m.isSysEx())                                   return "Status";
+        if (m.isNoteOnOrOff())                             return "Note";
+        if (m.isController())                              return "CC";
+        if (m.isPitchWheel())                              return "Pitch";
+        if (m.isChannelPressure() || m.isAftertouch())     return "Pressure";
+        return "Other";
+    }
+
+    //==============================================================================
+    // TableListBoxModel
+    int getNumRows() override { return (int) view.size(); }
+
+    void paintRowBackground (juce::Graphics& g, int row, int, int, bool selected) override
+    {
+        if (selected)            g.fillAll (grab::theme::accent.withAlpha (0.25f));
+        else if (row % 2)        g.fillAll (grab::theme::panelBg.withAlpha (0.35f));
+    }
+
+    void paintCell (juce::Graphics& g, int row, int columnId, int width, int height, bool) override
+    {
+        if (row < 0 || row >= (int) view.size())
+            return;
+        const auto& e = rows[(std::size_t) view[(std::size_t) row]];
+
+        juce::String text;
+        switch (columnId)
+        {
+            case colTime:  text = e.time;  break;
+            case colKind:  text = e.kind;  break;
+            case colMsg:   text = e.msg;   break;
+            case colValue: text = e.value; break;
+            case colRaw:   text = e.raw;   break;
+            default: break;
+        }
+
+        g.setColour (columnId == colMsg   ? grab::theme::textPrimary
+                   : columnId == colValue ? grab::theme::accent
+                   : columnId == colKind  ? (e.isConfig ? grab::theme::accent : grab::theme::textSecondary)
+                                          : grab::theme::textSecondary);
+        const bool mono = (columnId == colRaw || columnId == colTime);
+        g.setFont (mono ? juce::Font (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), 12.0f, juce::Font::plain))
+                        : juce::Font (juce::FontOptions (13.0f)));
+        g.drawText (text, 4, 0, width - 8, height, juce::Justification::centredLeft, true);
+    }
+
+    void stretchRawColumn()
+    {
+        auto& h = table.getHeader();
+        if (table.getWidth() <= 0)
+            return;
+        const int others = h.getColumnWidth (colTime) + h.getColumnWidth (colKind)
+                         + h.getColumnWidth (colMsg) + h.getColumnWidth (colValue);
+        const int sb    = table.getVerticalScrollBar().isVisible() ? table.getVerticalScrollBar().getWidth() : 0;
+        // Fill the leftover width (so there's no blank gap and no forced horizontal scroll); a small
+        // floor means it still has room, and a wider window grows it to fit the whole SysEx string.
+        h.setColumnWidth (colRaw, juce::jmax (160, table.getWidth() - others - sb - 4));
+    }
+
+    //==============================================================================
     void refreshPorts()
     {
         inputs = juce::MidiInput::getAvailableDevices();
@@ -126,14 +260,16 @@ private:
         input = juce::MidiInput::openDevice (inputs[idx].identifier, this);
         if (input == nullptr)
         {
-            setStatus ("Could not open '" + inputs[idx].name + "' — it may be held by another app "
-                       "(or GRAB's own connection — disconnect first).");
+            setStatus ("Could not open '" + inputs[idx].name
+                       + juce::String::fromUTF8 ("' \xe2\x80\x94 it may be held by another app "
+                                                 "(or GRAB's own connection \xe2\x80\x94 disconnect first)."));
             return;
         }
 
         { const juce::ScopedLock sl (lock); pending.clear(); }
-        allLines.clear();
-        logView.clear();
+        rows.clear();
+        view.clear();
+        table.updateContent();
         messageCount = 0;
         capturedPortName = inputs[idx].name;
         startMs = juce::Time::getMillisecondCounterHiRes();
@@ -144,7 +280,8 @@ private:
         stopBtn.setEnabled (true);
         portBox.setEnabled (false);
         refreshBtn.setEnabled (false);
-        setStatus ("Listening on '" + capturedPortName + "' — play or operate your device.");
+        setStatus ("Listening on '" + capturedPortName
+                   + juce::String::fromUTF8 ("' \xe2\x80\x94 play or operate your device (or edit it in Dashboard)."));
     }
 
     void stop()
@@ -158,53 +295,142 @@ private:
         refreshBtn.setEnabled (true);
         if (capturedPortName.isNotEmpty())
             setStatus ("Stopped. " + juce::String (messageCount) + " message(s) from '" + capturedPortName
-                       + "'. Save to file, then attach it to an issue.");
+                       + "'. Save, Submit, or Open issue.");
     }
 
     void handleIncomingMidiMessage (juce::MidiInput*, const juce::MidiMessage& m) override
     {
-        // Background (MIDI) thread: format and queue only; the UI is touched on the timer.
+        // MIDI thread: decode what's cheap and thread-safe here (raw hex + config item/value from the
+        // bytes), queue it, and let the timer build the friendly rows on the UI thread (where the
+        // describe callback may touch the connected device).
         const auto* d = reinterpret_cast<const std::uint8_t*> (m.getRawData());
         const auto  n = (std::size_t) m.getRawDataSize();
         const auto  safe = grab::anonymize (d, n);   // no serial / MAC in what gets shared
         const double t = juce::Time::getMillisecondCounterHiRes() - startMs;
 
-        juce::String line;
-        line << "[" << juce::String (t, 1).paddedLeft (' ', 10) << "ms] " << juce::String (sea::toHex (safe.data(), safe.size()));
-        const juce::String note (sea::annotate (d, n));
-        if (note.isNotEmpty())
-            line << "   (" << note << ")";
+        Pending p;
+        p.time    = "[" + juce::String (t / 1000.0, 3).paddedLeft (' ', 9) + "s]";
+        p.rawHex  = juce::String (sea::toHex (safe.data(), safe.size()));
+        p.changes = sea::extractConfigChanges (d, n);
+        p.kind    = kindOf (m, ! p.changes.empty());
+        // Non-config description: ROLI housekeeping gets the sysex annotation; channel-voice messages
+        // (you playing) get JUCE's readable text, e.g. "Note on C3 Velocity 100 Channel 1".
+        p.desc    = m.isSysEx() ? juce::String (sea::annotate (d, n)) : m.getDescription();
 
         const juce::ScopedLock sl (lock);
-        pending.add (line);
+        pending.push_back (std::move (p));
     }
 
     void timerCallback() override { drain(); }
 
     void drain()
     {
-        juce::StringArray got;
-        { const juce::ScopedLock sl (lock); got.swapWith (pending); }
-        if (got.isEmpty())
+        std::vector<Pending> got;
+        { const juce::ScopedLock sl (lock); got.swap (pending); }
+        if (got.empty())
             return;
 
-        for (auto& l : got)
-            allLines.add (l);
-        messageCount += got.size();
+        for (auto& p : got)
+        {
+            ++messageCount;
+            if (! p.changes.empty())
+            {
+                for (const auto& c : p.changes)
+                {
+                    auto nv = describe ? describe (c.item, c.value)
+                                       : std::make_pair (juce::String ("item ") + juce::String (c.item),
+                                                         juce::String (c.value));
+                    addRow ({ p.time, p.kind, nv.first, nv.second, p.rawHex, true });
+                }
+            }
+            else
+            {
+                addRow ({ p.time, p.kind, p.desc, {}, p.rawHex, false });
+            }
+        }
 
-        logView.moveCaretToEnd();
-        logView.insertTextAtCaret (got.joinIntoString ("\n") + "\n");
+        table.updateContent();
+        stretchRawColumn();        // the vertical scrollbar may have just appeared, changing the width left
+        table.scrollToEnsureRowIsOnscreen ((int) view.size() - 1);
 
-        if (allLines.size() > 50000)   // safety: auto-stop a runaway capture
+        if (rows.size() > 50000)   // safety: auto-stop a runaway capture
         {
             stop();
-            setStatus ("Stopped at 50000 messages (capture limit). Save to file.");
+            setStatus ("Stopped at 50000 rows (capture limit). Save or Submit.");
         }
+    }
+
+    void addRow (Row&& r)
+    {
+        const bool show = ! configOnlyToggle.getToggleState() || r.isConfig;
+        rows.push_back (std::move (r));
+        if (show)
+            view.push_back ((int) rows.size() - 1);
+    }
+
+    void rebuildView()
+    {
+        view.clear();
+        const bool configOnly = configOnlyToggle.getToggleState();
+        for (int i = 0; i < (int) rows.size(); ++i)
+            if (! configOnly || rows[(std::size_t) i].isConfig)
+                view.push_back (i);
+        table.updateContent();
+        stretchRawColumn();
+        table.repaint();
+    }
+
+    //==============================================================================
+    juce::String rowToText (const Row& r) const
+    {
+        // Tab-separated: time, kind, message, value, raw — pastes cleanly into an issue or a sheet.
+        return r.time + "\t" + r.kind + "\t" + r.msg + "\t" + r.value + "\t" + r.raw;
+    }
+
+    void copySelected()
+    {
+        const auto sel = table.getSelectedRows();
+        if (sel.isEmpty()) { setStatus ("Select one or more rows first."); return; }
+
+        juce::StringArray out;
+        for (int i = 0; i < sel.size(); ++i)
+        {
+            const int viewRow = sel[i];
+            if (viewRow >= 0 && viewRow < (int) view.size())
+                out.add (rowToText (rows[(std::size_t) view[(std::size_t) viewRow]]));
+        }
+        juce::SystemClipboard::copyTextToClipboard (out.joinIntoString ("\n"));
+        setStatus (juce::String (out.size()) + " row(s) copied.");
+    }
+
+    void copyAll()
+    {
+        if (rows.empty()) { setStatus ("Nothing captured yet."); return; }
+        juce::StringArray out;
+        out.add ("Time\tKind\tMessage\tValue\tRaw MIDI / SysEx");
+        for (auto& r : rows)
+            out.add (rowToText (r));
+        juce::SystemClipboard::copyTextToClipboard (out.joinIntoString ("\n"));
+        setStatus (juce::String (rows.size()) + " rows copied.");
+    }
+
+    //==============================================================================
+    // One line per captured row for file / issue / submit: raw hex + decoded label.
+    juce::StringArray buildLines() const
+    {
+        juce::StringArray out;
+        for (auto& r : rows)
+        {
+            juce::String line = r.time + " " + r.raw + "   [" + r.kind + "] ";
+            line << (r.isConfig ? (r.msg + " = " + r.value) : r.msg);
+            out.add (line);
+        }
+        return out;
     }
 
     void saveToFile()
     {
-        if (allLines.isEmpty()) { setStatus ("Nothing captured yet."); return; }
+        if (rows.empty()) { setStatus ("Nothing captured yet."); return; }
 
         auto dir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
                        .getChildFile ("GRAB").getChildFile ("captures");
@@ -213,12 +439,13 @@ private:
                      + juce::Time::getCurrentTime().formatted ("%Y%m%d-%H%M%S") + ".txt");
 
         juce::String out;
-        out << "GRAB raw MIDI capture\n"
+        out << "GRAB MIDI capture\n"
             << "Port: " << capturedPortName << "\n"
             << "OS:   " << juce::SystemStats::getOperatingSystemName() << "\n"
             << "When: " << juce::Time::getCurrentTime().toISO8601 (true) << "\n"
-            << "Messages: " << allLines.size() << "\n\n"
-            << allLines.joinIntoString ("\n") << "\n";
+            << "Notes: " << notesField.getText() << "\n"
+            << "Messages: " << messageCount << "\n\n"
+            << buildLines().joinIntoString ("\n") << "\n";
 
         if (f.replaceWithText (out))
             setStatus ("Saved: " + f.getFullPathName());
@@ -228,25 +455,26 @@ private:
 
     void openIssue()
     {
+        const auto lines = buildLines();
         juce::String body;
-        body << "**Device model:** \n"
+        body << "**Device model:** " << notesField.getText() << "\n"
              << "**OS:** " << juce::SystemStats::getOperatingSystemName() << "\n"
              << "**Port:** " << capturedPortName << "\n\n"
-             << "Raw MIDI capture (GRAB -> Capture -> Save to file) — **please attach the saved "
-                ".txt file**. First lines:\n```\n"
-             << allLines.joinIntoString ("\n").substring (0, 1500) << "\n```\n";
+             << juce::String::fromUTF8 ("MIDI capture (GRAB -> Capture -> Save to file) \xe2\x80\x94 "
+                                        "**please attach the saved .txt file**. First lines:\n```\n")
+             << lines.joinIntoString ("\n").substring (0, 1500) << "\n```\n";
 
         juce::URL url ("https://github.com/demixme/GRAB/issues/new");
         url = url.withParameter ("labels", "device")
                  .withParameter ("title", "[capture] ")
                  .withParameter ("body", body);
         url.launchInDefaultBrowser();
-        setStatus ("Opened a prefilled issue — attach the saved capture file to it.");
+        setStatus (juce::String::fromUTF8 ("Opened a prefilled issue \xe2\x80\x94 attach the saved capture file to it."));
     }
 
     void submit()
     {
-        if (allLines.isEmpty()) { setStatus ("Nothing captured yet."); return; }
+        if (rows.empty()) { setStatus ("Nothing captured yet."); return; }
         if (input != nullptr) stop(); // finalize the capture first
 
         const auto endpoint = capturesEndpoint();
@@ -267,7 +495,7 @@ private:
         cap->setProperty ("port", capturedPortName);
         cap->setProperty ("messageCount", messageCount);
         juce::Array<juce::var> lines;
-        for (auto& l : allLines) lines.add (l);
+        for (auto& l : buildLines()) lines.add (l);
         cap->setProperty ("lines", lines);
         root->setProperty ("capture", juce::var (cap));
         root->setProperty ("notes", notesField.getText());
@@ -332,17 +560,29 @@ private:
 
     void setStatus (const juce::String& s) { statusLabel.setText (s, juce::dontSendNotification); }
 
+    //==============================================================================
+    static constexpr const char* kGuideUrl =
+        "https://github.com/demixme/GRAB/blob/main/tools/CAPTURE-DASHBOARD.md";
+
+    DescribeFn describe;
+
     juce::Label       title, portLabel, notesLabel, statusLabel;
     juce::ComboBox    portBox;
     juce::Array<juce::MidiDeviceInfo> inputs;
     juce::TextButton  refreshBtn { "Refresh" }, startBtn { "Start" }, stopBtn { "Stop" },
                       submitBtn { "Submit" }, saveBtn { "Save to file" },
-                      issueBtn { "Open issue" }, closeBtn { "Close" };
-    juce::TextEditor  logView, notesField;
+                      issueBtn { "Open issue" }, closeBtn { "Close" },
+                      copyRowBtn { "Copy row" }, copyAllBtn { "Copy all" },
+                      guideBtn { "Capture guide" };
+    juce::ToggleButton configOnlyToggle;
+    juce::TableListBox table;
+    juce::TextEditor  notesField;
 
     std::unique_ptr<juce::MidiInput> input;
     juce::CriticalSection lock;
-    juce::StringArray pending, allLines;   // pending: bg->ui handoff; allLines: full capture
+    std::vector<Pending> pending;   // MIDI -> UI handoff
+    std::vector<Row>     rows;      // full capture (all rows)
+    std::vector<int>     view;      // indices of rows shown under the current filter
     double startMs = 0.0;
     int    messageCount = 0;
     juce::String capturedPortName;

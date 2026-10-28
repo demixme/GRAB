@@ -375,6 +375,60 @@ std::string decode (const std::uint8_t* msg, std::size_t size)
     return out;
 }
 
+std::vector<ConfigChange> extractConfigChanges (const std::uint8_t* msg, std::size_t size)
+{
+    std::vector<ConfigChange> out;
+
+    const auto f = classify (msg, size);
+    if (! f.isRoli || f.ns != Namespace::packedProtocol || size < 8)
+        return out;
+
+    const auto idx = msg[5];
+    if ((idx & 0x40) == 0)   // host->device; we only report what the device tells us
+        return out;
+
+    BitReader r (msg + 6, size - 8);
+    r.read (32);             // packetTimestamp (device messages lead with it)
+
+    while (r.remaining() >= 7)
+    {
+        const auto mt = r.read (7);
+        if (mt == 0)
+            break;
+
+        if (mt == 0x18) // configMessage (device)
+        {
+            const auto cc = r.read (4);
+            if (cc == 0x04) // updateConfig: item + value + min + max
+            {
+                ConfigChange c;
+                c.kind = ConfigChange::Kind::update;
+                c.item  = r.read (8);
+                c.value = (std::int32_t) r.read (32);
+                c.min   = (std::int32_t) r.read (32);
+                c.max   = (std::int32_t) r.read (32);
+                c.hasRange = true;
+                out.push_back (c);
+                continue;
+            }
+            if (cc == 0x00) // setConfig: item + value
+            {
+                ConfigChange c;
+                c.kind = ConfigChange::Kind::set;
+                c.item  = r.read (8);
+                c.value = (std::int32_t) r.read (32);
+                out.push_back (c);
+                continue;
+            }
+            break; // sync-boundary / unknown config command: nothing more to extract safely
+        }
+
+        break; // a non-config inner message: can't skip it without its length, so stop
+    }
+
+    return out;
+}
+
 std::vector<std::vector<std::uint8_t>> splitSysex (const std::uint8_t* data, std::size_t size)
 {
     std::vector<std::vector<std::uint8_t>> out;

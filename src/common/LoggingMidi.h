@@ -21,6 +21,7 @@
 #include <atomic>
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <mutex>
 #include <string>
 #include <utility>
@@ -290,7 +291,10 @@ private:
     // avoided — these tokens are specific enough not to catch unrelated ports.
     static bool isBlocksDevice (const juce::MidiDeviceInfo& d)
     {
-        if (d.name.containsIgnoreCase ("rise"))   // any RISE (incl. BLE "RISE49"): handled by Rise2Component
+        // The RISE and the GRAND speak the 0x78 dialect, not BLOCKS 0x77 - they're handled by
+        // Rise2Component. Excluding them here keeps the BLOCKS detector from grabbing the port and
+        // timing out on 0x77 (which is what left a connected GRAND showing no controls).
+        if (d.name.containsIgnoreCase ("rise") || d.name.containsIgnoreCase ("grand"))
             return false;
 
         return d.identifier.containsIgnoreCase ("vid_2af4")        // ROLI USB vendor id (Windows)
@@ -298,7 +302,6 @@ private:
             || d.identifier.containsIgnoreCase ("pianofortynine")
             || d.name.containsIgnoreCase ("roli")
             || d.name.containsIgnoreCase ("seaboard")
-            || d.name.containsIgnoreCase ("grand")                 // Seaboard GRAND (any size: "GRAND 62/88", "Grand Stage", …)
             || d.name.containsIgnoreCase ("lightpad")
             || d.name.containsIgnoreCase ("lumi")
             || d.name.containsIgnoreCase ("piano")                 // ROLI Piano / Piano M (also id "pianofortynine")

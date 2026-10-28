@@ -19,9 +19,12 @@
 #include "KeyboardView.h"
 #include "Rise2Component.h"
 #include "ThrottledWriter.h"
+#include "CapturePanel.h"
 
 #include <map>
+#include <memory>
 #include <set>
+#include <utility>
 #include <vector>
 
 //==============================================================================
@@ -109,6 +112,11 @@ private:
     void touchChanged (roli::TouchSurface&, const roli::TouchSurface::Touch&) override;
     void contribute();
     void openDialog (juce::Component* panel, const juce::String& title); // owns panel in a DialogWindow
+    void openCaptureWindow();   // Advanced ▸ Capture MIDI: the unified capture + decode tool
+    void checkForUpdate();      // async: ask GitHub for the latest release, light up the footer if newer
+    // Friendly name + formatted value for a config item id (applies overrides + learned names).
+    // Passed to the capture tool so device→host config echoes read as "Pressure Sensitivity = 46".
+    std::pair<juce::String, juce::String> describeConfig (juce::uint32 item, juce::int32 value) const;
     void showHelpWanted();   // the "how you can help" dialog (shown on every launch)
     void fetchNames (const juce::String& family, const juce::String& type);
     void onNamesFetched (juce::String type, grab::LearnedMap learned);
@@ -182,7 +190,6 @@ private:
     juce::TextButton   advancedBtn   { "Advanced..." };
     juce::TextButton   contributeBtn { "Contribute..." };
     juce::TextButton   reloadButton  { "Reload from device" };
-    juce::TextButton   helpAddBtn    { "Help add device..." };
     juce::TextButton   diagnoseBtn   { "Diagnose..." };
     juce::TextButton   saveButton    { "Save to device" };
     juce::TextButton   loadPresetBtn { "Load preset..." };

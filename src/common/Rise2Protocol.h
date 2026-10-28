@@ -22,9 +22,13 @@ namespace rise2
 using Message  = std::vector<std::uint8_t>;
 using Messages = std::vector<Message>;
 
-// Match any RISE naming: "Seaboard RISE 25/49", "Seaboard RISE 2", and the Bluetooth form on
-// macOS which drops "Seaboard" entirely ("RISE49 <serial> Bluetooth", "RISE25 …", "RISE2 …").
-inline bool isRisePort (const juce::String& name) { return name.containsIgnoreCase ("rise"); }
+// Devices GRAB drives over the 0x78 protocol (this page), not the BLOCKS 0x77 one: the Seaboard
+// RISE family and the Seaboard GRAND. Match any RISE naming ("Seaboard RISE 25/49", "Seaboard
+// RISE 2", and the Bluetooth form on macOS that drops "Seaboard": "RISE49 <serial> Bluetooth"),
+// and the GRAND ("Seaboard GRAND", "Seaboard GRAND 62/88"). The GRAND speaks the same 0x78 dialect
+// as the RISE - confirmed from a full Dashboard capture - just with a shorter identify reply.
+inline bool isGrandName (const juce::String& name) { return name.containsIgnoreCase ("grand"); }
+inline bool isRisePort  (const juce::String& name) { return name.containsIgnoreCase ("rise") || isGrandName (name); }
 
 inline Message sysex (std::initializer_list<std::uint8_t> body)
 {
@@ -112,18 +116,37 @@ namespace offset
     };
 }
 
+// Offsets into the GRAND's shorter 0x3a reply (87 bytes incl. F0/F7), counted from F0. Mapped by
+// diffing 28 state dumps in BabeleDunnit's full Dashboard capture (see RISE-GRAND.md). Only the
+// fields GRAB is confident about are listed; the rest of the block is not decoded yet.
+namespace goffset
+{
+    enum : int
+    {
+        model = 6, firmware = 38,          // "GRND1.01", then "0.6.9"
+        keyCount = 62,                     // 0x3E = 62 on a GRAND 62
+        pedal1Cc = 67, pedal2Cc = 69, pedal3Cc = 71,   // 2-byte pairs; low byte is the CC
+        bendRange = 77, transpose = 78,
+        glideSens = 80, pressSens = 81,
+        replySize = 85                     // body after F0 00 21 10 78 3a is 80 bytes -> raw is 87
+    };
+}
+
 /** A parsed identify reply. */
 struct State
 {
     std::vector<std::uint8_t> raw;
+    bool grand = false;   // parsed from a GRAND's shorter reply (goffset:: instead of offset::)
 
+    // Accept both the RISE's 224-byte reply and the GRAND's 87-byte one. The frame is self-
+    // delimited (ends F7), so a length floor plus the header is enough to tell it's a state dump.
     static bool isIdentifyReply (const std::uint8_t* d, int size)
     {
-        return size >= offset::replySize && d[0] == 0xf0 && d[1] == 0x00 && d[2] == 0x21 && d[3] == 0x10
+        return size >= goffset::replySize && d[0] == 0xf0 && d[1] == 0x00 && d[2] == 0x21 && d[3] == 0x10
             && d[4] == 0x78 && d[5] == 0x3a;
     }
 
-    bool valid() const { return raw.size() >= (size_t) offset::replySize; }
+    bool valid() const { return raw.size() >= (size_t) (grand ? goffset::replySize : offset::replySize); }
     int at (int o) const { return valid() ? raw[(size_t) o] : 0; }
 
     juce::String text (int o, int maxLen) const

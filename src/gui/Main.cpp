@@ -5,19 +5,24 @@
 #include "MainComponent.h"
 #include "Theme.h"
 
+#ifndef GRAB_VERSION
+ #define GRAB_VERSION "0.0.0-dev"
+#endif
+
 class GRABApplication  : public juce::JUCEApplication
 {
 public:
     GRABApplication() = default;
 
     const juce::String getApplicationName() override    { return "GRAB"; }
-    const juce::String getApplicationVersion() override { return "0.1.0"; }
+    const juce::String getApplicationVersion() override { return GRAB_VERSION; }
     bool moreThanOneInstanceAllowed() override          { return false; }
 
     void initialise (const juce::String&) override
     {
         juce::LookAndFeel::setDefaultLookAndFeel (&lookAndFeel);   // before the window, so it picks up the dark bg
-        mainWindow = std::make_unique<MainWindow> (getApplicationName());
+        // Show the version in the title bar so a user reporting a bug can read off their build.
+        mainWindow = std::make_unique<MainWindow> (getApplicationName() + " " + getApplicationVersion());
     }
 
     void shutdown() override
