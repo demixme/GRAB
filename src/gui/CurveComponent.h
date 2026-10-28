@@ -62,10 +62,12 @@ public:
         // panel
         g.setColour (grab::theme::curveBg);
         g.fillRoundedRectangle (getLocalBounds().toFloat(), 4.0f);
-        if (changed)
+        // Accent dot (top-right) when changed from the device-read value - persists until reload/reset.
+        if (sens != initialSens || mn != initialMn || mx != initialMx)
         {
-            g.setColour (juce::Colours::orange);
-            g.drawRoundedRectangle (getLocalBounds().toFloat().reduced (0.5f), 4.0f, 1.5f);
+            const float d = 5.0f;
+            g.setColour (grab::theme::accent);
+            g.fillEllipse ((float) getWidth() - d - 5.0f, 5.0f, d, d);
         }
 
         // sensitivity bar

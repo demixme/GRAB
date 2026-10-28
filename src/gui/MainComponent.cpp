@@ -157,12 +157,14 @@ void ConfigRow::resized()
 
 void ConfigRow::paint (juce::Graphics& g)
 {
-    if (changed)
+    // A small accent dot on the left marks a value you've changed from what the device reported.
+    // It persists (unlike the old orange flash, which cleared the instant a live-write landed) and
+    // clears on Reload from device or a right-click / double-click reset.
+    if (getValue() != initialValue)
     {
-        g.setColour (juce::Colours::orange.withAlpha (0.18f));
-        g.fillRect (getLocalBounds());
-        g.setColour (juce::Colours::orange);
-        g.fillRect (getLocalBounds().removeFromLeft (3));
+        const float d = 5.0f;
+        g.setColour (grab::theme::accent);
+        g.fillEllipse (2.0f, ((float) getHeight() - d) * 0.5f, d, d);
     }
 }
 

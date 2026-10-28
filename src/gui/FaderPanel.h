@@ -24,7 +24,7 @@ public:
     using ChangeFn = std::function<void (juce::uint32, juce::int32)>;
 
     Fader (juce::uint32 idToUse, juce::String label, int value, int lo, int hi, ChangeFn onChange)
-        : id (idToUse), change (std::move (onChange))
+        : id (idToUse), initialValue (value), change (std::move (onChange))
     {
         nameLabel.setText (label, juce::dontSendNotification);
         nameLabel.setJustificationType (juce::Justification::centred);
@@ -58,10 +58,12 @@ public:
 
     void paint (juce::Graphics& g) override
     {
-        if (changed)
+        // Accent dot (top-right) when the assigned CC differs from the device-read value.
+        if (assignedCc() != initialValue)
         {
-            g.setColour (juce::Colours::orange.withAlpha (0.14f));
-            g.fillRoundedRectangle (getLocalBounds().toFloat(), 4.0f);
+            const float d = 5.0f;
+            g.setColour (grab::theme::accent);
+            g.fillEllipse ((float) getWidth() - d - 3.0f, 2.0f, d, d);
         }
         // Live meter: a thin bar on the left that fills to the assigned CC's current value.
         auto bar = meterBounds().toFloat();
@@ -88,6 +90,7 @@ private:
     juce::Rectangle<int> meterBounds() const { return meter; }
 
     juce::uint32 id;
+    int          initialValue = 0;   // device-read value, for the "changed" dot
     juce::Label  nameLabel;
     juce::Slider slider;
     juce::Rectangle<int> meter;
