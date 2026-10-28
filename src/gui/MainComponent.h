@@ -106,6 +106,7 @@ private:
     void updateBlockList (const roli::BlockTopology& topology);
     void selectBlock (roli::Block::UID uid);
     void updateKeyboardForBlock();  // show/size the keywave for the current block (joined for a chain)
+    void updateLumiKeyboardColours(); // LUMI/Piano: light the keyboard graphic per scale/key/colours
 
     // Live 5D-touch rings on the keyboard graphic. Registers on every cluster member's touch
     // surface; touchChanged (MIDI thread) maps a touch into the combined keyboard and forwards it.

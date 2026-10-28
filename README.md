@@ -238,8 +238,10 @@ prefilled GitHub issue** instead of submitting.
   writes fan out to the whole chain; Seaboard chains are shown as a single continuous keyboard.
 - **Editable key colours** on the ROLI Piano / Piano M / LUMI — a swatch + hex picker with presets,
   shown when the active mode's Color Scheme is User.
-- **Keyboard graphic** at the top for Seaboard devices, with **live 5D-touch rings** that
-  track finger position and grow with pressure.
+- **Keyboard graphic** at the top: a Seaboard keywave with **live 5D-touch rings** that track
+  finger position and grow with pressure, or — for a **LUMI / Piano M / ROLI Piano** — a flat
+  keyboard that **lights the in-scale keys** in your Global/Root key colours (like Dashboard),
+  updating live as you change the scale, key or colours.
 - **Decodes the protocol offline** from hex dumps or USBPcap/Wireshark/BLE captures.
 
 ## Building from source

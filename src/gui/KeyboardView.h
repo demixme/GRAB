@@ -19,7 +19,7 @@ class KeyboardView  : public juce::Component,
                       private juce::Timer
 {
 public:
-    enum class Family { block, rise, grand };
+    enum class Family { block, rise, grand, lumi };
 
     KeyboardView() = default;
 
@@ -27,6 +27,19 @@ public:
     void setFamily  (Family f){ if (family  != f) { family  = f; repaint(); } }
     void setBlocks  (int n)   { n = juce::jlimit (1, 6, n); if (blocks != n) { blocks = n; repaint(); } }
     int  getOctaves() const   { return octaves; }
+
+    // LUMI / Piano key lighting: when `enabled` (the active mode's Color Scheme is User), the in-scale
+    // keys are drawn in `inScale` and the root key in `rootColour`, matching what the device lights;
+    // when disabled, a plain keyboard is drawn. `scale` is 0..18 (device order), `root` 0..11 (C..B).
+    void setScaleColours (bool enabled, int scale, int root, juce::uint32 inScale, juce::uint32 rootColour)
+    {
+        if (scaleOn == enabled && scaleId == scale && rootNote == root
+            && inScaleArgb == inScale && rootArgb == rootColour)
+            return;
+        scaleOn = enabled; scaleId = scale; rootNote = ((root % 12) + 12) % 12;
+        inScaleArgb = inScale; rootArgb = rootColour;
+        repaint();
+    }
 
     // Live 5D-touch markers — white rings that grow with pressure. Positions are normalised
     // across the whole (chained) keyboard: x 0..1 left->right, y 0..1 top->bottom, z = pressure.
@@ -70,6 +83,12 @@ public:
         const float bodyW = totalWhites * ww + 2.0f * kBodyMargin;
         auto full = getLocalBounds().toFloat();
         juce::Rectangle<float> r (full.getCentreX() - bodyW * 0.5f, full.getY() + 1.0f, bodyW, full.getHeight() - 2.0f);
+
+        if (family == Family::lumi)   // flat, per-key colours (no 3D keywave, no touch rings)
+        {
+            drawLumiBoard (g, r, octs);
+            return;
+        }
 
         drawBoard (g, r, octs);
 
@@ -122,6 +141,100 @@ private:
             }
         }
         if (dirty.exchange (false)) repaint();
+    }
+
+    // Semitones (relative to the root) in each of the 19 device-order scales, as a 12-bit mask.
+    // Common scales are exact; a few exotic ones (Arabic A/B, Japanese, Ryukyu) are best-known
+    // approximations — the device itself is the ground truth, this is a representation.
+    static int scaleMask (int scaleId)
+    {
+        static const std::vector<std::vector<int>> scales = {
+            { 0,2,4,5,7,9,11 },        // 0 Major
+            { 0,2,3,5,7,8,10 },        // 1 Minor
+            { 0,2,3,5,7,8,11 },        // 2 Harmonic Minor
+            { 0,2,5,7,10 },            // 3 Pentatonic Neutral
+            { 0,2,4,7,9 },             // 4 Pentatonic Major
+            { 0,3,5,7,10 },            // 5 Pentatonic Minor
+            { 0,3,5,6,7,10 },          // 6 Blues
+            { 0,2,3,5,7,9,10 },        // 7 Dorian
+            { 0,1,3,5,7,8,10 },        // 8 Phrygian
+            { 0,2,4,6,7,9,11 },        // 9 Lydian
+            { 0,2,4,5,7,9,10 },        // 10 Mixolydian
+            { 0,1,3,5,6,8,10 },        // 11 Locrian
+            { 0,2,4,6,8,10 },          // 12 Whole Tone
+            { 0,1,4,5,7,8,11 },        // 13 Arabic (A)  (double harmonic)
+            { 0,2,4,5,6,8,10 },        // 14 Arabic (B)  (approx)
+            { 0,2,3,7,8 },             // 15 Japanese    (Hirajoshi)
+            { 0,4,5,7,11 },            // 16 Ryukyu
+            { 0,1,3,4,5,6,8,10 },      // 17 8-Tone Spanish
+            { 0,1,2,3,4,5,6,7,8,9,10,11 } // 18 Chromatic
+        };
+        int mask = 0;
+        if (scaleId >= 0 && scaleId < (int) scales.size())
+            for (int iv : scales[(std::size_t) scaleId]) mask |= (1 << iv);
+        else
+            mask = 0xFFF;
+        return mask;
+    }
+
+    // Colour for a key, by its pitch class (0..11). Root first, then in-scale, then dim; when the
+    // scheme isn't User, a plain piano colour (so the keyboard still shows, just uncoloured).
+    juce::Colour keyColour (int pitchClass, bool white) const
+    {
+        if (! scaleOn)
+            return white ? juce::Colour (0xffd7dade) : juce::Colour (0xff20232b);
+
+        const int rel = (((pitchClass - rootNote) % 12) + 12) % 12;
+        if (rel == 0)                        return juce::Colour (rootArgb).withAlpha (1.0f);
+        if ((scaleMask (scaleId) >> rel) & 1) return juce::Colour (inScaleArgb).withAlpha (1.0f);
+        return juce::Colour (0xff15161f);     // out of scale: near-off, like the device
+    }
+
+    // Flat, per-key coloured keyboard for LUMI / Piano (Dashboard-style), not the Seaboard keywave.
+    void drawLumiBoard (juce::Graphics& g, juce::Rectangle<float> r, int octaveCount)
+    {
+        const float ww = (float) kWhiteKeyW;
+
+        g.setColour (juce::Colour (0xff0c0d12));
+        g.fillRoundedRectangle (r, 10.0f);
+        g.setColour (grab::theme::accent.withAlpha (0.9f));
+        g.drawRoundedRectangle (r.reduced (1.0f), 10.0f, 1.4f);
+
+        auto keys = r.reduced (kBodyMargin, kKeyInsetV);
+        const int   totalWhites = octaveCount * 7;
+        const float blackH = keys.getHeight() * 0.60f;
+        const float bw     = ww * 0.60f;
+
+        // White keys (C D E F G A B -> pitch classes 0 2 4 5 7 9 11).
+        static const int whitePc[7]    = { 0, 2, 4, 5, 7, 9, 11 };
+        static const bool blackAfter[7] = { true, true, false, true, true, true, false }; // after C D _ F G A _
+        static const int blackPc[7]    = { 1, 3, -1, 6, 8, 10, -1 };
+
+        for (int w = 0; w < totalWhites; ++w)
+        {
+            const int pc = whitePc[w % 7];
+            juce::Rectangle<float> k (keys.getX() + w * ww, keys.getY(), ww, keys.getHeight());
+            k = k.reduced (1.0f, 0.0f);
+            g.setColour (keyColour (pc, true));
+            g.fillRoundedRectangle (k, 2.5f);
+            g.setColour (juce::Colours::black.withAlpha (0.35f));
+            g.drawRoundedRectangle (k, 2.5f, 1.0f);    // key separator
+        }
+
+        // Black keys on top.
+        for (int o = 0; o < octaveCount; ++o)
+            for (int i = 0; i < 7; ++i)
+                if (blackAfter[i])
+                {
+                    const int w  = o * 7 + i;
+                    const int pc = blackPc[i];
+                    const float cx = keys.getX() + (float) (w + 1) * ww;
+                    juce::Rectangle<float> blk (cx - bw * 0.5f, keys.getY(), bw, blackH);
+                    g.setColour (juce::Colours::black.withAlpha (0.45f));
+                    g.fillRoundedRectangle (blk.expanded (1.2f, 0.0f), 2.5f);
+                    g.setColour (keyColour (pc, false));
+                    g.fillRoundedRectangle (blk, 2.5f);
+                }
     }
 
     void drawBoard (juce::Graphics& g, juce::Rectangle<float> r, int octaveCount)
@@ -210,6 +323,13 @@ private:
     int    octaves = 2;
     int    blocks  = 1;     // DNA-chained bodies drawn side-by-side (identical-type cluster)
     Family family  = Family::rise;
+
+    // LUMI / Piano key-colour state (see setScaleColours).
+    bool          scaleOn     = false;
+    int           scaleId     = 0;
+    int           rootNote    = 0;
+    juce::uint32  inScaleArgb = 0xff00b0bb;
+    juce::uint32  rootArgb    = 0xffffffff;
 
     static constexpr double kTouchTimeoutMs = 140.0;   // drop a ring this long after its last update
     struct Live { float x, y, z; double lastMs; };     // normalised position + pressure + last-seen

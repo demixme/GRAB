@@ -581,9 +581,35 @@ void MainComponent::updateBlockList (const roli::BlockTopology& topo)
         requestConfig();
 }
 
+void MainComponent::updateLumiKeyboardColours()
+{
+    // Reads the current (edited) config values; the KeyboardView only uses them when it's showing
+    // the LUMI/Piano family, so this is a no-op for other devices. Works for the dev preview too
+    // (values live in pendingValues whether or not a real block is connected).
+    const auto val = [this] (juce::uint32 id, int def)
+    {
+        auto it = pendingValues.find (id);
+        return it != pendingValues.end() ? (int) it->second : def;
+    };
+
+    const int  scale      = val (22, 0);                       // Scale (0..18)
+    const int  key        = val (27, 0);                       // Key / root (0..11)
+    const auto globalC     = (juce::uint32) val (34, (int) 0xff00b0bb);  // Global Key Color (in-scale)
+    const auto rootC       = (juce::uint32) val (35, (int) 0xffffffff);  // Root Key Color
+    const int  activeMode = juce::jlimit (0, 3, val (20, 0));  // Active Mode (0..3)
+    const int  schemeId   = 100 + 7 * activeMode;              // that mode's Color Scheme id
+    const bool userScheme = val (schemeId, 0) == 1;            // 1 = User (the device lights our colours)
+
+    keyboardView.setScaleColours (userScheme, scale, key, globalC, rootC);
+}
+
 void MainComponent::updateKeyboardForBlock()
 {
-    const bool isSeaboard = block != nullptr && block->getType() == roli::Block::Type::seaboardBlock;
+    const auto type = block != nullptr ? block->getType() : roli::Block::Type::unknown;
+    const bool isSeaboard = type == roli::Block::Type::seaboardBlock;
+    const bool isLumi     = type == roli::Block::Type::lumiKeysBlock;
+    const bool isPiano    = type == roli::Block::Type::roliPiano49;
+
     if (isSeaboard)
     {
         auto it = clusterMembers.find (selectedBlockUid);
@@ -594,6 +620,16 @@ void MainComponent::updateKeyboardForBlock()
         keyboardView.setBlocks  (juce::jmax (1, (int) members.size())); // chained Seaboards draw as one
         keyboardView.setVisible (true);
         setTouchListening (members);                       // live 5D-touch rings
+    }
+    else if (isLumi || isPiano)
+    {
+        // A flat, per-key coloured keyboard (LUMI/Piano) that mirrors the lit scale, like Dashboard.
+        keyboardView.setOctaves (isPiano ? 4 : 2);         // Piano 49 ~ 4 octaves; LUMI/Piano M = 2
+        keyboardView.setFamily  (KeyboardView::Family::lumi);
+        keyboardView.setBlocks  (1);
+        keyboardView.setVisible (true);
+        setTouchListening ({});
+        updateLumiKeyboardColours();
     }
     else
     {
@@ -995,6 +1031,7 @@ void MainComponent::applyLiveConfigChange (const roli::Block::ConfigMetaData& me
     }
 
     updateSaveEnabled();
+    updateLumiKeyboardColours();   // a device-reported change (scale/key/colour/mode) re-lights the graphic
 }
 
 void MainComponent::rebuildRows()
@@ -1120,6 +1157,7 @@ void MainComponent::rebuildRows()
 
     resized(); // positions the cards and sizes rowHolder
     saveButton.setEnabled (false);
+    updateLumiKeyboardColours();   // (re)light the LUMI/Piano keyboard from the freshly-read config
     setStatus (statusLabel.getText() + "   -   " + juce::String ((int) rows.size())
                + " items in " + juce::String ((int) groupOrder.size()) + " sections");
 }
@@ -1135,6 +1173,7 @@ void MainComponent::onItemChanged (juce::uint32 id, juce::int32 value)
         if (c->getId() == id)
             c->setChanged (differs);
     updateSaveEnabled();
+    updateLumiKeyboardColours();   // live-light the keyboard as scale/key/colours/mode are edited
 
     // Live-write, Dashboard-style: queue this edit and let the throttle flush it to the
     // device within ~75 ms. A drag coalesces into one burst per window instead of a write
@@ -1691,13 +1730,14 @@ void MainComponent::forceLumiPreview()
         add (mk (base + 3, 1, "Enable Pressure",   CT::boolean, 0, 1, group, {}), 1);
     }
 
-    keyboardView.setFamily (KeyboardView::Family::block);
+    keyboardView.setFamily (KeyboardView::Family::lumi);
     keyboardView.setOctaves (2);   // Piano M / LUMI = 24 keys ≈ 2 octaves
     keyboardView.setBlocks (1);
     keyboardView.setVisible (true);
     setStatus ("Piano M / LUMI Keys preview (simulated, no hardware).  Ctrl+Alt+Shift+L to exit.");
     if (logger != nullptr) logger->line ("DEV: Piano M / LUMI preview (" + juce::String ((int) simConfig.size()) + " synthetic items)");
     rebuildRows();
+    updateLumiKeyboardColours();   // light the keyboard from the synthetic scale/key/colours
 }
 
 // The GRAND is a 0x78 RISE-family device. A real GRAND now routes to the RISE page and shows the
