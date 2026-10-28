@@ -81,7 +81,7 @@ const std::vector<Field>& fields()
           byte (off::portThrottle), param (0x4e) },
 
         { kOctave,    "Octave",    "Play mode", CT::integer, -4, 4, {},   byte (off::octave, -4), rise2::octave },
-        { kTranspose, "Transpose", "Play mode", CT::integer, -12, 12, {}, byte (off::transpose, -64), rise2::transpose },
+        { kTranspose, "Transpose", "Play mode", CT::integer, -12, 12, {}, gbyte (off::transpose, goff::transpose, -64), rise2::transpose },
         { kSemitoneLegato, "Semitone Legato", "Play mode", CT::boolean, 0, 1, {}, byte (off::semitoneLegato), param (0x4c) },
         { kSlideCc,   "Slide CC",   "Play mode", CT::integer, 0, 127, {}, byte (off::slideCc), param (0x38) },
         { kSlideMode, "Slide Mode", "Play mode", CT::options, 0, 2, { "Absolute", "Relative Unipolar", "Relative Bipolar" },
@@ -146,7 +146,8 @@ bool isGrandOnlyField (juce::uint32 id) { return id == kPedal1Cc || id == kPedal
 // they're left off until verified on hardware rather than shown with a guessed value.
 bool isGrandField (juce::uint32 id)
 {
-    return id == kGlideSens || id == kPedal1Cc || id == kPedal2Cc || id == kPedal3Cc;
+    return id == kGlideSens || id == kPedal1Cc || id == kPedal2Cc || id == kPedal3Cc
+        || id == kTranspose;   // Transpose: reply offset verified from the capture, RISE NRPN write
 }
 
 const Field* findField (juce::uint32 id)

@@ -297,6 +297,28 @@ mode / MPE members / zone / octave, and whether bend/transpose are writable via 
 GRAND. GRAB now routes a real GRAND to the RISE page showing pedals + glide; extend from there as
 BabeleDunnit verifies more fields.
 
+### GRAND Dashboard settings (from the ROLI Dashboard manual, chapter 5)
+
+The Dashboard manual confirms the GRAND's full settings panel — it is the **same set as the RISE**
+(the GRAND speaks the same `0x78` dialect), so the RISE write code applies:
+
+- **Pedals** (x3): a **CC** (01–119; presets CC64 Sustain / 65 Portamento / 66 Sostenuto / 67 Soft /
+  68 Legato) **and a pedal type** — Switch (auto / press-close / press-open), Continuous (type 1 =
+  wiper on ring, e.g. Roland DP-10 / type 2 = wiper on tip). The type is the `0x09 / 0x0B / 0x0D`
+  companion byte next to each pedal CC.
+- **Pitch:** Octave (±4), Transpose (±semitones), Pitch Bend Range — options **2, 12, 24, 36, 48,
+  60, 72, 84, 96** (default 48).
+- **Glide:** glide sensitivity / expression curve.
+- **MIDI Settings:** Channel Mode (Multi / Single), MPE (On/Off), Ch. Range, Global Channel, and
+  Glide/Slide + Press tracking.
+
+**Tracking options (RISE *and* GRAND):** Glide/Slide Tracking and Press Tracking are
+**Last Note, Highest, Lowest, Disabled** — note the 4th is **Disabled**. Press Mode is
+**Poly Pressure / Channel Pressure**. (GRAB's RISE page currently offers only Last/Highest/Lowest,
+and the BLOCKS override lists "Multi-Channel" as a 4th — worth reconciling against a RISE capture of
+the `Disabled` value.) The pedal type being auto-detected on the RISE but a dropdown on the GRAND
+matches what we see: the RISE has one pedal, the GRAND three with explicit type.
+
 Vendor `2af4` is shared across ROLI devices (the Seaboard **Block** is `vid_2af4 pid_0700`);
 the PID identifies the model. The **original RISE 25 and 49** both answer the same `0x78 3F`
 identify as the RISE 2 (see "Original RISE 25 and 49 answer with the same dump" above). What
