@@ -299,7 +299,7 @@ the PID identifies the model. The **original RISE 25 and 49** both answer the sa
 identify as the RISE 2 (see "Original RISE 25 and 49 answer with the same dump" above). What
 is still open for them is whether their `0x78 3D` write params match the RISE 2's.
 
-**To capture one:** in GRAB, **Advanced… → Raw MIDI capture** → pick `Seaboard RISE` → **Start** → play and
+**To capture one:** in GRAB, **Advanced… ▸ Capture MIDI** → pick `Seaboard RISE` → **Start** → play and
 operate the device (and change settings on it) → **Save to file** → attach the `.txt` to
 an issue. That recording is the raw material for adding support; the `<param>` encoding
 in the tables below still needs confirming against such a capture.

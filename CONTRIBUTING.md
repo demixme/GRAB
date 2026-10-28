@@ -24,13 +24,13 @@ names across devices (especially unnamed/user items and new hardware).
 ### 2. Capture or probe a device you want supported
 For a device GRAB can't talk to yet, the **Advanced…** menu in the GUI has two optional
 tools that gather what we need — no extra software:
-- **Raw MIDI capture** — open the device's port and log everything it emits (read-only;
+- **Capture MIDI** — open the device's port and log everything it emits (read-only;
   it sends nothing). Play it / operate it, then Submit, Save, or open an issue.
 - **Active probe** (advanced) — send one *curated, documented* message to the device and
   log its reply (the host→device side capture can't see). Firmware/reset/packed messages
   are hard-blocked; the exact bytes are shown and you must Arm before each send.
 
-(For most RISE/GRAND owners, the one-click **Help add device…** above already covers
+(For most RISE/GRAND owners, the one-open **Advanced… ▸ Help add device (auto-explore)** above already covers
 this — reach for these only if a maintainer asks.)
 
 To capture **ROLI Dashboard talking to the device** (the full host→device protocol — this

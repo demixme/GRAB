@@ -38,10 +38,10 @@ unless you click.
 | Pad & control **BLOCKS** (Lightpad/Pad, Live, Loop, Touch) · **Airwave** | ◻️ out of scope *for now* — they connect and GRAB shows their basic shared settings, but ROLI's per-app/mode config (Note Grid, Fader Block, Drum Block, …) isn't managed by GRAB (see **Scope** below). **Contributions to add them are welcome** |
 | Multiple BLOCKS (DNA-connected cluster) | ✅ identical chained blocks (e.g. two Seaboard Blocks, two Piano M) shown as one device — shared config, writes fan out to the whole chain; Seaboard chains are also drawn as one continuous keyboard |
 | Seaboard **RISE 25/49** (original) | ✅ live read/write + ROLI presets — same `0x78`/RPN protocol as the RISE 2, confirmed on a RISE 25 (one caveat: min/max aren't shown — this firmware doesn't report them back) · [RISE-GRAND.md](RISE-GRAND.md) |
-| Seaboard **GRAND** | 🟡 preliminary — configured with the **same `0x78` protocol as the RISE** (confirmed from a Dashboard capture): 4D (no slide), 3 pedals. Writing works via the RISE path; a page is drafted but a **full Dashboard capture is still needed** to finish the param map · [RISE-GRAND.md](RISE-GRAND.md) · [issue #6](../../issues/6) |
+| Seaboard **GRAND** | 🟡 provisional (v0.1.31) — configured with the **same `0x78` protocol as the RISE** (confirmed from a full Dashboard capture): 4D (no slide), 3 pedals. A real GRAND now routes to the RISE page and shows the fields confirmed end-to-end — **three pedal CCs + glide sensitivity** (read + live write); MIDI mode / bend / transpose follow once verified on hardware · [RISE-GRAND.md](RISE-GRAND.md) · [issue #6](../../issues/6) |
 
-Got an **unsupported** device? Run GRAB, click **Help add device…** → **Run & submit** —
-one click, read-only, and it's how the next devices get added.
+Got an **unsupported** device? Run GRAB, open **Advanced… ▸ Help add device (auto-explore)**
+→ **Run & submit** — one click, read-only, and it's how the next devices get added.
 
 **Scope.** GRAB focuses on ROLI's **keyboard-family instruments** — the Seaboard Block
 (Seaboard Block M), Seaboard RISE / RISE 2, and ROLI Piano and Piano M (the rebranded
@@ -51,8 +51,9 @@ and control BLOCKS** (Lightpad/Pad, Live, Loop, Touch) run ROLI's Littlefoot **a
 where each app (Note Grid, Fader Block, Drum Block, …) has its own layout and most settings
 live; GRAB can read their basic shared settings but doesn't manage apps/modes, and it never
 uploads programs. That's where the current scope ends — **not where it has to**: if you'd
-like your block fully supported, **contributions are very welcome**. The **Help add
-device…** and **Advanced…** capture tools gather exactly what's needed to start, and
+like your block fully supported, **contributions are very welcome**. **Advanced… ▸ Help add
+device (auto-explore)** and **Advanced… ▸ Capture MIDI** gather exactly what's needed to start
+(the capture tool decodes config changes to plain English and can submit or file an issue), and
 [CONTRIBUTING.md](CONTRIBUTING.md) has the details.
 
 ## What GRAB is — and isn't
@@ -83,7 +84,8 @@ usable whatever happens to ROLI's software and servers.
   BLOCKS (Lightpad, Live, Loop, Touch, Airwave) connect and show the config they report, but **app- and
   mode-specific features aren't covered yet** (e.g. a Lightpad's Fader Block setup) — those
   need more reports. The **original Seaboard RISE** is **read/write** (same protocol as the
-  RISE 2, confirmed on a RISE 25; min/max aren't shown); the **GRAND** isn't supported yet.
+  RISE 2, confirmed on a RISE 25; min/max aren't shown); the **GRAND** is provisional
+  (routes to the RISE page; pedals + glide confirmed, more coming).
 
 If you just want to tweak your device's settings today, it does that. If you'd like it to
 *grow into* a fuller Dashboard alternative, that's exactly why **contributing a profile**
@@ -180,9 +182,9 @@ A port opened but the device never answered — usually one of:
 > (ALSA) the MIDI layer is already multi-client, so concurrent use works there too. (By
 > contrast, ROLI Dashboard sidesteps the legacy limit via its own **"ROLI Hardware Driver"**
 > background service, which brokers the device; GRAB needs no such driver.)
-- **It's a Seaboard RISE** — RISE uses a different protocol (GRAB shows a separate RISE
-  page). The **RISE 2** and the **original RISE 25/49** are both supported (read/write);
-  the **GRAND** isn't supported yet — GRAB says so in the status line; please help add it.
+- **It's a Seaboard RISE or GRAND** — both use a different protocol (GRAB shows a separate
+  RISE page). The **RISE 2** and the **original RISE 25/49** are supported (read/write); the
+  **GRAND** is provisional (pedals + glide confirmed) — more fields as owners help verify.
 - Try the other **Transport** option (USB ↔ BLE).
 
 **Connected, but a setting looks missing / unnamed / wrong** — contribute a profile
@@ -192,16 +194,18 @@ A port opened but the device never answered — usually one of:
 Your serial, if included, is hashed (or blanked in raw MIDI and logs); each dialog also offers **Save to file** or **Open a
 prefilled GitHub issue** instead of submitting.
 
-- ⭐ **Unsupported device? Click "Help add device…"** → **Run & submit**. The easiest way
+- ⭐ **Unsupported device? Open Advanced… ▸ "Help add device (auto-explore)"** → **Run & submit**. The easiest way
   to help: GRAB auto-picks the device's port, sends a **read-only** "who are you?"
   request, records the reply + a few seconds of what it emits, and submits it all in one
   go. **It never changes a setting.** This is the one-click path for RISE/GRAND owners.
 - **Contribute a profile** — if it *did* connect, **Contribute…** → **Submit** (the config
   your device reports).
-- **Advanced… menu** (for the technically-minded): **Raw MIDI capture** (log everything a
-  device emits while you play; read-only) and **Active probe** (send one curated,
-  documented message and log the reply — firmware/reset messages are blocked). Both can
-  Submit, Save, or open a prefilled GitHub issue.
+- **Advanced… menu** (for the technically-minded): **Capture MIDI** — a read-only log of
+  everything a device emits, decoded from the bytes into a selectable table (Time · Kind ·
+  Message · Value · Raw), so config changes read as plain English while you play or edit;
+  and **Active probe** (send one curated, documented message and log the reply —
+  firmware/reset messages are blocked). Both can Submit, Save, copy, or open a prefilled
+  GitHub issue.
 
 ## What it does
 - **Reads and writes device configuration** over USB-MIDI or BLE-MIDI — all the
@@ -268,7 +272,7 @@ GRAB gets better the more devices people point it at. Several ways to help, all
 **optional** and shown to you before anything is sent:
 
 - ⭐ **Help add an unsupported device — one click.** If GRAB says your device isn't
-  supported (RISE/GRAND), click **Help add device…** → **Run & submit**. GRAB auto-picks
+  supported (RISE/GRAND), open **Advanced… ▸ Help add device (auto-explore)** → **Run & submit**. GRAB auto-picks
   the port, sends one **read-only** identity request, records the reply + a few seconds of
   what the device emits, and submits it — **without changing any setting**. The simplest
   possible contribution.

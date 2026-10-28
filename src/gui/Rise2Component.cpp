@@ -541,7 +541,7 @@ void Rise2Component::onState (rise2::State s)
     if (! verified && ! oldRise && ! grand)   // GRAND is editable via the same 0x78 3D writes
     {
         setStatus ("'" + portName + "' firmware " + firmware + " is not verified yet, so settings are not shown. "
-                   "Use Help add device... (or Advanced... -> Raw MIDI capture) to help add it.");
+                   "Use Advanced... -> Help add device (or Capture MIDI) to help add it.");
         expected.clear();
         // Clear any rows a prior read built, so nothing stale shows under the message.
         rows.clear();
