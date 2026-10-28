@@ -161,3 +161,11 @@ GRAB's `KeyboardView` renders all five (`keyColour`): User and Piano exactly, Pr
 representation (the rainbow hue per note is an approximation of ROLI's palette, and "brightens when
 played" can't be shown on a static config page). Source: ROLI support, "Using Piano M with ROLI
 Dashboard".
+
+The **LUMI Keys user manual** (2020, LUMI Keys 1 / SE) confirms the same scheme set and all other
+Dashboard settings GRAB models (MIDI Mode, Pitch Bend Range, Octave, Transpose, Strike/Press/Lift
+Sensitivity, Fixed Velocity, Scale, Key, Pitch Bend Tracking {Last/Highest/Lowest}, Pressure Tracking
+{Poly Aftertouch / Channel Pressure}, Global/Root Color, Brightness, and per-mode Color Scheme /
+Enable Pitch Bend / Enable Pressure). The **Arpeggiator and Chord** features are **ROLI Studio
+Player** (software), not on-device config — so there is no `arpPattern` dropdown to add for the LUMI
+(the DB confirms: no LUMI/Piano M profile reports config id 25).
