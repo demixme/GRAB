@@ -42,7 +42,8 @@ namespace grab
 
 /** Decode a UTF-8 string literal into a juce::String. Needed because juce::String(const char*)
     decodes as ASCII/Latin-1 (each byte -> one codepoint), which mangles multi-byte UTF-8 (an
-    em-dash becomes "â<box><box>"). Use this for ANY non-ASCII UI text, e.g. grab::u8("… — …"). */
+    em-dash E2 80 94 becomes three garbage chars). Use this for ANY non-ASCII UI text, with the
+    bytes written as hex escapes to keep the source ASCII-clean, e.g. grab::u8 ("\xe2\x80\x94"). */
 inline juce::String u8 (const char* utf8) { return juce::String::fromUTF8 (utf8); }
 
 /** Dark ROLI-flavoured look, set as the default LookAndFeel for the whole app. */

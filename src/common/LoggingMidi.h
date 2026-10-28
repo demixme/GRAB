@@ -21,6 +21,7 @@
 #include <atomic>
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <mutex>
 #include <string>
 #include <utility>

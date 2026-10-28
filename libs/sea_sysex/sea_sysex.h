@@ -109,6 +109,23 @@ private:
 // version/name). Unknown inner messages are reported by type + remaining bits.
 std::string decode (const std::uint8_t* msg, std::size_t size);
 
+// One config change reported by a device->host packed message.
+struct ConfigChange
+{
+    enum class Kind { set, update };
+    Kind         kind  = Kind::set;
+    std::uint32_t item = 0;
+    std::int32_t value = 0;
+    bool          hasRange = false;   // true for updateConfig (carries min/max)
+    std::int32_t  min = 0, max = 0;
+};
+
+// Extract the config set/update items a DEVICE->HOST packed packet reports, in
+// order. Returns empty for anything else (host messages, keepalives, topology,
+// touch, non-ROLI). This is how GRAB turns a live echo into "which setting
+// changed to what" without guessing: raw bytes in, structured change out.
+std::vector<ConfigChange> extractConfigChanges (const std::uint8_t* msg, std::size_t size);
+
 // Reassemble a stream of 32-bit USB-MIDI event packets (as seen in a USBPcap /
 // Wireshark capture of a USB-MIDI device) into complete SysEx messages.
 std::vector<std::vector<std::uint8_t>> reassembleUsbMidiSysex (const std::uint8_t* data, std::size_t size);

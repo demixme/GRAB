@@ -174,8 +174,6 @@ MainComponent::MainComponent()
     addAndMakeVisible (statusLabel);
     statusLabel.setJustificationType (juce::Justification::centredLeft);
 
-    addAndMakeVisible (helpAddBtn);
-    helpAddBtn.onClick = [this] { openDialog (new ExplorePanel(), "Help add this device"); };
     addAndMakeVisible (diagnoseBtn);
     diagnoseBtn.onClick = [this] { openDialog (new DiagnosePanel(), "Diagnose connection"); };
     addAndMakeVisible (reloadButton);
@@ -233,7 +231,8 @@ MainComponent::MainComponent()
     {
         juce::PopupMenu m;
         m.addItem (6, "Diagnose connection...");
-        m.addItem (1, "Raw MIDI capture...");
+        m.addItem (1, "Capture MIDI...");            // capture + decode: config changes, keepalives, notes, topology
+        m.addItem (8, "Help add device (auto-explore)...");  // one-click device->host probe + submit
         m.addItem (2, "Active probe...");
         m.addItem (5, "Download firmware for archiving...");   // always enabled; explains if unmapped
         m.addSeparator();
@@ -243,12 +242,13 @@ MainComponent::MainComponent()
         m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (advancedBtn),
             [this] (int r)
             {
-                if      (r == 1) openDialog (new CapturePanel(), "Raw MIDI capture");
+                if      (r == 1) openCaptureWindow();
                 else if (r == 2) openDialog (new ProbePanel(),  "Active probe");
                 else if (r == 3) factoryReset();
                 else if (r == 4) showHelpWanted();
                 else if (r == 5) downloadFirmware();
                 else if (r == 6) openDialog (new DiagnosePanel(), "Diagnose connection");
+                else if (r == 8) openDialog (new ExplorePanel(), "Help add this device");
             });
     };
 
@@ -676,6 +676,58 @@ void MainComponent::openDialog (juce::Component* panel, const juce::String& titl
     o.useNativeTitleBar = true;
     o.resizable = true;
     o.launchAsync();
+}
+
+void MainComponent::openCaptureWindow()
+{
+    // Give the capture tool a way to turn config item ids into plain-English names + values, using
+    // whatever device is currently connected (falls back to "item N" when nothing is connected).
+    juce::Component::SafePointer<MainComponent> self (this);
+    CapturePanel::DescribeFn describe = [self] (juce::uint32 item, juce::int32 value)
+        -> std::pair<juce::String, juce::String>
+    {
+        if (auto* p = self.getComponent())
+            return p->describeConfig (item, value);
+        return { "item " + juce::String (item), juce::String (value) };
+    };
+
+    openDialog (new CapturePanel (std::move (describe)), "MIDI capture");
+}
+
+std::pair<juce::String, juce::String> MainComponent::describeConfig (juce::uint32 item, juce::int32 value) const
+{
+    if (block != nullptr && item < block->getMaxConfigIndex())
+    {
+        auto meta = block->getLocalConfigMetaData (item);
+        seaprobe::applyConfigOverrides (meta);
+        grab::applyLearnedNames (meta, learnedNames);
+
+        juce::String name = meta.name.isNotEmpty() ? meta.name : ("item " + juce::String (item));
+
+        using ConfigType = roli::Block::ConfigMetaData::ConfigType;
+        juce::String val;
+        if (meta.type == ConfigType::boolean)
+        {
+            val = (value != 0) ? "On" : "Off";
+        }
+        else if (meta.type == ConfigType::options)
+        {
+            const int i = value - meta.range.getStart();
+            if (i >= 0 && i < roli::Block::ConfigMetaData::numOptionNames && meta.optionNames[i].isNotEmpty())
+                val = meta.optionNames[i] + "  (" + juce::String (value) + ")";
+            else
+                val = juce::String (value);
+        }
+        else
+        {
+            val = juce::String (value);
+        }
+        return { name, val };
+    }
+
+    // Item the connected device doesn't model (or no block): show it raw — still useful for
+    // spotting a setting GRAB can't see yet.
+    return { "item " + juce::String (item), juce::String (value) };
 }
 
 void MainComponent::showHelpWanted()
@@ -1225,9 +1277,10 @@ void MainComponent::factoryReset()
         .withIconType (juce::MessageBoxIconType::WarningIcon)
         .withTitle ("Factory reset (presets only)")
         .withMessage ("Reset " + name + (n > 1 ? "  (" + juce::String (n) + " chained blocks)" : juce::String())
-                      + " to factory defaults?\n\n"
-                      "This restores every setting to its default and reboots the device. "
-                      "It can't be undone — but it only touches settings; firmware is left alone.")
+                      + juce::String::fromUTF8 (
+                            " to factory defaults?\n\n"
+                            "This restores every setting to its default and reboots the device. "
+                            "It can't be undone \xe2\x80\x94 but it only touches settings; firmware is left alone."))
         .withButton ("Factory reset")     // button 1: the action (Enter); Escape/Cancel both abort
         .withButton ("Cancel");           // button 2: returns 0, bound to Escape
 
@@ -1581,13 +1634,11 @@ void MainComponent::resized()
     };
 
     // The RISE page owns its own reload/save/info/viewport, so when it's shown lay out
-    // only the controls that still apply (Help add, Transport, Advanced) and hand it the
+    // only the controls that still apply (Diagnose, Transport, Advanced) and hand it the
     // rest of the window. (The BLOCKS-only controls are hidden by setBlocksControlsVisible.)
     if (rise2Page != nullptr)
     {
         auto row = r.removeFromTop (30);
-        helpAddBtn.setBounds (row.removeFromLeft (150).reduced (2, 0));
-        row.removeFromLeft (6);
         diagnoseBtn.setBounds (row.removeFromLeft (100).reduced (2, 0));
         row.removeFromLeft (8);
         advancedBtn.setBounds (row.removeFromRight (92).reduced (2, 0));
@@ -1601,9 +1652,6 @@ void MainComponent::resized()
     }
 
     auto buttons = r.removeFromTop (30);
-    // "Help add device..." sits first (the one-click action for unsupported devices).
-    helpAddBtn.setBounds (buttons.removeFromLeft (150).reduced (2, 0));
-    buttons.removeFromLeft (8);
     const int bw = 137;
     reloadButton .setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
     saveButton   .setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
