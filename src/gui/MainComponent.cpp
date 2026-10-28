@@ -391,17 +391,19 @@ void MainComponent::connect (seaprobe::Transport transport)
 
     if (detector->getSelectedPairs().empty() && Rise2Component::isConnected())
     {
-        setStatus ("Seaboard RISE found.");
+        juce::String riseName = "Seaboard RISE";
+        for (auto& d : juce::MidiOutput::getAvailableDevices())
+            if (rise2::isRisePort (d.name)) { riseName = d.name; break; }
+        const bool isGrand = rise2::isGrandName (riseName);
+
+        setStatus (riseName + " found.");
         rise2Page = std::make_unique<Rise2Component> (*logger);
         addAndMakeVisible (*rise2Page);
         setBlocksControlsVisible (false);
 
-        juce::String riseName = "Seaboard RISE";
-        for (auto& d : juce::MidiOutput::getAvailableDevices())
-            if (rise2::isRisePort (d.name)) { riseName = d.name; break; }
         keyboardView.setOctaves (keyboardOctavesForName (riseName));
-        keyboardView.setFamily (KeyboardView::Family::rise);
-        keyboardView.setBlocks (1);   // a RISE is a single keybed (no DNA chaining)
+        keyboardView.setFamily (isGrand ? KeyboardView::Family::grand : KeyboardView::Family::rise);
+        keyboardView.setBlocks (1);   // a RISE/GRAND is a single keybed (no DNA chaining)
         keyboardView.setVisible (true);
 
         resized();
@@ -895,34 +897,17 @@ void MainComponent::checkConnectTimeout()
     if (detector != nullptr && ! detector->getSelectedPairs().empty())
         name = detector->getSelectedPairs().front().input.name;
 
-    const bool isGrand   = name.containsIgnoreCase ("grand");
-    const bool riseGrand = isGrand || name.containsIgnoreCase ("rise");
     const auto path = logFolder.getFullPathName();
 
-    if (isGrand)
-    {
-        // The GRAND speaks the RISE 0x78 dialect but doesn't return its settings in the identify
-        // reply, so we can't configure it yet — we need a capture. Make sure the owner sees how.
-        setStatus ("Seaboard GRAND detected! It speaks the RISE protocol and we're close to supporting "
-                   "it - we just need a capture of its settings. See 'How you can help' (opening now, "
-                   "also in the Advanced menu), or click 'Help add device...' to send a report.");
-        if (! grandHelpShown)
-        {
-            grandHelpShown = true;
-            juce::Component::SafePointer<MainComponent> sp (this);
-            juce::MessageManager::callAsync ([sp] { if (sp != nullptr) sp->showHelpWanted(); });
-        }
-    }
-    else if (riseGrand)
-        setStatus ("Found '" + name + "' - looks like a Seaboard RISE. If its settings page didn't open, "
-                   "try another Connection Type, or click 'Help add device...'.");
-    else
-        setStatus ("Opened '" + name + "' but no ROLI BLOCKS device replied. It may be an unsupported "
-                   "device, or the port is held by another app - click 'Diagnose...', or try 'Help add device...'");
+    // RISE and GRAND are excluded from the BLOCKS detector and handled by the RISE page, so a port
+    // that opens here and never returns a BLOCKS topology is a device GRAB doesn't model yet, or a
+    // port held by another app.
+    setStatus ("Opened '" + name + "' but no ROLI BLOCKS device replied. It may be a device GRAB "
+               "doesn't support yet, or the port is held by another app - click 'Diagnose...', or try "
+               "Advanced -> Help add device.");
 
     // Full guidance (incl. the log path to attach to a report) goes to the log.
-    logger->line ("CONNECT TIMEOUT: opened '" + name + "' but received no BLOCKS topology in 6s."
-                  + juce::String (riseGrand ? "  Name looks like RISE/GRAND (unsupported protocol)." : ""));
+    logger->line ("CONNECT TIMEOUT: opened '" + name + "' but received no BLOCKS topology in 6s.");
     logger->line ("  To report: open an issue at https://github.com/demixme/GRAB/issues and attach the "
                   "'=== MIDI inputs ===' lines above. Log file: " + path);
 }
@@ -1295,7 +1280,7 @@ void MainComponent::downloadFirmware()
                               "Confirmed: Seaboard Block, and every Seaboard RISE (original 25 & 49, and RISE 2).\n\n"
                               "The Seaboard GRAND is registered with ROLI but has no downloadable firmware build. "
                               "LUMI Keys, Lightpad and ROLI Piano aren't mapped yet.\n\n"
-                              "You can still check my.roli.com in a browser, or use \"Help add device...\" to help."))
+                              "You can still check my.roli.com in a browser, or use Advanced -> Help add device to help."))
                 .withButton ("OK"),
             nullptr);
         return;
@@ -1715,10 +1700,9 @@ void MainComponent::forceLumiPreview()
     rebuildRows();
 }
 
-// The GRAND is a 0x78 RISE-family device, but its settings are NOT in its identify reply and
-// are still unmapped (see RISE-GRAND.md), so there is no config page to show — this previews
-// the provisional config page (4D, 3 pedals) on the RISE component — layout only, not yet
-// wired to real GRAND hardware (its 87-byte reply layout is still being decoded).
+// The GRAND is a 0x78 RISE-family device. A real GRAND now routes to the RISE page and shows the
+// confirmed fields (pedals + glide, read from its decoded 0x3a reply — see RISE-GRAND.md). This dev
+// shortcut previews that provisional GRAND page (4D, 3 pedals) from a synthetic reply, no hardware.
 void MainComponent::forceGrandPreview()
 {
     if (grandPreview)   // toggle off -> back to a real device

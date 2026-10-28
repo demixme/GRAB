@@ -6,12 +6,12 @@ useful. Thanks for pitching in.
 
 ## Ways to contribute (easiest first)
 
-### 0. Help add an unsupported device (one click)
-If GRAB says your device isn't supported (e.g. **Seaboard RISE/GRAND**), click
-**Help add device…** → **Run & submit**. GRAB auto-picks the port, sends one read-only
-identity request, records the reply + a few seconds of what the device emits, and
-submits it — **without changing any setting**. This is the single easiest way to help
-a new device get added.
+### 0. Help add a device GRAB can't fully handle (one click)
+If GRAB doesn't recognise your device, or connects but can't configure it yet, open
+**Advanced… ▸ Help add device (auto-explore)** → **Run & submit**. GRAB auto-picks the
+port, sends one read-only identity request, records the reply + a few seconds of what the
+device emits, and submits it — **without changing any setting**. This is the single easiest
+way to help a new device get added.
 
 ### 1. Submit a device profile (one click)
 If you have any ROLI BLOCKS device, run the GUI, connect it, and use
@@ -30,8 +30,8 @@ tools that gather what we need — no extra software:
   log its reply (the host→device side capture can't see). Firmware/reset/packed messages
   are hard-blocked; the exact bytes are shown and you must Arm before each send.
 
-(For most RISE/GRAND owners, the one-open **Advanced… ▸ Help add device (auto-explore)** above already covers
-this — reach for these only if a maintainer asks.)
+(For most RISE/GRAND owners, the one-click **Advanced… ▸ Help add device (auto-explore)** above
+already covers this — reach for these only if a maintainer asks.)
 
 To capture **ROLI Dashboard talking to the device** (the full host→device protocol — this
 is what's needed to add *writing* for a new device), see

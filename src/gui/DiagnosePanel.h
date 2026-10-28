@@ -203,7 +203,7 @@ private:
 
         t.add ("");
         t.add ("Still stuck? Click 'Open an issue' to send this to the developers, or use");
-        t.add ("'Help add device...' on the main window.");
+        t.add ("Advanced -> Help add device (auto-explore).");
 
         report = t.joinIntoString ("\n");
         body.setText (report, false);

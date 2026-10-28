@@ -93,7 +93,7 @@ private:
     void forceRisePreview();   // secret dev shortcut: show the RISE page with synthetic data
     void forcePianoPreview();  // secret dev shortcut: synthetic ROLI Piano config page (no hardware)
     void forceLumiPreview();   // secret dev shortcut: synthetic Piano M / LUMI Keys page (no hardware)
-    void forceGrandPreview();  // secret dev shortcut: synthetic GRAND (identity-only; settings unmapped)
+    void forceGrandPreview();  // secret dev shortcut: synthetic GRAND page (4D, 3 pedals) — no hardware
 
     // Live config updates from the device (delivered on the message thread).
     void handleConfigItemChanged (roli::Block&, const roli::Block::ConfigMetaData&, juce::uint32 index) override;
@@ -157,12 +157,11 @@ private:
     double configRequestedAtMs = 0.0;
     bool   rowsBuilt = false;
 
-    // Connect-timeout bookkeeping: detect a port that opens but never produces a
-    // BLOCKS topology (e.g. a Seaboard RISE/GRAND — a different, unsupported protocol).
+    // Connect-timeout bookkeeping: detect a port that opens but never produces a BLOCKS topology
+    // (a device GRAB doesn't model, or a held port; RISE/GRAND are excluded and use the RISE page).
     double sourceActiveAtMs   = 0.0;
     bool   deviceSeen         = false;
     bool   connectTimeoutShown = false;
-    bool   grandHelpShown      = false;   // auto-open the help dialog once for a GRAND owner
     juce::File logFolder;     // where the log is written, to point users at for reports
     void checkConnectTimeout();
 

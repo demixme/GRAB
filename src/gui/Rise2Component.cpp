@@ -406,14 +406,14 @@ void Rise2Component::devicesChanged()
         saveButton.setEnabled (false);
         reloadButton.setEnabled (false);
         infoLabel.setText ({}, juce::dontSendNotification);
-        setStatus ("Seaboard RISE disconnected. Waiting for it to come back...");
+        setStatus ("RISE/GRAND disconnected. Waiting for it to come back...");
         return;
     }
 
     // A fresh state read replaces the rows, so unsaved edits from before the drop are lost here.
     // Ports opened the moment the device reappears stay silent, so give it time to start.
     logger.line ("RISE ports back");
-    setStatus ("Seaboard RISE reconnected, reading settings...");
+    setStatus ("RISE/GRAND reconnected, reading settings...");
     juce::Timer::callAfterDelay (1500, [safe = juce::Component::SafePointer<Rise2Component> (this)]
     {
         if (safe == nullptr || ! isConnected())
@@ -440,7 +440,7 @@ void Rise2Component::requestState()
 {
     if (midiOut == nullptr || midiIn == nullptr)
     {
-        setStatus ("Seaboard RISE MIDI port not available.");
+        setStatus ("RISE/GRAND MIDI port not available.");
         return;
     }
     awaitingState = true;
@@ -467,8 +467,8 @@ void Rise2Component::timerCallback()
     {
         stopTimer();
         awaitingState = false;
-        setStatus ("No reply from the RISE. Check the cable and that no other app holds the port. "
-                   "Older RISE models aren't fully mapped yet - use Help add device... to send what we need.");
+        setStatus ("No reply from the RISE/GRAND. Check the cable and that no other app holds the port, "
+                   "then try Reload from device. If it persists, Advanced -> Help add device sends us what we need.");
         return;
     }
     send ({ rise2::identify() });

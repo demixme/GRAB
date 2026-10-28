@@ -1,6 +1,6 @@
 // ProbePanel — "Active probe" dialog (advanced). Sends ONE chosen message to a
 // device's MIDI output and logs the reply on its input, to reverse-engineer the
-// host->device control protocol of unsupported devices (Seaboard RISE/GRAND).
+// host->device control protocol of a device GRAB doesn't yet fully map.
 //
 // Safety: only curated, documented, non-destructive messages are offered; firmware /
 // reset / packed-BLOCKS messages are hard-blocked; the exact bytes are shown and the
@@ -34,8 +34,9 @@ public:
         title.setText (juce::String::fromUTF8 (
                        "Active probe (advanced, use with care). Sends ONE message to a device's "
                        "output and logs the reply on its input \xe2\x80\x94 for working out the control "
-                       "protocol of unsupported devices (RISE/GRAND). Review the exact bytes and "
-                       "tick Arm before each send. Firmware/reset/packed messages are blocked."),
+                       "protocol of a device GRAB doesn't yet fully map (a new or unknown one). "
+                       "Review the exact bytes and tick Arm before each send. Firmware/reset/packed "
+                       "messages are blocked."),
                        juce::dontSendNotification);
         title.setJustificationType (juce::Justification::topLeft);
         addAndMakeVisible (title);

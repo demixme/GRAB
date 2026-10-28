@@ -55,8 +55,11 @@ GRAB has secret dev shortcuts (no device needed) to render a device page from sy
 handy for working on UI for instruments we don't own:
 - **Ctrl+Alt+Shift+P** — simulated **ROLI Piano** config page (the items in the table below,
   incl. the named **Scale** dropdown and **Color Scheme**). Press again to exit.
-- **Ctrl+Alt+Shift+G** — **GRAND** identity-only preview (no config page — its settings are
-  unmapped; see [RISE-GRAND.md](RISE-GRAND.md)). Press again to exit.
+- **Ctrl+Alt+Shift+L** — simulated **Piano M / LUMI Keys** page (same items minus Glide and the
+  pedal, octave -4..5, four modes' Color Scheme — the editable key-colour picker shows here too).
+  Press again to exit.
+- **Ctrl+Alt+Shift+G** — provisional **GRAND** page on the RISE component (4D, 3 pedals + glide),
+  from a synthetic 0x3a reply; see [RISE-GRAND.md](RISE-GRAND.md). Press again to exit.
 - **Ctrl+Alt+Shift+R** — RISE page preview (toggles RISE 2 / original RISE).
 
 ## Scales & scale lighting
