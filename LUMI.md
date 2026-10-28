@@ -144,6 +144,20 @@ ROLI Dashboard ships its scale and config logic as Littlefoot source on disk
   `arpPattern = 25`, `tempo = 26`, `transposeToKey = 28`, `gammaCorrection = 33`, `MPEZone = 40`,
   `user0..user22 = 64..86`).
 
-The per-mode **Color Scheme** palettes (Pro / Piano / Stage / Rainbow) are **not** in these readable
-files — they live in the LUMI firmware (and possibly ROLI Connect's packed `app.asar`). GRAB can only
-colour the **User** scheme, where the keys use `globalKeyColour` / `rootKeyColour` (which GRAB edits).
+### Color Schemes (per mode, id 100 + 7 x mode)
+
+The exact firmware palettes aren't in readable files, but ROLI support documents what each scheme
+does, which is enough for GRAB's keyboard graphic to represent them (value order matches the device:
+0 Pro, 1 User, 2 Piano, 3 Stage, 4 Rainbow):
+
+- **Pro** — root note in the factory colours, the scale (global) notes white.
+- **User** — root + scale notes use the Colors section's `rootKeyColour` / `globalKeyColour` (the two
+  GRAB edits). This is the only scheme GRAB can colour *exactly*.
+- **Piano** — white keys white, black keys black.
+- **Stage** — the whole keybed a dim rainbow, brightening to full on a played key.
+- **Rainbow** — only the in-key/in-scale notes, full-brightness rainbow.
+
+GRAB's `KeyboardView` renders all five (`keyColour`): User and Piano exactly, Pro/Stage/Rainbow as a
+representation (the rainbow hue per note is an approximation of ROLI's palette, and "brightens when
+played" can't be shown on a static config page). Source: ROLI support, "Using Piano M with ROLI
+Dashboard".

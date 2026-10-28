@@ -598,9 +598,9 @@ void MainComponent::updateLumiKeyboardColours()
     const auto rootC       = (juce::uint32) val (35, (int) 0xffffffff);  // Root Key Color
     const int  activeMode = juce::jlimit (0, 3, val (20, 0));  // Active Mode (0..3)
     const int  schemeId   = 100 + 7 * activeMode;              // that mode's Color Scheme id
-    const bool userScheme = val (schemeId, 0) == 1;            // 1 = User (the device lights our colours)
+    const int  scheme     = val (schemeId, 1);                 // 0 Pro, 1 User, 2 Piano, 3 Stage, 4 Rainbow
 
-    keyboardView.setScaleColours (userScheme, scale, key, globalC, rootC);
+    keyboardView.setColourScheme (scheme, scale, key, globalC, rootC);
 }
 
 void MainComponent::updateKeyboardForBlock()

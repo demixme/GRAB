@@ -28,15 +28,16 @@ public:
     void setBlocks  (int n)   { n = juce::jlimit (1, 6, n); if (blocks != n) { blocks = n; repaint(); } }
     int  getOctaves() const   { return octaves; }
 
-    // LUMI / Piano key lighting: when `enabled` (the active mode's Color Scheme is User), the in-scale
-    // keys are drawn in `inScale` and the root key in `rootColour`, matching what the device lights;
-    // when disabled, a plain keyboard is drawn. `scale` is 0..18 (device order), `root` 0..11 (C..B).
-    void setScaleColours (bool enabled, int scale, int root, juce::uint32 inScale, juce::uint32 rootColour)
+    // LUMI / Piano key lighting, mirroring the device's active-mode Color Scheme (semantics from
+    // ROLI support): 0 Pro (root in a highlight, scale white), 1 User (root + scale in your Global/
+    // Root colours), 2 Piano (plain white/black), 3 Stage (dim rainbow), 4 Rainbow (in-key rainbow).
+    // `scale` is 0..18 (device order), `root` 0..11 (C..B). Rainbow hues are an approximation.
+    void setColourScheme (int scheme, int scale, int root, juce::uint32 inScale, juce::uint32 rootColour)
     {
-        if (scaleOn == enabled && scaleId == scale && rootNote == root
+        if (colourScheme == scheme && scaleId == scale && rootNote == ((root % 12) + 12) % 12
             && inScaleArgb == inScale && rootArgb == rootColour)
             return;
-        scaleOn = enabled; scaleId = scale; rootNote = ((root % 12) + 12) % 12;
+        colourScheme = scheme; scaleId = scale; rootNote = ((root % 12) + 12) % 12;
         inScaleArgb = inScale; rootArgb = rootColour;
         repaint();
     }
@@ -172,17 +173,31 @@ private:
         return (scaleId >= 0 && scaleId < 19) ? masks[scaleId] : 0xfff;
     }
 
-    // Colour for a key, by its pitch class (0..11). Root first, then in-scale, then dim; when the
-    // scheme isn't User, a plain piano colour (so the keyboard still shows, just uncoloured).
+    // Colour for a key by its pitch class (0..11), per the active Color Scheme.
     juce::Colour keyColour (int pitchClass, bool white) const
     {
-        if (! scaleOn)
-            return white ? juce::Colour (0xffd7dade) : juce::Colour (0xff20232b);
+        const int  rel     = (((pitchClass - rootNote) % 12) + 12) % 12;
+        const bool inScale = ((scaleMask (scaleId) >> rel) & 1) != 0;
+        const bool isRoot  = (rel == 0);
+        const juce::Colour off  (0xff0c0d12);   // out of scale: effectively dark
+        const juce::Colour dim  (0xff15161f);
+        const auto rainbow = [pitchClass] (float v) { return juce::Colour::fromHSV ((float) pitchClass / 12.0f, 0.85f, v, 1.0f); };
 
-        const int rel = (((pitchClass - rootNote) % 12) + 12) % 12;
-        if (rel == 0)                        return juce::Colour (rootArgb).withAlpha (1.0f);
-        if ((scaleMask (scaleId) >> rel) & 1) return juce::Colour (inScaleArgb).withAlpha (1.0f);
-        return juce::Colour (0xff15161f);     // out of scale: near-off, like the device
+        switch (colourScheme)
+        {
+            case 2: // Piano: plain white/black keyboard
+                return white ? juce::Colour (0xffe9ebee) : juce::Colour (0xff15161b);
+            case 3: // Stage: whole keyboard a dim rainbow (brightens when played on the device)
+                return rainbow (0.35f);
+            case 4: // Rainbow: in-key notes only, full-brightness rainbow
+                return inScale ? rainbow (1.0f) : off;
+            case 0: // Pro: root highlighted, scale notes white, rest dim
+                return isRoot ? juce::Colour (rootArgb).withAlpha (1.0f)
+                     : inScale ? juce::Colour (0xffe9ebee) : dim;
+            case 1: default: // User: your Global/Root colours on the scale
+                return isRoot ? juce::Colour (rootArgb).withAlpha (1.0f)
+                     : inScale ? juce::Colour (inScaleArgb).withAlpha (1.0f) : dim;
+        }
     }
 
     // Flat, per-key coloured keyboard for LUMI / Piano (Dashboard-style), not the Seaboard keywave.
@@ -319,8 +334,9 @@ private:
     int    blocks  = 1;     // DNA-chained bodies drawn side-by-side (identical-type cluster)
     Family family  = Family::rise;
 
-    // LUMI / Piano key-colour state (see setScaleColours).
-    bool          scaleOn     = false;
+    // LUMI / Piano key-colour state (see setColourScheme). colourScheme: 0 Pro, 1 User, 2 Piano,
+    // 3 Stage, 4 Rainbow.
+    int           colourScheme = 1;
     int           scaleId     = 0;
     int           rootNote    = 0;
     juce::uint32  inScaleArgb = 0xff00b0bb;
