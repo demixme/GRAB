@@ -17,8 +17,8 @@ GRAB needs no ROLI driver, but the Piano's port has to be free and enumerated:
   **"ROLI Hardware Driver"** Windows service holds the port and GRAB can't open it. Stop
   that service (or uninstall Connect, which installs it).
 - **Without any ROLI driver:** Windows' standard USB-audio driver may fail to start on
-  the Piano (Device Manager **code 10**). With **Windows MIDI Services** installed, pick
-  the in-box **"USB MIDI 2.0"** driver manually in Device Manager — the port then shows
+  the Piano (Device Manager **code 10**). On **Windows 11 25H2+** (where Windows MIDI Services
+  is built in), pick the in-box **"USB MIDI 2.0"** driver manually in Device Manager — the port then shows
   up as **"USBMidi2-ACX"** (rename it in your DAW). MPE and per-note pressure work, and a
   DAW and GRAB can use the Piano at the same time.
 

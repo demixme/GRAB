@@ -14,9 +14,12 @@ BLE port (`...blemidi_seaboardblock3xu9...`) deliberately skipped.
   - BLE: `\\?\swd#midisrv#midiu_blemidi_seaboardblock3xu9_...`
 - We select by identifier (USB `usb#`/`vid_`, BLE `blemidi`/`bthle`). The in and
   out ports of the USB Seaboard share the same identifier string.
-- Windows MIDI ports are exclusive: if ROLI Dashboard/Connect/driver or a DAW
-  holds the port, `MidiInput/Output::openDevice` fails. seaprobe reports this and
-  does not work around it.
+- On the **legacy** Windows MIDI stack, ports are exclusive: if ROLI Dashboard/Connect/driver
+  or a DAW holds the port, `MidiInput/Output::openDevice` fails. seaprobe reports this and does
+  not work around it. On **Windows 11 25H2+** this no longer applies — Windows MIDI Services makes
+  all APIs (WinMM/WinRT/native) multi-client by default, so ports are shared (confirmed in
+  [issue #7](../../issues/7)); earlier builds, or a machine switched to Legacy API Mode, keep the
+  exclusive behaviour.
 
 ## 2. SysEx framing [dev]
 Every ROLI message:

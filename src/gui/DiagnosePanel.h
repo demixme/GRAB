@@ -155,7 +155,9 @@ private:
             t.add ("    3. Then click 'Reload from device' (or re-run this).");
             t.add ("    Note: only one app can use the port at a time on the classic MIDI stack.");
             if (win)
-                t.add ("    (Exception: Windows MIDI Services lets apps share a device - then a DAW can stay open.)");
+                t.add ("    (On Windows 11 25H2+, Windows MIDI Services shares the device by default -");
+            if (win)
+                t.add ("     a DAW can stay open; older Windows is the exclusive classic stack.)");
         }
         else if (roliIn == 0 && roliOut == 0)
         {
@@ -170,8 +172,9 @@ private:
             }
             if (win)
             {
-                t.add ("    Bluetooth (Windows): pair the device in Settings > Bluetooth & devices, and");
-                t.add ("      use the new Windows MIDI Services stack for reliable BLE-MIDI.");
+                t.add ("    Bluetooth (Windows): pair the device in Settings > Bluetooth & devices.");
+                t.add ("      Reliable BLE-MIDI needs Windows MIDI Services (built into Windows 11 25H2+;");
+                t.add ("      not available on older builds).");
             }
             t.add ("    A ROLI device bonds to ONE computer at a time - turn Bluetooth off on any other");
             t.add ("    machine (or ROLI software) holding it, then power-cycle the device.");
@@ -191,7 +194,7 @@ private:
             if (mac)
                 t.add ("      Connection Type to BLE (or Auto) and click 'Reload from device'.");
             if (win)
-                t.add ("    Windows: use Windows MIDI Services for reliable BLE; re-pair if it won't advertise.");
+                t.add ("    Windows: Windows MIDI Services (Windows 11 25H2+) gives reliable BLE; re-pair if needed.");
             t.add ("    BLE can be flaky - if it keeps failing, try USB instead.");
         }
         else

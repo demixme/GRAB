@@ -37,8 +37,9 @@ Recent additions:
   is on GitHub.
 - A **Diagnose connection** helper for the common "port is busy / no device found" problems;
   **Download firmware for archiving** (Advanced ▸, Seaboard **Block** and every **RISE**) while
-  ROLI's servers are up; and — with **Windows MIDI Services** — GRAB runs **alongside your DAW**
-  without quitting it (macOS and Linux already share).
+  ROLI's servers are up; and on **Windows 11 25H2+** (where Windows MIDI Services makes MIDI
+  multi-client by default) GRAB runs **alongside your DAW** without quitting it (macOS and Linux
+  already share).
 
 **Still needed — contributions very welcome:** a GRAND owner to confirm the new controls write
 back to the device, and to capture **Glide / Press Tracking** and **Octave** so those last fields
@@ -173,12 +174,11 @@ below matches, then (if it's still stuck) send a report — that's how devices g
 - **macOS:** BLE-MIDI devices do *not* appear in System Settings → Bluetooth. Connect
   once via **Audio MIDI Setup → Window → Show MIDI Studio → the Bluetooth icon → Connect**.
   After that it's a normal MIDI port — set **Transport → BLE** (or Auto) and **Reload from device**.
-- **Windows:** pair the device first in **Settings → Bluetooth & devices**. For reliable
-  BLE-MIDI, use the **new Windows MIDI Services** stack — it's **built into Windows 11
-  (25H2 and later)**, so keep Windows updated; on older builds install it from Microsoft's
-  MIDI project ([github.com/microsoft/MIDI](https://github.com/microsoft/MIDI), or
-  `winget install Microsoft.WindowsMIDIServicesSDK`). The legacy WinRT BLE-MIDI path is
-  flaky by comparison.
+- **Windows:** pair the device first in **Settings → Bluetooth & devices**. Reliable BLE-MIDI
+  needs **Windows MIDI Services**, which is **built into Windows 11 25H2 and later** — keep
+  Windows updated. It is **not available on older builds** (24H2 has only a partial, out-of-support
+  install; earlier builds can't install it), so there you're on the legacy WinRT BLE-MIDI path,
+  which is flakier. (Thanks to Microsoft's Pete Brown for confirming this — [issue #7](../../issues/7).)
 - A ROLI device **bonds to one computer at a time** — if it won't advertise, turn
   Bluetooth **off** on any other machine (or in ROLI software) holding it, then
   power-cycle the device and try again.
@@ -191,19 +191,23 @@ A port opened but the device never answered — usually one of:
   installed, the **"ROLI Hardware Driver"** Windows service can keep the port open. Stop
   that service (or uninstall Connect) and reconnect. GRAB itself needs **no** ROLI driver.
 
-> **Can I run GRAB alongside my DAW on Windows?** Yes — if **Windows MIDI Services** is your
-> active MIDI stack. That new stack reroutes even legacy apps so MIDI ports are **no longer
-> exclusive**: several apps (your DAW *and* GRAB) share one device at once. We've confirmed
-> this on hardware — GRAB read and operated a Seaboard Block over USB while another app held
-> the same port ([issue #7](../../issues/7)). Windows MIDI Services is built into recent
-> Windows 11 builds and installable on older ones (see the Bluetooth note above) — it's the
-> same stack we already recommend for reliable BLE.
+> **Can I run GRAB alongside my DAW on Windows?** On **Windows 11 25H2 and later, yes — by
+> default.** Windows MIDI Services is built in and makes MIDI **multi-client across every API**
+> (WinMM, WinRT and the native stack), so your DAW *and* GRAB share one device with no setup.
+> We confirmed it on hardware — GRAB read and operated a Seaboard Block over USB while another app
+> held the same port ([issue #7](../../issues/7), with thanks to Microsoft's Pete Brown for the
+> clarifications).
 >
-> The old "quit everything first" rule only applies on the **legacy** Windows MIDI stack,
-> which *is* single-client/exclusive (one app per port). On **macOS** (CoreMIDI) and **Linux**
-> (ALSA) the MIDI layer is already multi-client, so concurrent use works there too. (By
-> contrast, ROLI Dashboard sidesteps the legacy limit via its own **"ROLI Hardware Driver"**
-> background service, which brokers the device; GRAB needs no such driver.)
+> Two caveats: (1) on 25H2+ a user *can* opt into **Legacy API Mode**, which turns multi-client
+> (and BLE-MIDI) back off and restores the old one-app-per-port behaviour — check or change it via
+> the Windows MIDI Services API or the [API-mode guide](https://microsoft.github.io/MIDI/kb/how-to-change-api-mode/),
+> not the registry; (2) on **Windows builds older than 25H2**, Windows MIDI Services isn't properly
+> available (24H2 is a partial, out-of-support install; earlier builds can't install it), so you're
+> on the legacy **single-client/exclusive** stack and still need to quit other MIDI apps first.
+>
+> On **macOS** (CoreMIDI) and **Linux** (ALSA) the MIDI layer is already multi-client, so
+> concurrent use works there too. (ROLI Dashboard sidesteps the legacy Windows limit via its own
+> **"ROLI Hardware Driver"** background service; GRAB needs no such driver.)
 - **It's a Seaboard RISE or GRAND** — both use a different protocol (GRAB shows a separate
   RISE page). The **RISE 2** and the **original RISE 25/49** are supported (read/write); the
   **GRAND** now shows its full settings page too (detection fixed in v0.1.46).
