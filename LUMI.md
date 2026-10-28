@@ -121,3 +121,29 @@ The same writes from the command line, one item at a time:
 ```
 
 _Captures and decoding from the WasabiLumi research (LUMI Keys over USB-C, 2026-08-26)._
+
+## Scale masks & config ids (from ROLI Dashboard's own Littlefoot library)
+
+ROLI Dashboard ships its scale and config logic as Littlefoot source on disk
+(`…/ROLI Dashboard/LittleFootLibrary/`), which is authoritative:
+
+- **`Scale.littlefoot`** — `Scale_getScaleBitMask(index)` returns a 12-bit mask (bit *n* = semitone
+  *n* above the root is in-scale) for each of the 19 scales, in device order 0..18:
+
+  | 0 major `0xab5` | 1 minor `0x5ad` | 2 harmonic minor `0x9ad` | 3 pent. neutral `0x4a5` | 4 pent. major `0x295` |
+  | 5 pent. minor `0x4a9` | 6 blues `0x4e9` | 7 dorian `0x6ad` | 8 phrygian `0x5ab` | 9 lydian `0xad5` |
+  | 10 mixolydian `0x6b5` | 11 locrian `0x56b` | 12 whole tone `0x555` | 13 arabic A `0xb6d` | 14 arabic B `0x575` |
+  | 15 japanese `0x8d1` | 16 ryukyu `0x8b1` | 17 8-tone spanish `0x57b` | 18 chromatic `0xfff` | |
+
+  GRAB uses these verbatim to light the LUMI/Piano keyboard graphic, so the lit keys match the device
+  exactly (`src/gui/KeyboardView.h`, `scaleMask`).
+
+- **`ConfigIds.littlefoot`** — names every config id, confirming GRAB's: `scale = 22`, `rootKey = 27`,
+  `globalKeyColour = 34`, `rootKeyColour = 35`, `mode = 20`, plus others worth naming (`octaveTopology = 8`,
+  `glideLockRate = 18`, `glideLockEnable = 19`, `volume = 21`, `hideMode = 23`, `chord = 24`,
+  `arpPattern = 25`, `tempo = 26`, `transposeToKey = 28`, `gammaCorrection = 33`, `MPEZone = 40`,
+  `user0..user22 = 64..86`).
+
+The per-mode **Color Scheme** palettes (Pro / Piano / Stage / Rainbow) are **not** in these readable
+files — they live in the LUMI firmware (and possibly ROLI Connect's packed `app.asar`). GRAB can only
+colour the **User** scheme, where the keys use `globalKeyColour` / `rootKeyColour` (which GRAB edits).

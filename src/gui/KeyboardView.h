@@ -143,38 +143,33 @@ private:
         if (dirty.exchange (false)) repaint();
     }
 
-    // Semitones (relative to the root) in each of the 19 device-order scales, as a 12-bit mask.
-    // Common scales are exact; a few exotic ones (Arabic A/B, Japanese, Ryukyu) are best-known
-    // approximations — the device itself is the ground truth, this is a representation.
+    // 12-bit scale masks (bit n set = semitone n above the root is in the scale), taken verbatim
+    // from ROLI Dashboard's own Littlefoot library (LittleFootLibrary/Scale.littlefoot,
+    // Scale_getScaleBitMask) so GRAB's lit keys match the device exactly across all 19 scales.
     static int scaleMask (int scaleId)
     {
-        static const std::vector<std::vector<int>> scales = {
-            { 0,2,4,5,7,9,11 },        // 0 Major
-            { 0,2,3,5,7,8,10 },        // 1 Minor
-            { 0,2,3,5,7,8,11 },        // 2 Harmonic Minor
-            { 0,2,5,7,10 },            // 3 Pentatonic Neutral
-            { 0,2,4,7,9 },             // 4 Pentatonic Major
-            { 0,3,5,7,10 },            // 5 Pentatonic Minor
-            { 0,3,5,6,7,10 },          // 6 Blues
-            { 0,2,3,5,7,9,10 },        // 7 Dorian
-            { 0,1,3,5,7,8,10 },        // 8 Phrygian
-            { 0,2,4,6,7,9,11 },        // 9 Lydian
-            { 0,2,4,5,7,9,10 },        // 10 Mixolydian
-            { 0,1,3,5,6,8,10 },        // 11 Locrian
-            { 0,2,4,6,8,10 },          // 12 Whole Tone
-            { 0,1,4,5,7,8,11 },        // 13 Arabic (A)  (double harmonic)
-            { 0,2,4,5,6,8,10 },        // 14 Arabic (B)  (approx)
-            { 0,2,3,7,8 },             // 15 Japanese    (Hirajoshi)
-            { 0,4,5,7,11 },            // 16 Ryukyu
-            { 0,1,3,4,5,6,8,10 },      // 17 8-Tone Spanish
-            { 0,1,2,3,4,5,6,7,8,9,10,11 } // 18 Chromatic
+        static const int masks[19] = {
+            0xab5, // 0 major
+            0x5ad, // 1 minor
+            0x9ad, // 2 harmonic minor
+            0x4a5, // 3 pentatonic neutral
+            0x295, // 4 pentatonic major
+            0x4a9, // 5 pentatonic minor
+            0x4e9, // 6 blues
+            0x6ad, // 7 dorian
+            0x5ab, // 8 phrygian
+            0xad5, // 9 lydian
+            0x6b5, // 10 mixolydian
+            0x56b, // 11 locrian
+            0x555, // 12 whole tone
+            0xb6d, // 13 arabic (A)
+            0x575, // 14 arabic (B)
+            0x8d1, // 15 japanese
+            0x8b1, // 16 ryukyu
+            0x57b, // 17 8-tone spanish
+            0xfff  // 18 chromatic
         };
-        int mask = 0;
-        if (scaleId >= 0 && scaleId < (int) scales.size())
-            for (int iv : scales[(std::size_t) scaleId]) mask |= (1 << iv);
-        else
-            mask = 0xFFF;
-        return mask;
+        return (scaleId >= 0 && scaleId < 19) ? masks[scaleId] : 0xfff;
     }
 
     // Colour for a key, by its pitch class (0..11). Root first, then in-scale, then dim; when the
