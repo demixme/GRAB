@@ -13,20 +13,38 @@ instruments configurable and self-documents their protocol.
        alt="GRAB configuring a Seaboard Block: colour-coded 5D sensitivity curves with live touch rings on the keyboard graphic, and MIDI settings, pitch and play-mode cards below.">
 </p>
 
-## Where it's at — v0.1.24
+## Where it's at — v0.1.33
 **Live editing** (changes write as you make them, like Dashboard), one-click **ROLI presets**
-(MPE / Multi / Single / Piano), and **factory reset** for Blocks — on **Windows, macOS and
-Linux**. Recent additions: a **Diagnose connection** helper for the common "port is busy / no
-device found" problems; a preliminary **Seaboard GRAND** config page (it's configured with the
-same protocol as the RISE); **Download firmware for archiving** (Advanced ▸ — Seaboard **Block** and every **RISE**)
-while ROLI's servers are up; named **scales + native scale lighting** on the ROLI Piano; and —
-with **Windows MIDI Services** — GRAB can now run **alongside your DAW** without quitting it.
+(MPE / Multi / Single / Piano), and **factory reset** for Blocks — on **Windows, macOS and Linux**.
 
-**Still needed — contributions very welcome:** a full settings capture from a **Seaboard GRAND**
-(to finish its config page); anonymised profiles from **LUMI Keys / Piano M, Lightpad, and
-Live / Loop / Touch**; and testers for the **Linux** build. In GRAB, use **Contribute…**,
-**Advanced ▸ How you can help**, or **Diagnose…** — everything is anonymised and nothing is sent
-unless you click.
+Confirmed on real hardware: **Seaboard Block / Block M**, **Seaboard RISE 2**, the **original
+Seaboard RISE 25 / 49**, the **ROLI Piano 49**, and the **Piano M / LUMI Keys** (named scales,
+key, colour schemes, and an editable **key-colour picker**). The **Seaboard GRAND** is now
+provisional rather than guesswork: a full Dashboard capture ([issue #6](../../issues/6)) confirmed
+it uses the same `0x78` protocol as the RISE, so a real GRAND routes to the RISE page and shows the
+fields decoded end-to-end (**three pedal CCs + glide sensitivity**), with more to come as owners verify.
+
+Recent additions:
+- **Capture MIDI** (Advanced ▸) — one read-only tool that logs everything a device emits and
+  **decodes it from the bytes into a plain-English table** (Time · Kind · Message · Value · Raw),
+  with Copy / Save / Submit / open-a-GitHub-issue. It replaces the separate raw-capture and
+  watch views.
+- **Editable key colours** on the ROLI Piano / Piano M / LUMI — a swatch + hex picker with presets,
+  writing live.
+- **Version in the title bar and footer**, with an **update-available** link when a newer release
+  is on GitHub.
+- A **Diagnose connection** helper for the common "port is busy / no device found" problems;
+  **Download firmware for archiving** (Advanced ▸, Seaboard **Block** and every **RISE**) while
+  ROLI's servers are up; and — with **Windows MIDI Services** — GRAB runs **alongside your DAW**
+  without quitting it (macOS and Linux already share).
+
+**Still needed — contributions very welcome:** GRAND owners to verify the remaining fields (MIDI
+mode / bend / transpose) on the live build; anonymised profiles and Dashboard captures from
+**Lightpad / Note Grid** and **Live / Loop / Touch**; the **host→device Dashboard capture** that
+unlocks device-specific features (see **Advanced ▸ How you can help** and
+[tools/CAPTURE-DASHBOARD.md](tools/CAPTURE-DASHBOARD.md)); and testers for the **Linux** build. In
+GRAB, use **Contribute…**, **Advanced ▸ Capture MIDI**, **Advanced ▸ How you can help**, or
+**Diagnose…** — everything is anonymised and nothing is sent unless you click.
 
 ## Supported devices
 | Device | Status |
@@ -216,8 +234,10 @@ prefilled GitHub issue** instead of submitting.
   or another app), and the control set adapts when a setting like MIDI Mode changes
   which parameters are available — no manual refresh needed. Unsaved edits are kept.
 - **JSON presets** (Seaboard Block and RISE), transport auto-select (USB/BLE).
-- **Chained Seaboard Blocks** of the same type appear as one device — shared config, writes
-  fan out to the whole chain, shown as a single continuous keyboard.
+- **Chained Seaboard Blocks** (and Piano M) of the same type appear as one device — shared config,
+  writes fan out to the whole chain; Seaboard chains are shown as a single continuous keyboard.
+- **Editable key colours** on the ROLI Piano / Piano M / LUMI — a swatch + hex picker with presets,
+  shown when the active mode's Color Scheme is User.
 - **Keyboard graphic** at the top for Seaboard devices, with **live 5D-touch rings** that
   track finger position and grow with pressure.
 - **Decodes the protocol offline** from hex dumps or USBPcap/Wireshark/BLE captures.
@@ -260,8 +280,13 @@ block. The GUI writes logs to a per-user dir (`%APPDATA%\GRAB\logs` on Windows,
 ## Documentation
 - [PROTOCOL.md](PROTOCOL.md) — the observed BLOCKS SysEx protocol (framing, checksum,
   config, firmware), each fact marked confirmed-on-device vs from-source.
-- [RISE-GRAND.md](RISE-GRAND.md): the Seaboard RISE 2 protocol and notes for adding the GRAND.
+- [RISE-GRAND.md](RISE-GRAND.md) — the Seaboard RISE 2 / RISE 25 protocol and the decoded
+  Seaboard GRAND reply + param map.
 - [PIANO.md](PIANO.md) — ROLI Piano 49 notes: connecting on Windows + the config items it reports.
+- [LUMI.md](LUMI.md) — Piano M / LUMI Keys: the captured config frames, hardware results, and how
+  per-key lighting works (out of scope for GRAB).
+- [tools/CAPTURE-DASHBOARD.md](tools/CAPTURE-DASHBOARD.md) — how to capture ROLI Dashboard's
+  host→device traffic (USB/MIDI monitor) — the data that adds device-specific features.
 - [DEVICE-PROFILES.md](DEVICE-PROFILES.md) — the opt-in "self-learn" device-profile
   schema (contribute what your device reports, to a store at demix.me).
 - [PATCHES.md](PATCHES.md) — the vendored-library patches.
@@ -279,11 +304,13 @@ GRAB gets better the more devices people point it at. Several ways to help, all
 - **Contribute a device profile** — **Contribute…** sends an **anonymized** snapshot of
   what your (supported) device reports: config items, ranges, options, values. Your
   **serial is hashed** (never sent raw); review the JSON first, or **Save to file**.
-- **Dig deeper (advanced)** — the **Advanced…** menu has two optional tools: **Raw MIDI
-  capture** logs everything a device emits (read-only), and **Active probe** sends one
-  *curated, documented* message and logs the reply, to confirm an unsupported device's
-  control protocol. Both offer Submit / Save / open-an-issue; firmware/reset/packed
-  messages are hard-blocked and you must Arm before each probe send.
+- **Dig deeper (advanced)** — the **Advanced…** menu has two optional tools: **Capture MIDI**
+  logs everything a device emits (read-only) and decodes it into a plain-English table — config
+  changes show as "Pressure Sensitivity = 46" alongside the raw bytes, so a capture made while you
+  change settings in ROLI Dashboard is directly useful; and **Active probe** sends one *curated,
+  documented* message and logs the reply, to confirm an unsupported device's control protocol.
+  Both offer Submit / Save / Copy / open-an-issue; firmware/reset/packed messages are hard-blocked
+  and you must Arm before each probe send.
 - **Contribute code** — the dashboard/UI and new-device support are open; open a pull
   request. RISE/GRAND is a great start ([RISE-GRAND.md](RISE-GRAND.md) / [issue #1](../../issues/1)).
 
@@ -308,14 +335,21 @@ servers are still up, see [tools/FIRMWARE-CAPTURE.md](tools/FIRMWARE-CAPTURE.md)
 your own ROLI account) — keep those binaries for yourself, out of the profile store.
 
 ## Credits
-GRAB is built by the community. In particular, **[sbialy](https://github.com/sbialy)**
-reverse-engineered the **Seaboard RISE 2 protocol** (the `0x78` dialect GRAB uses to read
-and write RISE settings), built the **5D sensitivity-curve rendering**, and contributed the
-**serial/MAC anonymization** and further RISE fixes. **[fictionfred](https://github.com/fictionfred)**
-captured and decoded the **original RISE (RISE 25)** write protocol, which unlocked read/write
-support for the original Seaboard RISE. Thanks also to everyone who's submitted a device profile, capture, or report — the
-supported-device list grows from those. Contributions welcome; see
-[CONTRIBUTING.md](CONTRIBUTING.md).
+GRAB is built by the community. In particular:
+
+- **[sbialy](https://github.com/sbialy)** reverse-engineered the **Seaboard RISE 2 protocol** (the
+  `0x78` dialect GRAB uses to read and write RISE settings), built the **5D sensitivity-curve
+  rendering**, and contributed the **serial/MAC anonymization** and further RISE fixes.
+- **[fictionfred](https://github.com/fictionfred)** captured and decoded the **original RISE (RISE
+  25)** write protocol, which unlocked read/write support for the original Seaboard RISE.
+- **[BabeleDunnit](https://github.com/BabeleDunnit)** contributed the full **Seaboard GRAND**
+  Dashboard capture that cracked the GRAND configuration — confirming it is the RISE `0x78`
+  protocol and letting GRAB map its reply and controls ([issue #6](../../issues/6)).
+- **[lluisgerard](https://github.com/lluisgerard)** confirmed **Piano M / LUMI Keys** support on
+  hardware (including a chained pair) and added the **editable key-colour picker** ([PR #8](../../pull/8)).
+
+Thanks also to everyone who's submitted a device profile, capture, or report — the supported-device
+list grows from those. Contributions welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 MIT — see [LICENSE](LICENSE). Vendored `roli_blocks_basics` is ISC (ROLI Ltd); JUCE
