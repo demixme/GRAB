@@ -73,7 +73,10 @@ inline Messages glideSlideTracking (int v)
 enum class Mode { mpe, multi, single };
 
 // Mode flag, MPE configuration (RPN 6), then pitch bend range (RPN 0), in Dashboard's order.
-// MPE addresses the master and first member channel of the zone.
+// MPE addresses the master and first member channel of the zone. For Multi/Single the RPN
+// (number 6, value = channel count: 1 = Single, 2..16 = Multi) is sent ON the start channel,
+// so the device takes both the start channel AND the count (confirmed from a RISE 2 by
+// gofer723, issue #9). `channel` is the 1-based start channel; `members` is the channel count.
 inline Messages midiMode (Mode mode, bool upperZone, int members, int channel, int bend)
 {
     Messages m { setParam (0x0e, mode == Mode::mpe ? 1 : 0) };
@@ -87,9 +90,10 @@ inline Messages midiMode (Mode mode, bool upperZone, int members, int channel, i
     }
     else
     {
-        const int ch = mode == Mode::multi ? 0 : channel - 1;
-        append (m, rpn (ch, 6, mode == Mode::multi ? 16 : 1));
-        append (m, rpn (ch, 0, bend));
+        const int startCh = juce::jlimit (1, 16, channel) - 1;                       // 0-based start channel
+        const int n       = mode == Mode::multi ? juce::jlimit (2, 16, members) : 1; // 1 = Single, 2..16 = Multi count
+        append (m, rpn (startCh, 6, n));
+        append (m, rpn (startCh, 0, bend));
     }
     return m;
 }
@@ -166,7 +170,8 @@ struct State
 
     bool upperZone() const { return at (offset::masterChannel) == 15 && mode() == Mode::mpe; }
     int  members() const   { return at (offset::lastMember) - at (offset::firstMember) + 1; }
-    int  channel() const   { return at (offset::masterChannel) + 1; }
+    int  channel() const   { return at (offset::masterChannel) + 1; }          // MPE master channel (1-based)
+    int  startChannel() const { return at (offset::firstMember) + 1; }         // Multi/Single start channel (1-based)
     int  sleepTime() const { return at (offset::sleepLo) | (at (offset::sleepHi) << 7); }
 };
 

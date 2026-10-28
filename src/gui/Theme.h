@@ -15,11 +15,11 @@ namespace grab::theme
     inline const juce::Colour windowBg     { 0xff1a1c27 };  // app background
     inline const juce::Colour panelBg      { 0xff202034 };  // cards, combos, buttons
     inline const juce::Colour panelBgAlt   { 0xff15161f };  // insets, slider tracks (derived)
-    inline const juce::Colour outline      { 0xff28283a };  // borders and 5D grid lines
+    inline const juce::Colour outline      { 0xff45475f };  // control borders (checkbox/combo/editor), brightened for visibility
 
-    // Curve panels (card background; grid lines use the border colour)
+    // Curve panels (card background; grid lines a touch brighter than before, but subtler than control borders)
     inline const juce::Colour curveBg   { 0xff202034 };
-    inline const juce::Colour curveGrid { 0xff28283a };
+    inline const juce::Colour curveGrid { 0xff34364e };
 
     // Text
     inline const juce::Colour textPrimary   { 0xfff1f1f1 };

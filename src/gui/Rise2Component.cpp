@@ -63,10 +63,13 @@ const std::vector<Field>& fields()
           [] (const rise2::State& s) { return (int) s.mode(); }, {} },
         { kZone,     "MPE Zone",         "MIDI Settings", CT::options, 0, 1, { "Lower", "Upper" },
           [] (const rise2::State& s) { return s.upperZone() ? 1 : 0; }, {} },
-        { kMembers,  "No. MIDI Channels", "MIDI Settings", CT::integer, 1, 15, {},
-          [] (const rise2::State& s) { return s.mode() == rise2::Mode::mpe ? juce::jlimit (1, 15, s.members()) : 15; }, {} },
+        { kMembers,  "No. MIDI Channels", "MIDI Settings", CT::integer, 1, 16, {},
+          // MPE member count, or the Multi-channel count - both are lastMember-firstMember+1
+          // (Single reports 1). Was wrongly hardcoded to 15 outside MPE - issue #9.
+          [] (const rise2::State& s) { return juce::jlimit (1, 16, s.members()); }, {} },
         { kChannel,  "MIDI Channel",     "MIDI Settings", CT::integer, 1, 16, {},
-          [] (const rise2::State& s) { return s.channel(); }, {} },
+          // MPE master channel, or the Multi/Single START channel (firstMember+1).
+          [] (const rise2::State& s) { return s.mode() == rise2::Mode::mpe ? s.channel() : s.startChannel(); }, {} },
         { kBend,     "Pitch Bend Range", "MIDI Settings", CT::integer, 1, 96, {}, byte (off::bendRange), {} },
         { kGlideTracking, "Glide & Slide Tracking", "MIDI Settings", CT::options, 1, 3, { "Last Played", "Highest", "Lowest" },
           byte (off::glideTracking), rise2::glideSlideTracking },
@@ -774,8 +777,12 @@ void Rise2Component::updateEnabled()
     for (auto& r : rows)
     {
         const auto id = r->getId();
-        if (id == kZone || id == kMembers) r->setEnabled (mode == rise2::Mode::mpe);
-        if (id == kChannel)                r->setEnabled (mode == rise2::Mode::single);
+        // MPE Zone: MPE only. No. MIDI Channels (count): MPE members or the Multi channel count.
+        // MIDI Channel (start): Single's channel or the Multi start channel. (issue #9: Multi used
+        // to grey out both, so start channel + count couldn't be read or set.)
+        if (id == kZone)    r->setEnabled (mode == rise2::Mode::mpe);
+        if (id == kMembers) r->setEnabled (mode == rise2::Mode::mpe   || mode == rise2::Mode::multi);
+        if (id == kChannel) r->setEnabled (mode == rise2::Mode::single || mode == rise2::Mode::multi);
     }
 
     bool any = false;
@@ -814,9 +821,11 @@ void Rise2Component::saveToDevice()
         rise2::append (m, msgs);
         msgs = std::move (m);
 
-        // Settings that don't apply to the new mode are not stored by the device.
-        if (mode != rise2::Mode::mpe)    { expected.erase (kZone); expected.erase (kMembers); }
-        if (mode != rise2::Mode::single) expected.erase (kChannel);
+        // Verify only the fields the mode actually uses: Zone (MPE), channel count (MPE + Multi),
+        // start/MIDI channel (Multi + Single). (issue #9)
+        if (mode != rise2::Mode::mpe)    expected.erase (kZone);
+        if (mode == rise2::Mode::single) expected.erase (kMembers);
+        if (mode == rise2::Mode::mpe)    expected.erase (kChannel);
     }
 
     if (msgs.empty())
