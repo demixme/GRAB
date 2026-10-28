@@ -92,6 +92,7 @@ private:
     void timerCallback() override;
     void forceRisePreview();   // secret dev shortcut: show the RISE page with synthetic data
     void forcePianoPreview();  // secret dev shortcut: synthetic ROLI Piano config page (no hardware)
+    void forceLumiPreview();   // secret dev shortcut: synthetic Piano M / LUMI Keys page (no hardware)
     void forceGrandPreview();  // secret dev shortcut: synthetic GRAND (identity-only; settings unmapped)
 
     // Live config updates from the device (delivered on the message thread).
