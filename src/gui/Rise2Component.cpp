@@ -115,9 +115,11 @@ const std::vector<Field>& fields()
 
         // GRAND-only pedals. Params 0x08/0x0A/0x0C and the reply offsets are both confirmed from
         // BabeleDunnit's full Dashboard capture (CC stored as the low byte of a 2-byte pair).
+        // Pedal names match ROLI Dashboard's GRAND page (and standard MIDI): CC64 Sustain,
+        // CC67 Soft, CC66 Sostenuto. (Pedal 2/3 labels were previously swapped.)
         { kPedal1Cc, "Pedal 1 CC (Sustain)",    "Pedals", CT::integer, 0, 127, {}, byte (goff::pedal1Cc), param (0x08) },
-        { kPedal2Cc, "Pedal 2 CC (Sostenuto)",  "Pedals", CT::integer, 0, 127, {}, byte (goff::pedal2Cc), param (0x0a) },
-        { kPedal3Cc, "Pedal 3 CC (Soft)",       "Pedals", CT::integer, 0, 127, {}, byte (goff::pedal3Cc), param (0x0c) },
+        { kPedal2Cc, "Pedal 2 CC (Soft)",       "Pedals", CT::integer, 0, 127, {}, byte (goff::pedal2Cc), param (0x0a) },
+        { kPedal3Cc, "Pedal 3 CC (Sostenuto)",  "Pedals", CT::integer, 0, 127, {}, byte (goff::pedal3Cc), param (0x0c) },
     };
     return f;
 }
