@@ -128,6 +128,10 @@ namespace goffset
     enum : int
     {
         model = 6, firmware = 38,          // "GRND1.01", then "0.6.9"
+        // MIDI-mode block (mapped from GRAND_capture_02.mmon, issue #6): the GRAND keeps it well
+        // before the RISE's 79-82, and - unlike the RISE - masterChannel is firstMember-1 in Single
+        // mode, so mode detection keys off first==last, not first==last==master.
+        firstMember = 63, lastMember = 64, masterChannel = 65, mpeOn = 66,
         keyCount = 62,                     // 0x3E = 62 on a GRAND 62
         pedal1Cc = 67, pedal2Cc = 69, pedal3Cc = 71,   // 2-byte pairs; low byte is the CC
         bendRange = 77, transpose = 78,
@@ -161,17 +165,26 @@ struct State
         return s;
     }
 
+    // The MIDI-mode block lives at different offsets on the GRAND (goffset::) than the RISE
+    // (offset::); these pick the right one so the accessors below work for both.
+    int firstMemberOff()   const { return grand ? goffset::firstMember   : offset::firstMember; }
+    int lastMemberOff()    const { return grand ? goffset::lastMember    : offset::lastMember; }
+    int masterChannelOff() const { return grand ? goffset::masterChannel : offset::masterChannel; }
+    int mpeOnOff()         const { return grand ? goffset::mpeOn         : offset::mpeOn; }
+
     Mode mode() const
     {
-        if (at (offset::mpeOn) != 0) return Mode::mpe;
-        const auto f = at (offset::firstMember), l = at (offset::lastMember), m = at (offset::masterChannel);
+        if (at (mpeOnOff()) != 0) return Mode::mpe;
+        const auto f = at (firstMemberOff()), l = at (lastMemberOff()), m = at (masterChannelOff());
+        // GRAND reports masterChannel = firstMember-1 in Single, so only first==last is reliable.
+        if (grand) return (f == l) ? Mode::single : Mode::multi;
         return (f == l && l == m) ? Mode::single : Mode::multi;
     }
 
-    bool upperZone() const { return at (offset::masterChannel) == 15 && mode() == Mode::mpe; }
-    int  members() const   { return at (offset::lastMember) - at (offset::firstMember) + 1; }
-    int  channel() const   { return at (offset::masterChannel) + 1; }          // MPE master channel (1-based)
-    int  startChannel() const { return at (offset::firstMember) + 1; }         // Multi/Single start channel (1-based)
+    bool upperZone() const { return at (masterChannelOff()) == 15 && mode() == Mode::mpe; }
+    int  members() const   { return at (lastMemberOff()) - at (firstMemberOff()) + 1; }
+    int  channel() const   { return at (masterChannelOff()) + 1; }          // MPE master channel (1-based)
+    int  startChannel() const { return at (firstMemberOff()) + 1; }         // Multi/Single start channel (1-based)
     int  sleepTime() const { return at (offset::sleepLo) | (at (offset::sleepHi) << 7); }
 };
 

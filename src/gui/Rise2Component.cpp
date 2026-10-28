@@ -70,7 +70,7 @@ const std::vector<Field>& fields()
         { kChannel,  "MIDI Channel",     "MIDI Settings", CT::integer, 1, 16, {},
           // MPE master channel, or the Multi/Single START channel (firstMember+1).
           [] (const rise2::State& s) { return s.mode() == rise2::Mode::mpe ? s.channel() : s.startChannel(); }, {} },
-        { kBend,     "Pitch Bend Range", "MIDI Settings", CT::integer, 1, 96, {}, byte (off::bendRange), {} },
+        { kBend,     "Pitch Bend Range", "MIDI Settings", CT::integer, 1, 96, {}, gbyte (off::bendRange, goff::bendRange), {} },
         { kGlideTracking, "Glide & Slide Tracking", "MIDI Settings", CT::options, 1, 3, { "Last Played", "Highest", "Lowest" },
           byte (off::glideTracking), rise2::glideSlideTracking },
         { kPressTracking, "Press Tracking",  "MIDI Settings", CT::options, 0, 3,
@@ -140,14 +140,16 @@ bool isRiseOnlyField (juce::uint32 id)
 }
 bool isGrandOnlyField (juce::uint32 id) { return id == kPedal1Cc || id == kPedal2Cc || id == kPedal3Cc; }
 
-// The fields a real GRAND shows. Deliberately limited to what the capture confirms end-to-end
-// (read offset AND write param): the three pedal CCs and glide sensitivity. Other GRAND settings
-// (MIDI mode, bend, transpose...) are writable but their reply offsets aren't nailed down yet, so
-// they're left off until verified on hardware rather than shown with a guessed value.
+// The fields a real GRAND shows. All reply offsets here are confirmed from BabeleDunnit's two full
+// Dashboard captures (issue #6): the three pedal CCs, glide sensitivity, transpose, and the MIDI
+// block (mode / zone / channel count / start channel / pitch bend range). The pedal writes (3d
+// 08/0a/0c) and the MPE on/off flag (3d 0e) are confirmed from the capture too; the mode RPNs and
+// bend/transpose NRPN/RPN reuse the RISE's 0x78 scheme (same family) and await a GRAND write test.
 bool isGrandField (juce::uint32 id)
 {
     return id == kGlideSens || id == kPedal1Cc || id == kPedal2Cc || id == kPedal3Cc
-        || id == kTranspose;   // Transpose: reply offset verified from the capture, RISE NRPN write
+        || id == kTranspose
+        || id == kMode || id == kZone || id == kMembers || id == kChannel || id == kBend;
 }
 
 const Field* findField (juce::uint32 id)
@@ -353,8 +355,10 @@ void Rise2Component::previewSyntheticGrand()
     put (goff::firmware, "0.6.9");
     raw[goff::keyCount] = 62;
     raw[goff::pedal1Cc] = 60; raw[goff::pedal2Cc] = 67; raw[goff::pedal3Cc] = 66;
-    raw[goff::bendRange] = 48; raw[goff::transpose] = 64;  // -> 0
+    raw[goff::bendRange] = 12; raw[goff::transpose] = 64;  // -> 0
     raw[goff::glideSens] = 80; raw[goff::pressSens] = 100;
+    // MPE lower zone, 15 members (as the real GRAND in BabeleDunnit's capture reported).
+    raw[goff::firstMember] = 1; raw[goff::lastMember] = 15; raw[goff::masterChannel] = 0; raw[goff::mpeOn] = 1;
 
     State s; s.raw = std::move (raw);
     awaitingState = true;
@@ -512,17 +516,23 @@ void Rise2Component::onState (rise2::State s)
     stopTimer();
     state = std::move (s);
 
-    // The model string is authoritative: a GRAND replies "GRND..." (shorter 0x3a dump). Set it on
-    // the state so the grand-aware reads resolve to the right offsets.
-    grand = state.text (off::model, 4).startsWithIgnoreCase ("GRND");
+    // The model string is authoritative: a GRAND replies "GRND..." (shorter 0x3a dump). Decide it
+    // straight from the reply bytes: State::text()/at() gate on valid(), which can't know the reply
+    // size until state.grand is set - so a GRAND's 87-byte reply would fail the RISE 224-byte length
+    // check and read as an empty model, leaving every GRAND mis-detected and shown with no settings
+    // (the "firmware not verified" bug, issue #6). Read model[6..9] from raw directly, then commit.
+    juce::String rawModel;
+    for (int i = goff::model; i < goff::model + 4 && (size_t) i < state.raw.size() && state.raw[(size_t) i] != 0; ++i)
+        rawModel << (juce::juce_wchar) state.raw[(size_t) i];
+    grand = rawModel.startsWithIgnoreCase ("GRND");
     state.grand = grand;
 
     if (grand)
     {
         firmware = state.text (goff::firmware, 8);   // stored for preset metadata
         infoLabel.setText (portName + "   fw " + firmware + "   " + juce::String (state.at (goff::keyCount)) + " keys"
-                               + "   " + grab::u8 ("\xe2\x80\x94") + " provisional GRAND page (pedals + glide confirmed; "
-                                 "more coming as it's verified on hardware)",
+                               + "   " + grab::u8 ("\xe2\x80\x94") + " GRAND page: MIDI mode, channel, bend, pedals, "
+                                 "glide & transpose (reads verified from capture; please confirm writes)",
                            juce::dontSendNotification);
     }
     else
