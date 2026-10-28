@@ -35,7 +35,8 @@ inline void applyConfigOverrides (roli::Block::ConfigMetaData& meta)
 
     // Scale (id 22): the library ships this as a plain integer 0..18 ("Should be options").
     // Names are in device order from ROLI Dashboard's LittleFoot library (Scale.littlefoot),
-    // contributed and tested on a ROLI Piano 49 (fw 1.5.0). Value 0 = Major. With the active
+    // contributed and tested on a ROLI Piano 49 (fw 1.5.0) by Legitimate_Horror_72. Value 0 =
+    // Major. With the active
     // mode's Color Scheme set to User, the Piano lights only the in-scale keys natively — see
     // PIANO.md. (19 names need numOptionNames >= 19; raised to 20 in the vendored lib, see P3.)
     static const char* const scaleNames[] = {
