@@ -62,12 +62,13 @@ public:
         // panel
         g.setColour (grab::theme::curveBg);
         g.fillRoundedRectangle (getLocalBounds().toFloat(), 4.0f);
-        // Accent dot (top-right) when changed from the device-read value - persists until reload/reset.
+        // Accent dot when changed from the device-read value - persists until reload/reset. Sits just
+        // left of the right-aligned value in the header (reserve ~30px so it never overlaps 1-3 digits).
         if (sens != initialSens || mn != initialMn || mx != initialMx)
         {
             const float d = 5.0f;
             g.setColour (grab::theme::accent);
-            g.fillEllipse ((float) getWidth() - d - 5.0f, 5.0f, d, d);
+            g.fillEllipse ((float) header.getRight() - 32.0f, (float) header.getCentreY() - d * 0.5f, d, d);
         }
 
         // sensitivity bar
