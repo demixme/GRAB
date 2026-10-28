@@ -241,6 +241,18 @@ const std::vector<RisePreset>& risePresets()
     };
     return presets;
 }
+
+// Item ids for the unified Preset combo. Factory presets are 1..risePresets().size(); the user's
+// saved presets start at kUserPresetBase (index = id - kUserPresetBase); the trailing actions use
+// high ids so they never collide.
+enum PresetMenuId
+{
+    kUserPresetBase = 1000,
+    kPresetSaveAs   = 90001,
+    kPresetImport   = 90002,
+    kPresetExport   = 90003,
+    kPresetReveal   = 90004
+};
 } // namespace
 
 //==============================================================================
@@ -252,29 +264,38 @@ Rise2Component::Rise2Component (seaprobe::RawLogger& loggerToUse) : logger (logg
     infoLabel.setColour (juce::Label::textColourId, juce::Colours::white.withAlpha (0.7f));
     addAndMakeVisible (reloadButton);
     addAndMakeVisible (saveButton);
-    addAndMakeVisible (loadPresetBtn);
-    addAndMakeVisible (savePresetBtn);
     reloadButton.onClick = [this] { setStatus ("Reloading from device..."); requestState(); };
     saveButton.onClick   = [this] { saveToDevice(); };
     liveWriter.onTick    = [this] { flushLiveWrites(); };
-    loadPresetBtn.onClick = [this] { loadPreset(); };
-    savePresetBtn.onClick = [this] { savePreset(); };
     saveButton.setEnabled (false);
-    loadPresetBtn.setEnabled (false);   // enabled once settings are shown (a verified read)
-    savePresetBtn.setEnabled (false);
 
+    // One "Preset" menu: ROLI's built-in presets and the user's own saved presets in one list,
+    // plus Save / Import / Export actions - the way ROLI Dashboard presents presets.
     addAndMakeVisible (presetBox);
-    presetBox.setTextWhenNothingSelected ("Apply ROLI preset...");
-    { int id = 1; for (auto& p : risePresets()) presetBox.addItem (p.name, id++); }
-    presetBox.setEnabled (false);       // enabled with the preset buttons after a verified read
+    presetBox.setTextWhenNothingSelected ("Preset...");
+    presetBox.setEnabled (false);       // enabled after a verified read
     presetBox.onChange = [this]
     {
-        if (presetBox.getSelectedId() > 0)
-        {
+        const int id = presetBox.getSelectedId();
+        if (id <= 0)
+            return;
+
+        if (id >= 1 && id <= (int) risePresets().size())
             applyRisePreset (presetBox.getText());
-            presetBox.setSelectedId (0, juce::dontSendNotification);
+        else if (id >= kUserPresetBase && id < kPresetSaveAs)
+        {
+            const size_t idx = (size_t) (id - kUserPresetBase);
+            if (idx < userPresetFiles.size())
+                applyUserPreset (userPresetFiles[idx]);
         }
+        else if (id == kPresetSaveAs) saveUserPresetAs();
+        else if (id == kPresetImport) loadPreset();
+        else if (id == kPresetExport) savePreset();
+        else if (id == kPresetReveal) { auto d = presetDir(); d.createDirectory(); d.revealToUser(); }
+
+        presetBox.setSelectedId (0, juce::dontSendNotification);
     };
+    refreshPresetMenu();
 
     addAndMakeVisible (viewport);
     viewport.setViewedComponent (&rowHolder, false);
@@ -567,8 +588,6 @@ void Rise2Component::onState (rise2::State s)
         layoutOrder.clear();
         rowHolder.removeAllChildren();
         saveButton.setEnabled (false);
-        loadPresetBtn.setEnabled (false);
-        savePresetBtn.setEnabled (false);
         presetBox.setEnabled (false);
         resized();
         return;
@@ -579,9 +598,8 @@ void Rise2Component::onState (rise2::State s)
     // reads back as zeros, so those stay hidden even though they are writable.
     minMaxReliable = verified;
     rebuildRows();
-    loadPresetBtn.setEnabled (true);    // settings are shown now, so presets apply
-    savePresetBtn.setEnabled (true);
-    presetBox.setEnabled (true);
+    presetBox.setEnabled (true);        // settings are shown now, so presets apply
+    refreshPresetMenu();                // (re)build for this device family now that `grand` is known
 
     if (expected.empty())
     {
@@ -855,12 +873,164 @@ void Rise2Component::saveToDevice()
     });
 }
 
-void Rise2Component::savePreset()
+// Is this field on the current page? The GRAND hides the RISE-only controls and vice versa, and
+// deviceValues/pendingValues hold every field - so a preset must not push a RISE-only value (a
+// fader CC, say) into a GRAND, where it would be written to a device that ignores it.
+bool Rise2Component::fieldShown (juce::uint32 id) const
+{
+    return grand ? isGrandField (id) : ! isGrandOnlyField (id);
+}
+
+juce::File Rise2Component::presetDir() const
+{
+    // Scoped per device family so a RISE preset never shows up for (or is applied to) a GRAND.
+    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+             .getChildFile ("GRAB").getChildFile ("presets")
+             .getChildFile (grand ? "grand" : "rise");
+}
+
+// Apply a set of id -> value into the UI (and, when live, queue them to write to the device like
+// any interactive edit). Shared by the ROLI presets, the user's saved presets, and file import.
+int Rise2Component::applyPresetValues (const std::map<juce::uint32, juce::int32>& values, bool live)
+{
+    if (pendingValues.empty())
+        return 0;
+
+    int applied = 0;
+    for (auto& [id, v] : values)
+    {
+        if (pendingValues.find (id) == pendingValues.end())  // device doesn't have this item
+            continue;
+        if (! fieldShown (id))                               // not on this (RISE/GRAND) page
+            continue;
+
+        pendingValues[id] = v;
+        const bool differs = deviceValues[id] != v;
+        for (auto& r : rows)
+            if (r->getId() == id) { r->setValue (v); r->setChangedFromDevice (differs); }
+        for (auto* c : curves)
+        {
+            if (c->getId()    == id)       { c->setSensitivity (v); c->setChanged (differs); }
+            if (c->getMinId() == (int) id) c->setMin (v);
+            if (c->getMaxId() == (int) id) c->setMax (v);
+        }
+        for (auto* f : faders)
+            if (f->getId() == id) { f->setValue (v); f->setChanged (differs); }
+        if (live && differs)
+            dirtyWrites.insert (id);
+        ++applied;
+    }
+
+    if (live)
+        liveWriter.nudge();   // live-writes the changed items (mode group is sent as one midiMode)
+    updateEnabled();
+    return applied;
+}
+
+void Rise2Component::refreshPresetMenu()
+{
+    presetBox.clear (juce::dontSendNotification);
+    userPresetFiles.clear();
+
+    presetBox.addSectionHeading ("ROLI presets");
+    { int id = 1; for (auto& p : risePresets()) presetBox.addItem (p.name, id++); }
+
+    auto dir = presetDir();
+    if (dir.isDirectory())
+    {
+        auto files = dir.findChildFiles (juce::File::findFiles, false, "*.json");
+        files.sort();
+        if (! files.isEmpty())
+        {
+            presetBox.addSeparator();
+            presetBox.addSectionHeading ("My presets");
+            for (auto& f : files)
+            {
+                presetBox.addItem (f.getFileNameWithoutExtension(),
+                                   kUserPresetBase + (int) userPresetFiles.size());
+                userPresetFiles.push_back (f);
+            }
+        }
+    }
+
+    presetBox.addSeparator();
+    presetBox.addItem ("Save current as...",      kPresetSaveAs);
+    presetBox.addItem ("Import from file...",     kPresetImport);
+    presetBox.addItem ("Export to file...",       kPresetExport);
+    presetBox.addItem ("Reveal presets folder...", kPresetReveal);
+}
+
+void Rise2Component::applyUserPreset (const juce::File& file)
 {
     if (pendingValues.empty())
         return;
 
-    chooser = std::make_unique<juce::FileChooser> ("Save preset", juce::File(), "*.json");
+    const auto parsed = juce::JSON::parse (file.loadFileAsString());
+    const auto* values = parsed.getProperty ("values", juce::var()).getDynamicObject();
+    if (values == nullptr)
+    {
+        setStatus ("Preset has no 'values' object.");
+        return;
+    }
+
+    std::map<juce::uint32, juce::int32> m;
+    for (const auto& prop : values->getProperties())
+        m[(juce::uint32) prop.name.toString().getIntValue()] = (juce::int32) (int) prop.value;
+
+    const int applied = applyPresetValues (m, true);
+    setStatus ("Applied preset '" + file.getFileNameWithoutExtension() + "' (" + juce::String (applied) + " items).");
+}
+
+void Rise2Component::saveUserPresetAs()
+{
+    if (pendingValues.empty())
+    {
+        setStatus ("Read the device first, then save a preset.");
+        return;
+    }
+
+    auto* aw = new juce::AlertWindow ("Save preset",
+        "Name this preset. It's saved with GRAB and appears in the Preset menu for this device.",
+        juce::MessageBoxIconType::NoIcon);
+    aw->addTextEditor ("name", "My preset");
+    aw->addButton ("Save",   1, juce::KeyPress (juce::KeyPress::returnKey));
+    aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    aw->enterModalState (true, juce::ModalCallbackFunction::create (
+        [this, aw] (int result)
+        {
+            if (result == 1)
+            {
+                const auto name = juce::File::createLegalFileName (aw->getTextEditorContents ("name").trim());
+                if (name.isNotEmpty())
+                {
+                    auto dir = presetDir();
+                    dir.createDirectory();
+                    const auto file = dir.getChildFile (name + ".json");
+
+                    auto* obj = new juce::DynamicObject();
+                    obj->setProperty ("tool", "GRAB");
+                    obj->setProperty ("device", portName);
+                    obj->setProperty ("firmware", firmware);
+                    auto* values = new juce::DynamicObject();
+                    for (auto& kv : pendingValues)   // all items incl. the 5D curve dimensions and min/max
+                        values->setProperty (juce::String ((int) kv.first), kv.second);
+                    obj->setProperty ("values", juce::var (values));
+                    file.replaceWithText (juce::JSON::toString (juce::var (obj)));
+
+                    refreshPresetMenu();
+                    setStatus ("Preset saved: " + name);
+                }
+            }
+            delete aw;
+        }), false);
+}
+
+void Rise2Component::savePreset()   // Export to file...
+{
+    if (pendingValues.empty())
+        return;
+
+    chooser = std::make_unique<juce::FileChooser> ("Export preset", juce::File(), "*.json");
     chooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles,
         [this] (const juce::FileChooser& fc)
         {
@@ -878,97 +1048,43 @@ void Rise2Component::savePreset()
             obj->setProperty ("values", juce::var (values));
 
             file.replaceWithText (juce::JSON::toString (juce::var (obj)));
-            setStatus ("Preset saved: " + file.getFileName());
+            setStatus ("Preset exported: " + file.getFileName());
         });
 }
 
-void Rise2Component::loadPreset()
+void Rise2Component::loadPreset()   // Import from file...
 {
     if (pendingValues.empty())
     {
-        setStatus ("Read the device first, then load a preset.");
+        setStatus ("Read the device first, then import a preset.");
         return;
     }
 
-    chooser = std::make_unique<juce::FileChooser> ("Load preset", juce::File(), "*.json");
+    chooser = std::make_unique<juce::FileChooser> ("Import preset", juce::File(), "*.json");
     chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
         [this] (const juce::FileChooser& fc)
         {
             const auto file = fc.getResult();
-            if (file == juce::File())
-                return;
-
-            const auto parsed = juce::JSON::parse (file.loadFileAsString());
-            const auto* values = parsed.getProperty ("values", juce::var()).getDynamicObject();
-            if (values == nullptr)
-            {
-                setStatus ("Preset has no 'values' object.");
-                return;
-            }
-
-            int applied = 0;
-            for (const auto& prop : values->getProperties())
-            {
-                const auto id = (juce::uint32) prop.name.toString().getIntValue();
-                if (pendingValues.find (id) == pendingValues.end())
-                    continue; // only items this device actually has
-                const auto v = (juce::int32) (int) prop.value;
-                pendingValues[id] = v;
-                const bool differs = deviceValues.count (id) && deviceValues[id] != v;
-
-                for (auto& r : rows)
-                    if (r->getId() == id) { r->setValue (v); r->setChangedFromDevice (differs); }
-                for (auto* c : curves)
-                {
-                    if (c->getId()    == id)        { c->setSensitivity (v); c->setChanged (differs); }
-                    if (c->getMinId() == (int) id)  c->setMin (v);
-                    if (c->getMaxId() == (int) id)  c->setMax (v);
-                }
-                for (auto* f : faders)
-                    if (f->getId() == id) { f->setValue (v); f->setChanged (differs); }
-                ++applied;
-            }
-
-            updateEnabled();
-            setStatus ("Preset loaded (" + juce::String (applied) + " items). Review, then Save to device.");
+            if (file != juce::File())
+                applyUserPreset (file);   // same load + apply path as a saved preset
         });
 }
 
 void Rise2Component::applyRisePreset (const juce::String& name)
 {
-    if (pendingValues.empty())
-        return;
-
     const RisePreset* preset = nullptr;
     for (auto& p : risePresets())
         if (name == p.name) { preset = &p; break; }
     if (preset == nullptr)
         return;
 
-    int applied = 0;
+    // Build the map in order so a later pair overrides an earlier one (e.g. Piano's GlideSens 0
+    // overrides the base 127) - a plain range-construct would keep the first, not the last.
+    std::map<juce::uint32, juce::int32> m;
     for (auto& [id, v] : preset->values)
-    {
-        if (pendingValues.find (id) == pendingValues.end())
-            continue;
-        pendingValues[id] = v;
-        const bool differs = deviceValues[id] != v;
-        for (auto& r : rows)
-            if (r->getId() == id) { r->setValue (v); r->setChangedFromDevice (differs); }
-        for (auto* c : curves)
-        {
-            if (c->getId()    == id)       { c->setSensitivity (v); c->setChanged (differs); }
-            if (c->getMinId() == (int) id) c->setMin (v);
-            if (c->getMaxId() == (int) id) c->setMax (v);
-        }
-        for (auto* f : faders)
-            if (f->getId() == id) { f->setValue (v); f->setChanged (differs); }
-        if (differs)
-            dirtyWrites.insert (id);
-        ++applied;
-    }
+        m[id] = v;
 
-    liveWriter.nudge();   // live-writes the changed items (mode group is sent as one midiMode)
-    updateEnabled();
+    const int applied = applyPresetValues (m, true);
     setStatus ("Applied ROLI preset '" + name + "' (" + juce::String (applied) + " items).");
 }
 
@@ -986,12 +1102,10 @@ void Rise2Component::resized()
     r.removeFromTop (4);
 
     auto buttons = r.removeFromTop (30);
-    reloadButton .setBounds (buttons.removeFromLeft (165).reduced (2, 0));
-    saveButton   .setBounds (buttons.removeFromLeft (165).reduced (2, 0));
-    loadPresetBtn.setBounds (buttons.removeFromLeft (137).reduced (2, 0));
-    savePresetBtn.setBounds (buttons.removeFromLeft (137).reduced (2, 0));
+    reloadButton.setBounds (buttons.removeFromLeft (165).reduced (2, 0));
+    saveButton  .setBounds (buttons.removeFromLeft (165).reduced (2, 0));
     buttons.removeFromLeft (8);
-    presetBox.setBounds (buttons.removeFromLeft (170).reduced (2, 0));
+    presetBox.setBounds (buttons.removeFromLeft (190).reduced (2, 0));
     r.removeFromTop (6);
 
     viewport.setBounds (r);

@@ -75,12 +75,20 @@ private:
     void rebuildRows();
     void onItemChanged (juce::uint32 id, juce::int32 value);
     void flushLiveWrites();   // throttled: send edited settings to the device as you make them
-    void applyRisePreset (const juce::String& name);   // apply a built-in ROLI RISE preset (live-writes)
+    void applyRisePreset (const juce::String& name);   // apply a built-in ROLI preset (live-writes)
     void updateEnabled();
     void saveToDevice();
-    void loadPreset();
-    void savePreset();
+    void loadPreset();        // import a preset from a user-chosen .json file
+    void savePreset();        // export the current settings to a user-chosen .json file
     void setStatus (const juce::String&);
+
+    // Unified "Preset" menu: built-in ROLI presets + the user's own saved presets in one list.
+    juce::File presetDir() const;                         // %APPDATA%/GRAB/presets/<family>
+    void refreshPresetMenu();                             // (re)populate the combo from disk
+    void saveUserPresetAs();                              // prompt a name, write to presetDir()
+    void applyUserPreset (const juce::File&);             // load + apply one saved preset (live)
+    bool fieldShown (juce::uint32 id) const;              // is this field on the current (RISE/GRAND) page
+    int  applyPresetValues (const std::map<juce::uint32, juce::int32>&, bool live);
 
     int value (juce::uint32 id) const;   // pending value, falls back to the device value
 
@@ -111,9 +119,8 @@ private:
     juce::Label      infoLabel;
     juce::TextButton reloadButton { "Reload from device" };
     juce::TextButton saveButton   { "Save to device" };
-    juce::TextButton loadPresetBtn { "Load preset..." };
-    juce::TextButton savePresetBtn { "Save preset..." };
-    juce::ComboBox   presetBox;   // built-in ROLI RISE presets (MPE/Multi/Single/Piano)
+    juce::ComboBox   presetBox;   // unified: ROLI presets + the user's own saved presets
+    std::vector<juce::File> userPresetFiles;   // menu index -> saved-preset file (parallel to the combo)
     std::unique_ptr<juce::FileChooser> chooser;
     juce::Viewport   viewport;
     juce::Component  rowHolder;

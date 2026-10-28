@@ -129,10 +129,15 @@ private:
     void factoryReset();   // Blocks only: library block->factoryReset(), behind a confirm dialog
     juce::String roliProductName() const;  // ROLI download product name for the connected device, or empty
     void downloadFirmware();               // open ROLI's firmware download page in the browser (archival; never flashes)
-    void populatePresetBox();                 // fill the ROLI-preset picker for the current device type
+    void populatePresetBox();                 // (re)fill the unified Preset menu for the current device
     void applyBlockPreset (const juce::String& name);   // apply a built-in ROLI preset (live-writes)
-    void loadPreset();
-    void savePreset();
+    void loadPreset();        // import a preset from a user-chosen .json file
+    void savePreset();        // export the current settings to a user-chosen .json file
+    // Unified "Preset" menu: built-in ROLI presets + the user's own saved presets in one list.
+    juce::File presetDir() const;                         // %APPDATA%/GRAB/presets/<device type>
+    void saveUserPresetAs();                              // prompt a name, write to presetDir()
+    void applyUserPreset (const juce::File&);             // load + apply one saved preset (live)
+    int  applyPresetValues (const std::map<juce::uint32, juce::int32>&, bool live);
     void onItemChanged (juce::uint32 id, juce::int32 value); // from a row or a curve
     void flushLiveWrites();                                  // throttled: write edited items to the device
     std::vector<roli::Block::Ptr> writeTargets() const;      // the selected block + its DNA cluster
@@ -193,9 +198,8 @@ private:
     juce::TextButton   reloadButton  { "Reload from device" };
     juce::TextButton   diagnoseBtn   { "Diagnose..." };
     juce::TextButton   saveButton    { "Save to device" };
-    juce::TextButton   loadPresetBtn { "Load preset..." };
-    juce::TextButton   savePresetBtn { "Save preset..." };
-    juce::ComboBox     presetBox;   // built-in ROLI presets (MPE/Multi/Single/Piano); Seaboard only for now
+    juce::ComboBox     presetBox;   // unified: ROLI presets + the user's own saved presets
+    std::vector<juce::File> userPresetFiles;   // menu index -> saved-preset file (parallel to the combo)
     juce::Viewport     viewport;
     juce::Component    rowHolder;
     std::vector<std::unique_ptr<ConfigRow>> rows;
