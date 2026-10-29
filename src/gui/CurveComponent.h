@@ -130,6 +130,7 @@ public:
             return;
         }
         dragTarget = pickDrag (e.position);
+        dragStartValue = dragTarget == Drag::minNode ? mn : dragTarget == Drag::maxNode ? mx : sens;
         applyDrag (e);
     }
     void mouseDrag (const juce::MouseEvent& e) override { applyDrag (e); }
@@ -230,8 +231,19 @@ private:
     void applyDrag (const juce::MouseEvent& e)
     {
         const auto plot = plotArea();
-        const float f = (plot.getBottom() - e.position.y) / juce::jmax (1.0f, plot.getHeight());
-        const int v = juce::jlimit (0, 127, (int) std::lround (f * 127.0f));
+        int v;
+        if (e.mods.isCtrlDown() || e.mods.isCommandDown())
+        {
+            // Fine mode (Ctrl / Cmd): move relative to where the drag began, at 1/4 gain - the same
+            // high-resolution adjustment JUCE gives its sliders when you hold the modifier.
+            const float dyUnits = -(float) e.getDistanceFromDragStartY() / juce::jmax (1.0f, plot.getHeight()) * 127.0f;
+            v = juce::jlimit (0, 127, (int) std::lround ((float) dragStartValue + dyUnits * 0.25f));
+        }
+        else
+        {
+            const float f = (plot.getBottom() - e.position.y) / juce::jmax (1.0f, plot.getHeight());
+            v = juce::jlimit (0, 127, (int) std::lround (f * 127.0f));
+        }
 
         if (dragTarget == Drag::minNode)
         {
@@ -290,6 +302,7 @@ private:
     Kind kind = kindFor (name);
     bool changed = false;
     Drag dragTarget = Drag::sensitivity;
+    juce::int32 dragStartValue = 0;   // value at mouse-down, for Ctrl/Cmd fine (relative) dragging
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CurveComponent)
 };
