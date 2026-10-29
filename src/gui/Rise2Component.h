@@ -62,6 +62,11 @@ public:
 
     void resized() override;
 
+    /** Live keyboard touch, synthesised from the device's performance MIDI and forwarded to the
+        keyboard graphic. Set by MainComponent. Args: MIDI channel 1-16, note, pressure 0-1,
+        pitch bend -1..1, isEnd. Called on the MIDI thread. */
+    std::function<void (int, int, float, float, bool)> onTouch;
+
 private:
     void handleIncomingMidiMessage (juce::MidiInput*, const juce::MidiMessage&) override;
     void timerCallback() override;
@@ -91,6 +96,7 @@ private:
     int  applyPresetValues (const std::map<juce::uint32, juce::int32>&, bool live);
 
     int value (juce::uint32 id) const;   // pending value, falls back to the device value
+    rise2::Messages writeFor (juce::uint32 id, juce::int32 v) const;  // grand-aware single-field write
 
     seaprobe::RawLogger& logger;
     std::unique_ptr<juce::MidiOutput> midiOut;
@@ -103,6 +109,9 @@ private:
     // Latest value per MIDI CC (0..127), written on the MIDI thread from incoming performance
     // messages; the fader panel polls it to animate the touch faders / XY pad. -1 = none yet.
     std::array<int, 128> liveCc;
+    std::array<int, 17>   touchNote;   // active note per MIDI channel (1-16), -1 = none
+    std::array<float, 17> touchZ;      // last pressure per channel
+    std::array<float, 17> touchBend;   // last pitch bend (-1..1) per channel
     std::map<juce::uint32, juce::int32> deviceValues;
     std::map<juce::uint32, juce::int32> pendingValues;
     std::map<juce::uint32, juce::int32> expected;  // after a save, what the device should report

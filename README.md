@@ -13,18 +13,19 @@ instruments configurable and self-documents their protocol.
        alt="GRAB configuring a Seaboard Block: colour-coded 5D sensitivity curves with live touch rings on the keyboard graphic, and MIDI settings, pitch and play-mode cards below.">
 </p>
 
-## Where it's at — v0.1.47
-**Live editing** (changes write as you make them, like Dashboard), one-click **ROLI presets**
-(MPE / Multi / Single / Piano), and **factory reset** for Blocks — on **Windows, macOS and Linux**.
+## Where it's at — v0.1.52
+**Live editing** (changes write as you make them, like Dashboard), a unified **Preset** menu
+(ROLI presets + your own saved presets, per device), and **factory reset** for Blocks — on
+**Windows, macOS and Linux**.
 
 Confirmed on real hardware: **Seaboard Block / Block M**, **Seaboard RISE 2**, the **original
-Seaboard RISE 25 / 49**, the **ROLI Piano 49**, and the **Piano M / LUMI Keys** (named scales,
-key, colour schemes, and an editable **key-colour picker**). The **Seaboard GRAND** now works on
-real hardware too: a detection bug that left it showing the keyboard but **no controls** is fixed
-(v0.1.46), and two full Dashboard captures ([issue #6](../../issues/6)) let GRAB decode its reply
-end-to-end — it shows **MIDI mode, channel, pitch bend, transpose, glide, and the three pedals**.
-A playback capture confirms the GRAND is a **4D** instrument (Strike / Glide / Press / Lift — **no
-slide**), matching Dashboard's single Glide sensitivity curve.
+Seaboard RISE 25 / 49**, the **ROLI Piano 49**, the **Piano M / LUMI Keys** (named scales,
+key, colour schemes, and an editable **key-colour picker**), and now the **Seaboard GRAND** —
+fully configurable. The GRAND went from *"connects but shows no controls"* to read + write across
+MIDI mode, channel, bend, transpose, glide and pedals (plus write-only octave & tracking), all
+reverse-engineered from Dashboard captures by **BabeleDunnit** ([issue #6](../../issues/6)). It's
+a **4D** instrument (Strike / Glide / Press / Lift — **no slide**). Live **5D-touch rings** on the
+keyboard graphic now cover the whole RISE/GRAND family too, synthesised from their performance MIDI.
 
 Recent additions:
 - **Capture MIDI** (Advanced ▸) — one read-only tool that logs everything a device emits and
@@ -41,9 +42,7 @@ Recent additions:
   multi-client by default) GRAB runs **alongside your DAW** without quitting it (macOS and Linux
   already share).
 
-**Still needed — contributions very welcome:** a GRAND owner to confirm the new controls write
-back to the device, and to capture **Glide / Press Tracking** and **Octave** so those last fields
-can be added; anonymised profiles and Dashboard captures from
+**Still needed — contributions very welcome:** anonymised profiles and Dashboard captures from
 **Lightpad / Note Grid** and **Live / Loop / Touch**; the **host→device Dashboard capture** that
 unlocks device-specific features (see **Advanced ▸ How you can help** and
 [tools/CAPTURE-DASHBOARD.md](tools/CAPTURE-DASHBOARD.md)); and testers for the **Linux** build. In
@@ -60,7 +59,7 @@ GRAB, use **Contribute…**, **Advanced ▸ Capture MIDI**, **Advanced ▸ How y
 | Pad & control **BLOCKS** (Lightpad/Pad, Live, Loop, Touch) · **Airwave** | ◻️ out of scope *for now* — they connect and GRAB shows their basic shared settings, but ROLI's per-app/mode config (Note Grid, Fader Block, Drum Block, …) isn't managed by GRAB (see **Scope** below). **Contributions to add them are welcome** |
 | Multiple BLOCKS (DNA-connected cluster) | ✅ identical chained blocks (e.g. two Seaboard Blocks, two Piano M) shown as one device — shared config, writes fan out to the whole chain; Seaboard chains are also drawn as one continuous keyboard |
 | Seaboard **RISE 25/49** (original) | ✅ live read/write + ROLI presets — same `0x78`/RPN protocol as the RISE 2, confirmed on a RISE 25 (one caveat: min/max aren't shown — this firmware doesn't report them back) · [RISE-GRAND.md](RISE-GRAND.md) |
-| Seaboard **GRAND** | 🟡 works on real hardware (v0.1.46+) — **same `0x78` protocol as the RISE** (confirmed from two full Dashboard captures): **4D** (Strike/Glide/Press/Lift, no slide), 3 pedals. A real GRAND now shows its full page — **MIDI mode, channel, pitch bend, transpose, glide and the three pedal CCs**. Reads are verified from capture; pedal and MPE-flag writes are confirmed, while mode/bend/transpose reuse the RISE's RPN/NRPN scheme and await a GRAND write test · [RISE-GRAND.md](RISE-GRAND.md) · [issue #6](../../issues/6) |
+| Seaboard **GRAND** | ✅ supported (v0.1.52) — **4D** (Strike/Glide/Press/Lift, no slide), 3 pedals; its own `0x78`/RPN dialect, fully mapped from Dashboard captures. Read + write for **MIDI mode, channel & count, pitch bend, transpose, glide, pedals**, plus write-only **octave & glide/press tracking** (the GRAND doesn't report those back), and live keyboard touch. Enormous thanks to **BabeleDunnit** for the captures · [RISE-GRAND.md](RISE-GRAND.md) · [issue #6](../../issues/6) |
 
 Got an **unsupported** device? Run GRAB, open **Advanced… ▸ Help add device (auto-explore)**
 → **Run & submit** — one click, read-only, and it's how the next devices get added.
@@ -106,9 +105,9 @@ usable whatever happens to ROLI's software and servers.
   BLOCKS (Lightpad, Live, Loop, Touch, Airwave) connect and show the config they report, but **app- and
   mode-specific features aren't covered yet** (e.g. a Lightpad's Fader Block setup) — those
   need more reports. The **original Seaboard RISE** is **read/write** (same protocol as the
-  RISE 2, confirmed on a RISE 25; min/max aren't shown); the **GRAND** now shows its full page
-  on real hardware (MIDI mode, channel, pitch bend, transpose, glide, pedals) — it's 4D (no
-  slide), with the remaining writes pending a GRAND owner's confirmation.
+  RISE 2, confirmed on a RISE 25; min/max aren't shown); the **GRAND** is **fully configurable**
+  (read + write for mode, channel, bend, transpose, glide and pedals; octave & tracking are
+  write-only as the GRAND doesn't report them back) — 4D, no slide.
 
 If you just want to tweak your device's settings today, it does that. If you'd like it to
 *grow into* a fuller Dashboard alternative, that's exactly why **contributing a profile**

@@ -431,6 +431,17 @@ void MainComponent::connect (seaprobe::Transport transport)
         keyboardView.setBlocks (1);   // a RISE/GRAND is a single keybed (no DNA chaining)
         keyboardView.setVisible (true);
 
+        // Live touch rings from the RISE/GRAND's performance MIDI (they have no BLOCKS touch surface).
+        keyboardView.startTouchDisplay();
+        rise2Page->onTouch = [this] (int chan, int note, float pressure, float bend, bool end)
+        {
+            const int   octs = juce::jmax (1, keyboardView.getOctaves());
+            const int   base = 60 - octs * 6;   // centre the drawn keyboard roughly on middle C
+            const float x = juce::jlimit (0.0f, 1.0f,
+                ((float) note - (float) base + bend * 2.0f) / (float) (octs * 12));   // bend nudges x (Glide)
+            keyboardView.setTouch ((juce::uint64) chan, x, 0.5f, pressure, end);      // setTouch is thread-safe
+        };
+
         resized();
         return;
     }

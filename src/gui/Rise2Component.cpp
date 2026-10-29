@@ -72,15 +72,18 @@ const std::vector<Field>& fields()
           [] (const rise2::State& s) { return s.mode() == rise2::Mode::mpe ? s.channel() : s.startChannel(); }, {} },
         { kBend,     "Pitch Bend Range", "MIDI Settings", CT::integer, 1, 96, {}, gbyte (off::bendRange, goff::bendRange), {} },
         { kGlideTracking, "Glide & Slide Tracking", "MIDI Settings", CT::options, 1, 3, { "Last Played", "Highest", "Lowest" },
-          byte (off::glideTracking), rise2::glideSlideTracking },
+          // GRAND tracking is write-only (not in its reply), so show the default on the GRAND.
+          [] (const rise2::State& s) { return s.grand ? 1 : s.at (off::glideTracking); }, rise2::glideSlideTracking },
         { kPressTracking, "Press Tracking",  "MIDI Settings", CT::options, 0, 3,
           { "Poly Aftertouch", "Last Played (Channel Pressure)", "Highest", "Lowest" },
-          byte (off::pressTracking), rise2::pressTracking },
+          [] (const rise2::State& s) { return s.grand ? 1 : s.at (off::pressTracking); }, rise2::pressTracking },
         { kPortForwarding, "MIDI Port Forwarding", "MIDI Settings", CT::boolean, 0, 1, {}, byte (off::portForwarding), param (0x4d) },
         { kPortThrottle,   "MIDI Port Throttle",   "MIDI Settings", CT::options, 0, 3, { "Off", "Half", "Quarter", "Note On/Off" },
           byte (off::portThrottle), param (0x4e) },
 
-        { kOctave,    "Octave",    "Play mode", CT::integer, -4, 4, {},   byte (off::octave, -4), rise2::octave },
+        { kOctave,    "Octave",    "Play mode", CT::integer, -4, 4, {},
+          // GRAND octave is write-only (not in its reply) and uses a +64 data bias (see writeFor).
+          [] (const rise2::State& s) { return s.grand ? 0 : s.at (off::octave) - 4; }, rise2::octave },
         { kTranspose, "Transpose", "Play mode", CT::integer, -12, 12, {}, gbyte (off::transpose, goff::transpose, -64), rise2::transpose },
         { kSemitoneLegato, "Semitone Legato", "Play mode", CT::boolean, 0, 1, {}, byte (off::semitoneLegato), param (0x4c) },
         { kSlideCc,   "Slide CC",   "Play mode", CT::integer, 0, 127, {}, byte (off::slideCc), param (0x38) },
@@ -155,10 +158,11 @@ bool isGrandOnlyField (juce::uint32 id) { return id == kPedal1Cc || id == kPedal
 bool isGrandField (juce::uint32 id)
 {
     // No kZone: the GRAND is a lower-zone-only MPE device (Dashboard shows no Upper option).
-    // Mode / channel / bend are now writable too, via grandMidiMode (issue #6 captures).
+    // Mode / channel / bend write via grandMidiMode; octave + tracking are write-only (see writeFor).
     return id == kGlideSens || id == kPedal1Cc || id == kPedal2Cc || id == kPedal3Cc
         || id == kTranspose
-        || id == kMode || id == kMembers || id == kChannel || id == kBend;
+        || id == kMode || id == kMembers || id == kChannel || id == kBend
+        || id == kOctave || id == kGlideTracking || id == kPressTracking;
 }
 
 const Field* findField (juce::uint32 id)
@@ -266,6 +270,7 @@ enum PresetMenuId
 Rise2Component::Rise2Component (seaprobe::RawLogger& loggerToUse) : logger (loggerToUse)
 {
     liveCc.fill (-1);   // no CC data yet
+    touchNote.fill (-1); touchZ.fill (0.0f); touchBend.fill (0.0f);
     addAndMakeVisible (statusLabel);
     addAndMakeVisible (infoLabel);
     infoLabel.setColour (juce::Label::textColourId, juce::Colours::white.withAlpha (0.7f));
@@ -519,6 +524,32 @@ void Rise2Component::handleIncomingMidiMessage (juce::MidiInput*, const juce::Mi
     if (message.isController())
         liveCc[(size_t) juce::jlimit (0, 127, message.getControllerNumber())] = message.getControllerValue();
 
+    // Synthesise live keyboard touches from the device's performance MIDI (the RISE/GRAND report
+    // touch as per-channel notes + channel pressure + pitch bend, not the BLOCKS touch surface).
+    // One finger per MIDI channel: noteOn = finger down, channel pressure = ring size (Press),
+    // pitch bend = horizontal glide, noteOff = finger up. onTouch forwards to the keyboard graphic.
+    if (onTouch != nullptr && (message.isNoteOnOrOff() || message.isChannelPressure() || message.isPitchWheel()))
+    {
+        const int ch = juce::jlimit (1, 16, message.getChannel());
+        if (message.isNoteOnOrOff())
+        {
+            const bool on = message.isNoteOn() && message.getVelocity() > 0;
+            if (on) { touchNote[(size_t) ch] = message.getNoteNumber(); touchZ[(size_t) ch] = message.getFloatVelocity(); }
+            onTouch (ch, touchNote[(size_t) ch], on ? touchZ[(size_t) ch] : 0.0f, touchBend[(size_t) ch], ! on);
+            if (! on) touchNote[(size_t) ch] = -1;
+        }
+        else if (message.isChannelPressure())
+        {
+            touchZ[(size_t) ch] = (float) message.getChannelPressureValue() / 127.0f;
+            if (touchNote[(size_t) ch] >= 0) onTouch (ch, touchNote[(size_t) ch], touchZ[(size_t) ch], touchBend[(size_t) ch], false);
+        }
+        else // pitch wheel
+        {
+            touchBend[(size_t) ch] = ((float) message.getPitchWheelValue() - 8192.0f) / 8192.0f;
+            if (touchNote[(size_t) ch] >= 0) onTouch (ch, touchNote[(size_t) ch], touchZ[(size_t) ch], touchBend[(size_t) ch], false);
+        }
+    }
+
     const auto* d = message.getRawData();
     const auto size = message.getRawDataSize();
 
@@ -561,8 +592,8 @@ void Rise2Component::onState (rise2::State s)
     {
         firmware = state.text (goff::firmware, 8);   // stored for preset metadata
         infoLabel.setText (portName + "   fw " + firmware + "   " + juce::String (state.at (goff::keyCount)) + " keys"
-                               + "   " + grab::u8 ("\xe2\x80\x94") + " GRAND: MIDI mode, channel, bend, transpose, "
-                                 "glide & pedals \xe2\x80\x94 read + write (mapped from capture, issue #6)",
+                               + "   " + grab::u8 ("\xe2\x80\x94") + " GRAND: full settings + live touch "
+                                 "(octave & tracking are write-only \xe2\x80\x94 the GRAND doesn't report them back)",
                            juce::dontSendNotification);
     }
     else
@@ -632,6 +663,20 @@ int Rise2Component::value (juce::uint32 id) const
     if (auto p = pendingValues.find (id); p != pendingValues.end()) return p->second;
     if (auto d = deviceValues.find (id); d != deviceValues.end())   return d->second;
     return 0;
+}
+
+// Build the write message(s) for one field. The GRAND differs from the RISE on a few NRPNs
+// (mapped from BabeleDunnit's captures, issue #6): octave uses a +64 data bias (not +4), and its
+// glide tracking is a single NRPN 0 (it has no Slide axis, so no companion NRPN 7).
+rise2::Messages Rise2Component::writeFor (juce::uint32 id, juce::int32 v) const
+{
+    if (grand)
+    {
+        if (id == kOctave)        return rise2::nrpn (2, v + 64);
+        if (id == kGlideTracking) return rise2::nrpn (0, v);
+    }
+    auto* f = findField (id);
+    return (f != nullptr && f->write) ? f->write (v) : rise2::Messages {};
 }
 
 void Rise2Component::rebuildRows()
@@ -784,8 +829,8 @@ void Rise2Component::flushLiveWrites()
             continue;
         if (isModeGroup (id))
             modeChanged = true;
-        else if (auto* f = findField (id); f != nullptr && f->write)
-            rise2::append (msgs, f->write (pendingValues[id]));
+        else
+            rise2::append (msgs, writeFor (id, pendingValues[id]));
     }
 
     if (modeChanged)
@@ -850,8 +895,8 @@ void Rise2Component::saveToDevice()
         expected[kv.first] = kv.second;
         if (isModeGroup (kv.first))
             modeChanged = true;
-        else if (auto* f = findField (kv.first); f != nullptr && f->write)
-            rise2::append (msgs, f->write (kv.second));
+        else
+            rise2::append (msgs, writeFor (kv.first, kv.second));
     }
 
     if (modeChanged)
