@@ -5,15 +5,16 @@ write.** The RISE 2 was verified on fw 2.0.2 (macOS); the original RISE returns 
 224-byte state dump** and uses the **same `0x78 3D` / RPN / NRPN write protocol**, confirmed
 from a contributed RISE 25 Dashboard capture (see "Write protocol confirmed" below). The one
 caveat on the original: the Strike/Press/Lift **min/max block reads back as zeros**, so GRAB
-hides those (they're writable, just not readable on that firmware). The **GRAND** is confirmed (Oct 2026) a
-`0x78` RISE-family device **configured with the same `3D` set-param protocol as the RISE** (from
-a Dashboard↔GRAND capture — see "Seaboard GRAND" below); it is **4D (no slide)** with **3 pedal
-CCs**, and its 87-byte reply is shorter than the RISE's 224-byte dump. A **full Dashboard
-capture** (BabeleDunnit, issue #6) was then received and decoded: a real GRAND now routes to the
-RISE page and shows the fields confirmed end-to-end — **three pedal CCs + glide sensitivity** (read
-from its decoded `3A` reply, written via `3D`); MIDI mode / bend / transpose follow once verified on
-hardware. The RISE 2 protocol below is confirmed on that device; the rest of this document collects
-what is known so far for the other models.
+hides those (they're writable, just not readable on that firmware).
+
+The **Seaboard GRAND is fully supported (v0.1.52)** — a `0x78` RISE-family device with a compact
+**87-byte `3A` reply** (vs the RISE's 224). Its config is the RISE's `3D` / RPN / NRPN protocol with
+a handful of **GRAND-specific differences** (3 pedals + switch types, glide stored **inverted**,
+octave **+64** bias not +4, mode set with a leading **RPN 6 = 16 on ch 1** "reset", and octave +
+tracking are **write-only**). It is **4D — no slide**. The whole protocol was reverse-engineered
+from **BabeleDunnit's** Dashboard captures (issue #6); the complete map is in **"Seaboard GRAND —
+complete protocol"** below. The RISE 2 protocol section is confirmed on that device; the rest of
+this document collects what is known for the other models.
 
 **Presets (v0.1.19):** GRAB's RISE page ships ROLI's four built-in presets — **MPE / Multi
 Channel / Single Channel / Piano** — transcribed from Dashboard's `Rise.littlefootModes/*.mode`
@@ -201,7 +202,7 @@ plus a MIDI CC Assignments section. The wire encoding is in the RISE 2 section a
 ## Confirmed from live devices (first reports, Oct 2026)
 RISE devices are **class-compliant USB-MIDI** (no driver), with both an input and an
 **output** port — so active probing (host → device) is possible as well as listening.
-GRAB detects them by name, flags them RISE/GRAND, and times out with guidance (they
+GRAB detects them by name, flags them RISE/GRAND, and opens the RISE/GRAND page (they
 aren't BLOCKS devices). Confirmed so far:
 
 | Model | OS seen | MIDI port name | USB IDs |
@@ -231,8 +232,36 @@ any alias a device reports is caught: `seaboard`, `rise`, `grand`, `piano`, `lum
 Note: both `Seaboard RISE…` and `Seaboard GRAND` route to the RISE page (the `0x78` path). As of
 v0.1.31 `isBlocksDevice()` excludes "grand" and `rise2::isRisePort()` includes it, so a real GRAND
 no longer gets grabbed by the BLOCKS detector (which left it showing no controls while `0x77` timed
-out). The GRAND page is provisional: it shows the fields confirmed end-to-end — the three pedal CCs
-and glide sensitivity — and reads them from the GRAND offset map below.
+out). As of **v0.1.52 the GRAND is fully supported** — see the complete protocol below.
+
+## Seaboard GRAND — complete protocol (v0.1.52)
+Fully reverse-engineered from BabeleDunnit's Dashboard captures (issue #6). The GRAND is a `0x78`
+RISE-family device, **4D (no slide)**, with an **87-byte `3A` reply** (`goffset::` in
+`Rise2Protocol.h`). It uses the RISE's write protocol with these differences:
+
+**Writes** (`grandMidiMode()` / `writeFor()` in `Rise2Component.cpp`):
+| setting | write | notes |
+|---|---|---|
+| Pedal 1/2/3 CC | `3D 08/0A/0C <cc>` | 3 pedals (RISE has 1) |
+| Pedal 1/2/3 type | `3D 09/0B/0D <0\|1>` | Switch/Continuous; **write-only** (not in reply) |
+| Glide sensitivity | `3D 17 <v>` | stored **inverted**: byte = 127 − v |
+| MPE on/off | `3D 0E <1\|0>` | the mode flag |
+| **Mode / channel** | `3D 0E <mpe>`, then **`RPN 6 = 16` on ch 1** (reset), `RPN 6 = <count>` + `RPN 0 = <bend>` on the start channel | MPE: members on ch 2 · Multi/Single: count on the chosen channel. The leading ch-1 reset is mandatory — omitting it makes a channel ≠ 1 read as an MPE-zone start |
+| Octave | `NRPN 2 = octave + 64` | RISE uses +4; **write-only** on the GRAND |
+| Transpose | `NRPN 3 = t + 64` | same as RISE |
+| Glide Tracking | `NRPN 0 = <1-4>` | GRAND sends NRPN 0 only (no Slide/NRPN 7); **write-only** |
+| Press Tracking | `NRPN 4 = <0-4>` | "Press Mode" in Multi; **write-only** |
+
+**Reads** (`goffset::`): model 6, firmware 38, keyCount 62, mode block first 63 / last 64 / master
+65 / mpeOn 66, pedals 67/69/71, bend 77, transpose 78, glide 80 (un-invert: `127 − byte`), press
+81. **Octave and both trackings are not in the reply** — the GRAND silently accepts those writes
+but never echoes them, so GRAB shows a default and writes on change (as Dashboard does).
+
+**Editions:** key count (byte 62) distinguishes **Studio (37) / Stage (61-62) / First Edition
+(88)**; GRAB sizes the keyboard graphic as `round(keyCount / 12)` octaves. **Live touch rings** are
+synthesised from performance MIDI (per-channel note + channel pressure + pitch bend), as the GRAND
+has no BLOCKS touch surface. The **program-change wheel** emits ordinary Program Change messages
+(not a config setting). Below is the incremental decode history that led here.
 
 ## Seaboard GRAND — first capture (Oct 2026)
 A contributed auto-explore capture (macOS) settles the big question: **the GRAND is a `0x78`
@@ -292,10 +321,10 @@ tracked a 0→127 sweep, key count = 62.
 Write params (`3D`), confirmed from the same capture: pedals `08/0A/0C` (+ companion toggles
 `09/0B/0D`), MIDI mode `0E` (0 Single / 1 MPE), glide sensitivity `17`.
 
-**Still to confirm (left off the page until verified on hardware):** the reply offsets for MIDI
-mode / MPE members / zone / octave, and whether bend/transpose are writable via `3D` or RPN on the
-GRAND. GRAB now routes a real GRAND to the RISE page showing pedals + glide; extend from there as
-BabeleDunnit verifies more fields.
+**All now confirmed** (see "Seaboard GRAND — complete protocol" at the top): the MIDI-mode block
+reads at offsets 63–66, mode/bend/members write via RPN (with the mandatory `RPN 6 = 16` ch-1
+reset), octave/transpose via NRPN, and octave + tracking are write-only. The sections below are the
+incremental decode history.
 
 ### GRAND Dashboard settings (from the ROLI Dashboard manual, chapter 5)
 

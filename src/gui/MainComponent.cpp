@@ -1872,9 +1872,9 @@ void MainComponent::forceLumiPreview()
     updateLumiKeyboardColours();   // light the keyboard from the synthetic scale/key/colours
 }
 
-// The GRAND is a 0x78 RISE-family device. A real GRAND now routes to the RISE page and shows the
-// confirmed fields (pedals + glide, read from its decoded 0x3a reply — see RISE-GRAND.md). This dev
-// shortcut previews that provisional GRAND page (4D, 3 pedals) from a synthetic reply, no hardware.
+// The GRAND is a 0x78 RISE-family device, fully supported (read + write; see RISE-GRAND.md). A real
+// GRAND routes to the RISE page from its decoded 0x3a reply. This dev shortcut previews that GRAND
+// page (4D, 3 pedals) from a synthetic reply, no hardware.
 void MainComponent::forceGrandPreview()
 {
     if (grandPreview)   // toggle off -> back to a real device

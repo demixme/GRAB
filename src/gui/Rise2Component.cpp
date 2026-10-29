@@ -150,11 +150,10 @@ bool isRiseOnlyField (juce::uint32 id)
 }
 bool isGrandOnlyField (juce::uint32 id) { return id == kPedal1Cc || id == kPedal2Cc || id == kPedal3Cc; }
 
-// The fields a real GRAND shows. All reply offsets here are confirmed from BabeleDunnit's two full
-// Dashboard captures (issue #6): the three pedal CCs, glide sensitivity, transpose, and the MIDI
-// block (mode / zone / channel count / start channel / pitch bend range). The pedal writes (3d
-// 08/0a/0c) and the MPE on/off flag (3d 0e) are confirmed from the capture too; the mode RPNs and
-// bend/transpose NRPN/RPN reuse the RISE's 0x78 scheme (same family) and await a GRAND write test.
+// The fields a real GRAND shows. Reads and writes are both confirmed from BabeleDunnit's Dashboard
+// captures (issue #6): pedals, glide (stored inverted), transpose, the MIDI block (mode / channel /
+// count / bend, via grandMidiMode's RPN-6 reset), and - write-only, since the GRAND never reports
+// them back - octave (NRPN 2, +64 bias) and glide/press tracking (NRPN 0 / 4). See writeFor().
 bool isGrandField (juce::uint32 id)
 {
     // No kZone: the GRAND is a lower-zone-only MPE device (Dashboard shows no Upper option).

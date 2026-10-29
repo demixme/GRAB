@@ -56,8 +56,8 @@ public:
         original RISE (1.1.8, the "not verified" path). No real serial/MAC. */
     void previewSyntheticState (bool verifiedFirmware);
 
-    /** Dev/preview: render a provisional **GRAND** page (4D, no slide/strike, 3 pedals), from
-        the partial Dashboard capture. No device, no real values — layout preview only. */
+    /** Dev/preview: render the **GRAND** page (4D, no slide/strike, 3 pedals) from a synthetic
+        reply. No device, no real values — layout preview only. */
     void previewSyntheticGrand();
 
     void resized() override;

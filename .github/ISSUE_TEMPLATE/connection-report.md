@@ -6,8 +6,8 @@ labels: connection
 ---
 
 <!-- Note: Seaboard RISE and GRAND use a different protocol and open a separate RISE page.
-     The RISE 2 and original RISE 25/49 are supported (read/write); the GRAND is provisional
-     (pedals + glide confirmed). If GRAB detects the port but the settings page doesn't appear,
+     The RISE 2, original RISE 25/49, and the Seaboard GRAND are all supported (read/write).
+     If GRAB detects the port but the settings page doesn't appear,
      this report helps — please file it. -->
 
 **Device model:** (e.g. Seaboard Block, Seaboard RISE 25, Seaboard RISE 2, Seaboard GRAND)

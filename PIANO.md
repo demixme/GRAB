@@ -58,7 +58,7 @@ handy for working on UI for instruments we don't own:
 - **Ctrl+Alt+Shift+L** — simulated **Piano M / LUMI Keys** page (same items minus Glide and the
   pedal, octave -4..5, four modes' Color Scheme — the editable key-colour picker shows here too).
   Press again to exit.
-- **Ctrl+Alt+Shift+G** — provisional **GRAND** page on the RISE component (4D, 3 pedals + glide),
+- **Ctrl+Alt+Shift+G** — **GRAND** page preview on the RISE component (4D, 3 pedals, full settings),
   from a synthetic 0x3a reply; see [RISE-GRAND.md](RISE-GRAND.md). Press again to exit.
 - **Ctrl+Alt+Shift+R** — RISE page preview (toggles RISE 2 / original RISE).
 
