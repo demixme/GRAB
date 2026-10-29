@@ -591,10 +591,16 @@ void Rise2Component::onState (rise2::State s)
     if (grand)
     {
         firmware = state.text (goff::firmware, 8);   // stored for preset metadata
-        infoLabel.setText (portName + "   fw " + firmware + "   " + juce::String (state.at (goff::keyCount)) + " keys"
+        const int keyCount = state.at (goff::keyCount);
+        infoLabel.setText (portName + "   fw " + firmware + "   " + juce::String (keyCount) + " keys"
                                + "   " + grab::u8 ("\xe2\x80\x94") + " GRAND: full settings + live touch "
                                  "(octave & tracking are write-only \xe2\x80\x94 the GRAND doesn't report them back)",
                            juce::dontSendNotification);
+        // Size the keyboard graphic from the GRAND's reported key count, so the three editions -
+        // Studio (37), Stage (61) and the 88-key First Edition - each draw at the right width
+        // (the port name is just "Seaboard GRAND" with no size).
+        if (onKeyCount != nullptr && keyCount > 0)
+            onKeyCount (keyCount);
     }
     else
     {

@@ -431,6 +431,14 @@ void MainComponent::connect (seaprobe::Transport transport)
         keyboardView.setBlocks (1);   // a RISE/GRAND is a single keybed (no DNA chaining)
         keyboardView.setVisible (true);
 
+        // Size the GRAND keyboard from its reported key count (Studio 37 / Stage 61 / 88): the port
+        // name carries no size, so the name-based guess defaults to 5 octaves. keyCount is exact.
+        rise2Page->onKeyCount = [this] (int keyCount)
+        {
+            keyboardView.setOctaves (juce::roundToInt ((float) keyCount / 12.0f));
+            resized();
+        };
+
         // Live touch rings from the RISE/GRAND's performance MIDI (they have no BLOCKS touch surface).
         keyboardView.startTouchDisplay();
         rise2Page->onTouch = [this] (int chan, int note, float pressure, float bend, bool end)

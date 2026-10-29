@@ -67,6 +67,10 @@ public:
         pitch bend -1..1, isEnd. Called on the MIDI thread. */
     std::function<void (int, int, float, float, bool)> onTouch;
 
+    /** The GRAND's reported key count (from its reply), so MainComponent can size the keyboard
+        graphic for the Studio (37) / Stage (61) / First Edition (88). Called on the message thread. */
+    std::function<void (int)> onKeyCount;
+
 private:
     void handleIncomingMidiMessage (juce::MidiInput*, const juce::MidiMessage&) override;
     void timerCallback() override;
