@@ -98,6 +98,25 @@ inline Messages midiMode (Mode mode, bool upperZone, int members, int channel, i
     return m;
 }
 
+// The Seaboard GRAND sets mode/channel with a different RPN sequence than the RISE (mapped from
+// BabeleDunnit's single captures, issue #6): the MPE on/off flag (3d 0e), then ALWAYS RPN 6 = 16 on
+// channel 1 ("reset to the full zone"), then RPN 6 = <count> and RPN 0 = <bend> on the START channel
+// (channel 2 for MPE's member zone; the chosen channel for Multi/Single). Omitting the channel-1
+// reset is what made GRAB's old writes mis-map - a channel != 1 was read as the start of an MPE zone.
+inline Messages grandMidiMode (Mode mode, int members, int channel, int bend)
+{
+    const bool mpe   = (mode == Mode::mpe);
+    const int  start = mpe ? 1 : juce::jlimit (1, 16, channel) - 1;   // 0-based; MPE members start at ch2
+    const int  count = mpe                  ? juce::jlimit (1, 15, members)
+                     : mode == Mode::single ? 1
+                     :                        juce::jlimit (2, 16, members);
+    Messages m { setParam (0x0e, mpe ? 1 : 0) };
+    append (m, rpn (0, 6, 16));          // channel 1: reset to the full zone
+    append (m, rpn (start, 6, count));   // start channel: channel / member count
+    append (m, rpn (start, 0, bend));    // start channel: pitch bend range
+    return m;
+}
+
 //==============================================================================
 /** Offsets into the 3a identify reply, counted from F0. It is the device's settings
     struct copied out raw. */

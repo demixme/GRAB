@@ -155,18 +155,10 @@ bool isGrandOnlyField (juce::uint32 id) { return id == kPedal1Cc || id == kPedal
 bool isGrandField (juce::uint32 id)
 {
     // No kZone: the GRAND is a lower-zone-only MPE device (Dashboard shows no Upper option).
-    // kMode/kMembers/kChannel/kBend are shown but read-only on the GRAND for now (see updateEnabled):
-    // their RISE-style RPN write mis-maps on the GRAND, so GRAB displays them without writing until
-    // the GRAND's write protocol is captured (issue #6).
+    // Mode / channel / bend are now writable too, via grandMidiMode (issue #6 captures).
     return id == kGlideSens || id == kPedal1Cc || id == kPedal2Cc || id == kPedal3Cc
         || id == kTranspose
         || id == kMode || id == kMembers || id == kChannel || id == kBend;
-}
-
-// Mode-group fields that are display-only on the GRAND (their write isn't mapped yet).
-bool isGrandReadOnly (juce::uint32 id)
-{
-    return id == kMode || id == kMembers || id == kChannel || id == kBend;
 }
 
 const Field* findField (juce::uint32 id)
@@ -569,8 +561,8 @@ void Rise2Component::onState (rise2::State s)
     {
         firmware = state.text (goff::firmware, 8);   // stored for preset metadata
         infoLabel.setText (portName + "   fw " + firmware + "   " + juce::String (state.at (goff::keyCount)) + " keys"
-                               + "   " + grab::u8 ("\xe2\x80\x94") + " GRAND page: pedals & glide are editable; "
-                                 "MIDI mode / channel / bend show live but are read-only until the write is mapped",
+                               + "   " + grab::u8 ("\xe2\x80\x94") + " GRAND: MIDI mode, channel, bend, transpose, "
+                                 "glide & pedals \xe2\x80\x94 read + write (mapped from capture, issue #6)",
                            juce::dontSendNotification);
     }
     else
@@ -796,10 +788,12 @@ void Rise2Component::flushLiveWrites()
             rise2::append (msgs, f->write (pendingValues[id]));
     }
 
-    if (modeChanged && ! grand)   // GRAND's mode/channel write isn't mapped yet - display-only there
+    if (modeChanged)
     {
         const auto mode = (rise2::Mode) value (kMode);
-        rise2::Messages m = rise2::midiMode (mode, value (kZone) == 1, value (kMembers), value (kChannel), value (kBend));
+        rise2::Messages m = grand
+            ? rise2::grandMidiMode (mode, value (kMembers), value (kChannel), value (kBend))
+            : rise2::midiMode (mode, value (kZone) == 1, value (kMembers), value (kChannel), value (kBend));
         rise2::append (m, msgs);
         msgs = std::move (m);
     }
@@ -823,8 +817,6 @@ void Rise2Component::updateEnabled()
     for (auto& r : rows)
     {
         const auto id = r->getId();
-        // The GRAND's MIDI-settings write isn't mapped yet, so those fields are display-only there.
-        if (grand && isGrandReadOnly (id)) { r->setEnabled (false); continue; }
         // MPE Zone: MPE only. No. MIDI Channels (count): MPE members or the Multi channel count.
         // MIDI Channel (start): Single's channel or the Multi start channel. (issue #9: Multi used
         // to grey out both, so start channel + count couldn't be read or set.)
@@ -862,10 +854,12 @@ void Rise2Component::saveToDevice()
             rise2::append (msgs, f->write (kv.second));
     }
 
-    if (modeChanged && ! grand)   // GRAND's mode/channel write isn't mapped yet - display-only there
+    if (modeChanged)
     {
         const auto mode = (rise2::Mode) value (kMode);
-        rise2::Messages m = rise2::midiMode (mode, value (kZone) == 1, value (kMembers), value (kChannel), value (kBend));
+        rise2::Messages m = grand
+            ? rise2::grandMidiMode (mode, value (kMembers), value (kChannel), value (kBend))
+            : rise2::midiMode (mode, value (kZone) == 1, value (kMembers), value (kChannel), value (kBend));
         rise2::append (m, msgs);
         msgs = std::move (m);
 
@@ -919,8 +913,6 @@ int Rise2Component::applyPresetValues (const std::map<juce::uint32, juce::int32>
         if (pendingValues.find (id) == pendingValues.end())  // device doesn't have this item
             continue;
         if (! fieldShown (id))                               // not on this (RISE/GRAND) page
-            continue;
-        if (grand && isGrandReadOnly (id))                   // display-only on the GRAND, don't write
             continue;
 
         pendingValues[id] = v;
