@@ -89,7 +89,12 @@ const std::vector<Field>& fields()
 
         // Curves (sensitivities) are drawn as panels, these follow as rows.
         { kStrikeSens, "Strike", "Sensitivity", CT::integer, 0, 127, {}, byte (off::strikeSens), param (0x1a) },
-        { kGlideSens,  "Glide",  "Sensitivity", CT::integer, 0, 127, {}, gbyte (off::glideSens, goff::glideSens), param (0x17) },
+        { kGlideSens,  "Glide",  "Sensitivity", CT::integer, 0, 127, {},
+          // The GRAND stores glide inverted: writing 0x17=V lands as byte 127-V (confirmed from
+          // BabeleDunnit's full Dashboard capture, issue #6), so un-invert it on read. The write
+          // (param 0x17 = the displayed value) is already correct, so only the read flips.
+          [] (const rise2::State& s) { return s.grand ? 127 - s.at (goff::glideSens) : s.at (off::glideSens); },
+          param (0x17) },
         { kSlideSens,  "Slide",  "Sensitivity", CT::integer, 0, 127, {}, byte (off::slideSens),  param (0x18) },
         { kPressSens,  "Press",  "Sensitivity", CT::integer, 0, 127, {}, byte (off::pressSens),  param (0x19) },
         { kLiftSens,   "Lift",   "Sensitivity", CT::integer, 0, 127, {}, byte (off::liftSens),   param (0x1b) },
@@ -149,9 +154,19 @@ bool isGrandOnlyField (juce::uint32 id) { return id == kPedal1Cc || id == kPedal
 // bend/transpose NRPN/RPN reuse the RISE's 0x78 scheme (same family) and await a GRAND write test.
 bool isGrandField (juce::uint32 id)
 {
+    // No kZone: the GRAND is a lower-zone-only MPE device (Dashboard shows no Upper option).
+    // kMode/kMembers/kChannel/kBend are shown but read-only on the GRAND for now (see updateEnabled):
+    // their RISE-style RPN write mis-maps on the GRAND, so GRAB displays them without writing until
+    // the GRAND's write protocol is captured (issue #6).
     return id == kGlideSens || id == kPedal1Cc || id == kPedal2Cc || id == kPedal3Cc
         || id == kTranspose
-        || id == kMode || id == kZone || id == kMembers || id == kChannel || id == kBend;
+        || id == kMode || id == kMembers || id == kChannel || id == kBend;
+}
+
+// Mode-group fields that are display-only on the GRAND (their write isn't mapped yet).
+bool isGrandReadOnly (juce::uint32 id)
+{
+    return id == kMode || id == kMembers || id == kChannel || id == kBend;
 }
 
 const Field* findField (juce::uint32 id)
@@ -554,8 +569,8 @@ void Rise2Component::onState (rise2::State s)
     {
         firmware = state.text (goff::firmware, 8);   // stored for preset metadata
         infoLabel.setText (portName + "   fw " + firmware + "   " + juce::String (state.at (goff::keyCount)) + " keys"
-                               + "   " + grab::u8 ("\xe2\x80\x94") + " GRAND page: MIDI mode, channel, bend, pedals, "
-                                 "glide & transpose (reads verified from capture; please confirm writes)",
+                               + "   " + grab::u8 ("\xe2\x80\x94") + " GRAND page: pedals & glide are editable; "
+                                 "MIDI mode / channel / bend show live but are read-only until the write is mapped",
                            juce::dontSendNotification);
     }
     else
@@ -781,7 +796,7 @@ void Rise2Component::flushLiveWrites()
             rise2::append (msgs, f->write (pendingValues[id]));
     }
 
-    if (modeChanged)
+    if (modeChanged && ! grand)   // GRAND's mode/channel write isn't mapped yet - display-only there
     {
         const auto mode = (rise2::Mode) value (kMode);
         rise2::Messages m = rise2::midiMode (mode, value (kZone) == 1, value (kMembers), value (kChannel), value (kBend));
@@ -808,6 +823,8 @@ void Rise2Component::updateEnabled()
     for (auto& r : rows)
     {
         const auto id = r->getId();
+        // The GRAND's MIDI-settings write isn't mapped yet, so those fields are display-only there.
+        if (grand && isGrandReadOnly (id)) { r->setEnabled (false); continue; }
         // MPE Zone: MPE only. No. MIDI Channels (count): MPE members or the Multi channel count.
         // MIDI Channel (start): Single's channel or the Multi start channel. (issue #9: Multi used
         // to grey out both, so start channel + count couldn't be read or set.)
@@ -845,7 +862,7 @@ void Rise2Component::saveToDevice()
             rise2::append (msgs, f->write (kv.second));
     }
 
-    if (modeChanged)
+    if (modeChanged && ! grand)   // GRAND's mode/channel write isn't mapped yet - display-only there
     {
         const auto mode = (rise2::Mode) value (kMode);
         rise2::Messages m = rise2::midiMode (mode, value (kZone) == 1, value (kMembers), value (kChannel), value (kBend));
@@ -902,6 +919,8 @@ int Rise2Component::applyPresetValues (const std::map<juce::uint32, juce::int32>
         if (pendingValues.find (id) == pendingValues.end())  // device doesn't have this item
             continue;
         if (! fieldShown (id))                               // not on this (RISE/GRAND) page
+            continue;
+        if (grand && isGrandReadOnly (id))                   // display-only on the GRAND, don't write
             continue;
 
         pendingValues[id] = v;
