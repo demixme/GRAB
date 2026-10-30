@@ -18,10 +18,12 @@
 
 #include "Anonymize.h"
 
+#include <algorithm>
 #include <atomic>
 #include <cstdint>
 #include <cstring>
 #include <functional>
+#include <map>
 #include <mutex>
 #include <string>
 #include <utility>
@@ -81,6 +83,127 @@ private:
 };
 
 //==============================================================================
+/** Cross-group DNA-link tracker.
+
+    The stock roli library resolves topology connections per-connection-group, so a DNA cluster
+    split across transports/radios never resolves (group A reports the connection but only knows
+    its own device; group B knows the neighbour but not the connection). We see every incoming
+    topology packet across ALL connections, so we parse them ourselves and keep one global map of
+    device-index -> serial plus the connections each device reports. A link is "active" when both
+    of its endpoints resolve to a known serial. This reflects DNA connect/disconnect in real time.
+
+    Confirmed from hardware captures (2026-10-29): both Seaboards report the SAME connection with
+    CONSISTENT global indices, and each reports its own serial - so together we have everything. */
+class DnaLinkTracker
+{
+public:
+    // Reads a ROLI packed stream: a sequence of 7-bit source bytes, bits packed LSB-first within and
+    // across bytes (mirrors roli's internal Packed7BitArrayReader, which isn't a public symbol).
+    struct BitReader
+    {
+        const std::uint8_t* d; int n, byte = 0, bit = 0;
+        BitReader (const std::uint8_t* data, int numBytes) : d (data), n (numBytes) {}
+        int remaining() const { return (n - byte) * 7 - bit; }
+        juce::uint32 read (int num)
+        {
+            juce::uint32 v = 0; int sf = 0;
+            while (num > 0 && byte < n)
+            {
+                const juce::uint32 cur = (juce::uint32) (d[byte] >> bit);
+                const int av = 7 - bit;
+                if (av > num) { v |= (cur & ((1u << num) - 1u)) << sf; bit += num; break; }
+                v |= cur << sf; num -= av; sf += av; bit = 0; ++byte;
+            }
+            return v;
+        }
+    };
+
+    // Feed a header-stripped device->host message (starts at the device-index byte, ends at the
+    // 1-byte checksum - i.e. exactly what LoggingDeviceConnection forwards to the library).
+    void feed (const std::uint8_t* d, int size)
+    {
+        if (size < 3) return;
+
+        const int reporter = d[0] & 63;
+        BitReader r (d + 1, size - 2);                  // after device-index, before checksum
+        if (r.remaining() < 32) return;
+        r.read (32);                                    // timestamp
+
+        while (r.remaining() >= 7)
+        {
+            const juce::uint32 mt = r.read (7);
+            if (mt == 0) break;
+            if (mt != 0x01 && mt != 0x04) break;        // only topology (new / extend); unknown lengths -> stop
+
+            r.read (8);                                 // protocol version
+            const juce::uint32 nd = r.read (7);
+            const juce::uint32 nc = r.read (8);
+            if ((juce::uint32) r.remaining() < nd * 125u + nc * 24u) return;  // malformed
+
+            std::map<int, std::string> devs;
+            for (juce::uint32 i = 0; i < nd; ++i)
+            {
+                char s[17] = {};
+                for (int j = 0; j < 16; ++j) s[j] = (char) r.read (7);
+                const int idx = (int) r.read (7);
+                r.read (5); r.read (1);                 // battery, charging
+                devs[idx] = std::string (s);
+            }
+            std::vector<std::pair<int,int>> cons;
+            for (juce::uint32 i = 0; i < nc; ++i)
+            {
+                const int d1 = (int) r.read (7);
+                r.read (5);                             // port 1
+                const int d2 = (int) r.read (7);
+                r.read (5);                             // port 2
+                cons.emplace_back (d1, d2);
+            }
+
+            const std::lock_guard<std::mutex> lk (mutex);
+            for (auto& kv : devs) indexToSerial[kv.first] = kv.second;
+            connsByReporter[reporter] = std::move (cons);   // replace (an empty list = disconnected)
+            return;
+        }
+    }
+
+    /** True if a connected device reports a DNA link to a neighbour we can't see on this transport
+        (one endpoint resolves to a known serial, the other doesn't) - e.g. a BLE-only Seaboard
+        DNA-joined to the USB-cabled one. Tells the user to switch to Auto/Bluetooth to see it. */
+    bool hasUnseenNeighbour() const
+    {
+        const std::lock_guard<std::mutex> lk (mutex);
+        for (auto& kv : connsByReporter)
+            for (auto& c : kv.second)
+                if ((indexToSerial.count (c.first) != 0) != (indexToSerial.count (c.second) != 0))
+                    return true;
+        return false;
+    }
+
+    /** Active DNA links as resolved {serialA, serialB} pairs (both endpoints known), deduped. */
+    std::vector<std::pair<juce::String, juce::String>> links() const
+    {
+        const std::lock_guard<std::mutex> lk (mutex);
+        std::vector<std::pair<juce::String, juce::String>> out;
+        for (auto& kv : connsByReporter)
+            for (auto& c : kv.second)
+            {
+                auto a = indexToSerial.find (c.first), b = indexToSerial.find (c.second);
+                if (a == indexToSerial.end() || b == indexToSerial.end()) continue;
+                juce::String s1 (a->second.c_str()), s2 (b->second.c_str());
+                if (s2 < s1) std::swap (s1, s2);
+                const std::pair<juce::String, juce::String> p { s1, s2 };
+                if (std::find (out.begin(), out.end(), p) == out.end()) out.push_back (p);
+            }
+        return out;
+    }
+
+private:
+    mutable std::mutex mutex;
+    std::map<int, std::string> indexToSerial;
+    std::map<int, std::vector<std::pair<int,int>>> connsByReporter;
+};
+
+//==============================================================================
 /** A DeviceConnection that wraps a real MIDI in/out pair and logs all traffic.
     Mirrors the stock MIDIDeviceConnection's ROLI framing precisely.
 
@@ -95,8 +218,9 @@ class LoggingDeviceConnection  : public roli::PhysicalTopologySource::DeviceConn
 {
 public:
     LoggingDeviceConnection (RawLogger& loggerToUse,
-                             std::unique_ptr<juce::MidiOutput> out)
-        : logger (loggerToUse), midiOut (std::move (out))
+                             std::unique_ptr<juce::MidiOutput> out,
+                             DnaLinkTracker* dnaTracker = nullptr)
+        : logger (loggerToUse), midiOut (std::move (out)), dna (dnaTracker)
     {
     }
 
@@ -164,15 +288,18 @@ private:
         if (size > sizeof (sea::kRoliHeader) + 1
             && std::memcmp (data, sea::kRoliHeader, sizeof (sea::kRoliHeader)) == 0)
         {
+            const auto* body = data + sizeof (sea::kRoliHeader);
+            const int bodyLen = (int) (size - (sizeof (sea::kRoliHeader) + 1));
+            if (dna != nullptr) dna->feed (body, bodyLen);   // stitch DNA links the library can't (cross-group)
             if (handleMessageFromDevice != nullptr)
-                handleMessageFromDevice (data + sizeof (sea::kRoliHeader),
-                                         size - (sizeof (sea::kRoliHeader) + 1));
+                handleMessageFromDevice (body, (std::size_t) bodyLen);
         }
     }
 
     RawLogger& logger;
     std::unique_ptr<juce::MidiInput> midiIn;
     std::unique_ptr<juce::MidiOutput> midiOut;
+    DnaLinkTracker* dna = nullptr;
     std::atomic<bool> started { false };
     std::atomic<bool> suppressSends { false };
     std::vector<std::uint8_t> lastSuppressed;
@@ -222,6 +349,12 @@ public:
     }
 
     const std::vector<Pair>& getSelectedPairs() const { return selectedPairs; }
+
+    /** Active DNA links (resolved {serialA, serialB} pairs) stitched across all open connections. */
+    std::vector<std::pair<juce::String, juce::String>> getDnaLinks() const { return dnaTracker.links(); }
+
+    /** True when a connected block reports a DNA neighbour not visible on this transport (use Auto). */
+    bool hasUnseenDnaNeighbour() const { return dnaTracker.hasUnseenNeighbour(); }
     juce::String getActiveTransport() const { return activeTransport; }
 
     /** Every MIDI port seen at the last enumeration (for diagnostics/reports). */
@@ -257,7 +390,7 @@ public:
             return nullptr;
         }
 
-        auto conn = std::make_unique<LoggingDeviceConnection> (logger, std::move (out));
+        auto conn = std::make_unique<LoggingDeviceConnection> (logger, std::move (out), &dnaTracker);
 
         if (! conn->openInput (pair.input.identifier))
         {
@@ -375,7 +508,11 @@ private:
         {
             selectedPairs = blePairs; activeTransport = "BLE";
         }
-        else // Auto
+        else // Auto: prefer USB, fall back to BLE. (We tried opening both at once to stitch a DNA
+             // cluster split across transports, but the stock roli library groups topology per
+             // connection and never unifies the connection - reported on one transport - with the
+             // neighbour's identity - reported on the other - so it added a wasteful double-open
+             // with no benefit. See the Seaboard-BLE memory note.)
         {
             if (! usbPairs.empty()) { selectedPairs = usbPairs; activeTransport = "USB (auto)"; }
             else                    { selectedPairs = blePairs; activeTransport = "BLE (auto)"; }
@@ -390,11 +527,22 @@ private:
                          + "]  OUT='" + p.output.name + "' [" + grab::anonymizeIdentifier (p.output.identifier) + "]");
     }
 
+    // Length of the shared leading substring - two endpoints of the SAME physical device share the
+    // most of their identifier (vendor/product/instance prefix), diverging only at the in/out tail.
+    static int commonPrefixLen (const juce::String& a, const juce::String& b)
+    {
+        const int n = juce::jmin (a.length(), b.length());
+        int i = 0; while (i < n && a[i] == b[i]) ++i;
+        return i;
+    }
+
     std::vector<Pair> buildPairs (const juce::Array<juce::MidiDeviceInfo>& inputs,
                                   const juce::Array<juce::MidiDeviceInfo>& outputs,
                                   bool wantBle) const
     {
         std::vector<Pair> pairs;
+        juce::StringArray usedOut;   // each output endpoint belongs to one device - claim it once
+
         for (auto& in : inputs)
         {
             if (! isBlocksDevice (in) || isBle (in) != wantBle)
@@ -402,15 +550,28 @@ private:
             if (! wantBle && ! isUsb (in))   // USB must positively look like USB
                 continue;
 
+            // Pick this input's matching output: prefer an exact identifier, else the unclaimed
+            // same-named output whose identifier shares the longest prefix (i.e. the same physical
+            // unit). Claiming each output once stops two identically-named USB Seaboards - whose
+            // ports are all just "Seaboard Block" - from both binding to the first output, which
+            // left only one device ever answering the topology handshake.
+            const juce::MidiDeviceInfo* best = nullptr;
+            int bestScore = -1;
             for (auto& out : outputs)
             {
-                if (isBle (out) != wantBle || (! wantBle && ! isUsb (out)))
+                if (isBle (out) != wantBle || (! wantBle && ! isUsb (out)) || usedOut.contains (out.identifier))
                     continue;
-                if (out.identifier == in.identifier || out.name == in.name)
-                {
-                    pairs.push_back (Pair { in, out, juce::String (wantBle ? "BLE:" : "USB:") + in.name });
-                    break;
-                }
+                const bool idEq = (out.identifier == in.identifier);
+                if (! idEq && out.name != in.name)
+                    continue;   // not plausibly the same device
+                const int score = (idEq ? (1 << 20) : 0) + commonPrefixLen (in.identifier, out.identifier);
+                if (score > bestScore) { bestScore = score; best = &out; }
+            }
+
+            if (best != nullptr)
+            {
+                pairs.push_back (Pair { in, *best, juce::String (wantBle ? "BLE:" : "USB:") + in.name });
+                usedOut.add (best->identifier);
             }
         }
         return pairs;
@@ -420,6 +581,7 @@ private:
     Transport transport = Transport::Auto;
     juce::String activeTransport { "none" };
     std::vector<Pair> selectedPairs;
+    DnaLinkTracker dnaTracker;
     std::vector<Port> allPorts;
     LoggingDeviceConnection* lastConnection = nullptr;
 };

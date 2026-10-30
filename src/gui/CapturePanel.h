@@ -94,6 +94,11 @@ public:
         copyAllBtn.setButtonText ("Copy all");
         copyAllBtn.onClick = [this] { copyAll(); };
 
+        addAndMakeVisible (nameLabel);
+        nameLabel.setText ("Name to credit (optional):", juce::dontSendNotification);
+        addAndMakeVisible (nameField);
+        nameField.setText (loadCredit(), juce::dontSendNotification);   // shared with Contribute, remembered
+
         addAndMakeVisible (notesLabel);
         notesLabel.setText ("Notes (device model, what you did):", juce::dontSendNotification);
         addAndMakeVisible (notesField);
@@ -152,6 +157,11 @@ public:
         auto notesRow = r.removeFromBottom (24);
         notesLabel.setBounds (notesRow.removeFromLeft (210));
         notesField.setBounds (notesRow);
+        r.removeFromBottom (6);
+
+        auto nameRow = r.removeFromBottom (24);
+        nameLabel.setBounds (nameRow.removeFromLeft (210));
+        nameField.setBounds (nameRow);
         r.removeFromBottom (6);
 
         auto filterRow = r.removeFromBottom (26);
@@ -443,6 +453,7 @@ private:
             << "Port: " << capturedPortName << "\n"
             << "OS:   " << juce::SystemStats::getOperatingSystemName() << "\n"
             << "When: " << juce::Time::getCurrentTime().toISO8601 (true) << "\n"
+            << (nameField.getText().trim().isNotEmpty() ? "Credit: " + nameField.getText().trim() + "\n" : juce::String())
             << "Notes: " << notesField.getText() << "\n"
             << "Messages: " << messageCount << "\n\n"
             << buildLines().joinIntoString ("\n") << "\n";
@@ -458,6 +469,7 @@ private:
         const auto lines = buildLines();
         juce::String body;
         body << "**Device model:** " << notesField.getText() << "\n"
+             << (nameField.getText().trim().isNotEmpty() ? "**Credit:** " + nameField.getText().trim() + "\n" : juce::String())
              << "**OS:** " << juce::SystemStats::getOperatingSystemName() << "\n"
              << "**Port:** " << capturedPortName << "\n\n"
              << juce::String::fromUTF8 ("MIDI capture (GRAB -> Capture -> Save to file) \xe2\x80\x94 "
@@ -499,6 +511,8 @@ private:
         cap->setProperty ("lines", lines);
         root->setProperty ("capture", juce::var (cap));
         root->setProperty ("notes", notesField.getText());
+        const auto credit = nameField.getText().trim();
+        if (credit.isNotEmpty()) { root->setProperty ("credit", credit); saveCredit (credit); }  // opt-in, remembered
 
         const auto body = juce::JSON::toString (juce::var (root), true); // compact
         setStatus ("Submitting " + juce::String (messageCount) + " messages...");
@@ -553,6 +567,21 @@ private:
         return base.replace ("profiles", "captures");
     }
 
+    // Opt-in contributor name, shared with the Contribute dialog and remembered across sessions.
+    static juce::String loadCredit()
+    {
+        juce::PropertiesFile::Options o; o.millisecondsBeforeSaving = 0;
+        juce::PropertiesFile props (settingsFile(), o);
+        return props.getValue ("contributeCredit", juce::String());
+    }
+    static void saveCredit (const juce::String& c)
+    {
+        juce::PropertiesFile::Options o; o.millisecondsBeforeSaving = 0;
+        juce::PropertiesFile props (settingsFile(), o);
+        props.setValue ("contributeCredit", c);
+        props.saveIfNeeded();
+    }
+
     static juce::String sanitize (const juce::String& s)
     {
         return s.retainCharacters ("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_");
@@ -566,7 +595,7 @@ private:
 
     DescribeFn describe;
 
-    juce::Label       title, portLabel, notesLabel, statusLabel;
+    juce::Label       title, portLabel, nameLabel, notesLabel, statusLabel;
     juce::ComboBox    portBox;
     juce::Array<juce::MidiDeviceInfo> inputs;
     juce::TextButton  refreshBtn { "Refresh" }, startBtn { "Start" }, stopBtn { "Stop" },
@@ -576,7 +605,7 @@ private:
                       guideBtn { "Capture guide" };
     juce::ToggleButton configOnlyToggle;
     juce::TableListBox table;
-    juce::TextEditor  notesField;
+    juce::TextEditor  notesField, nameField;
 
     std::unique_ptr<juce::MidiInput> input;
     juce::CriticalSection lock;

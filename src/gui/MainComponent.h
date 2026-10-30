@@ -94,6 +94,7 @@ private:
     void forcePianoPreview();  // secret dev shortcut: synthetic ROLI Piano config page (no hardware)
     void forceLumiPreview();   // secret dev shortcut: synthetic Piano M / LUMI Keys page (no hardware)
     void forceGrandPreview();  // secret dev shortcut: synthetic GRAND page (4D, 3 pedals) — no hardware
+    void forceLightpadPreview(); // secret dev shortcut: Lightpad config + synthetic DNA arrangement (no hardware)
 
     // Live config updates from the device (delivered on the message thread).
     void handleConfigItemChanged (roli::Block&, const roli::Block::ConfigMetaData&, juce::uint32 index) override;
@@ -105,8 +106,11 @@ private:
     void connect (seaprobe::Transport transport);
     void updateBlockList (const roli::BlockTopology& topology);
     void selectBlock (roli::Block::UID uid);
+    void selectBlockByUid (juce::uint64 clickedUid); // click a tile in the arrangement -> select its group
     void updateKeyboardForBlock();  // show/size the keywave for the current block (joined for a chain)
     void updateLumiKeyboardColours(); // LUMI/Piano: light the keyboard graphic per scale/key/colours
+    void pushChordGhosts();           // Seaboard: feed the active Chord mode to the keyboard's touch ghosts
+    std::vector<KeyboardView::Tile> buildBlockTiles(); // the connected DNA group's real X/Y arrangement
 
     // Live 5D-touch rings on the keyboard graphic. Registers on every cluster member's touch
     // surface; touchChanged (MIDI thread) maps a touch into the combined keyboard and forwards it.
@@ -182,6 +186,7 @@ private:
     // from it instead of a real block. grandPreview shows the identity-only GRAND state.
     std::vector<std::pair<roli::Block::ConfigMetaData, juce::int32>> simConfig;
     bool grandPreview = false;
+    juce::String lastDnaSig;   // signature of the stitched DNA links; re-layout when it changes
 
     grab::LearnedMap learnedNames;      // names pulled from the store for the current type
     juce::String     learnedForType;    // which device type learnedNames is for (avoid refetch)
@@ -228,6 +233,7 @@ private:
     struct TouchGeom { int index; int count; float w, h; }; // block's place in the chain + its size
     std::map<roli::Block::UID, TouchGeom> touchGeometry;
     juce::CriticalSection touchGeomLock;
+    std::map<juce::uint64, float> blockTouchStrike;   // Strike (initial contact z) per live touch id
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
 };

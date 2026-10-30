@@ -35,6 +35,12 @@ public:
         addAndMakeVisible (endpointField);
         endpointField.setText (loadEndpoint(), juce::dontSendNotification);
 
+        addAndMakeVisible (nameLabel);
+        nameLabel.setText ("Name to credit (optional):", juce::dontSendNotification);
+        addAndMakeVisible (nameField);
+        nameField.setText (loadCredit(), juce::dontSendNotification);   // remembered across sessions
+        nameField.onTextChange = [this] { rebuildJson(); };
+
         addAndMakeVisible (notesLabel);
         notesLabel.setText ("Notes (optional):", juce::dontSendNotification);
         addAndMakeVisible (notesField);
@@ -58,7 +64,7 @@ public:
         };
 
         rebuildJson();
-        setSize (560, 520);
+        setSize (560, 552);
     }
 
     void resized() override
@@ -77,6 +83,11 @@ public:
         auto notes = r.removeFromBottom (60);
         notesLabel.setBounds (notes.removeFromTop (20));
         notesField.setBounds (notes);
+        r.removeFromBottom (6);
+
+        auto nameRow = r.removeFromBottom (24);
+        nameLabel.setBounds (nameRow.removeFromLeft (180));
+        nameField.setBounds (nameRow);
         r.removeFromBottom (6);
 
         auto ep = r.removeFromBottom (24);
@@ -101,6 +112,21 @@ private:
         return props.getValue ("profileEndpoint", "https://www.demix.me/grab/v1/profiles");
     }
 
+    // Opt-in contributor name, shared with the Capture dialog and remembered across sessions.
+    static juce::String loadCredit()
+    {
+        juce::PropertiesFile::Options o; o.millisecondsBeforeSaving = 0;
+        juce::PropertiesFile props (settingsFile(), o);
+        return props.getValue ("contributeCredit", juce::String());
+    }
+    static void saveCredit (const juce::String& c)
+    {
+        juce::PropertiesFile::Options o; o.millisecondsBeforeSaving = 0;
+        juce::PropertiesFile props (settingsFile(), o);
+        props.setValue ("contributeCredit", c);
+        props.saveIfNeeded();
+    }
+
     void saveEndpoint (const juce::String& ep)
     {
         juce::PropertiesFile::Options o; o.millisecondsBeforeSaving = 0;
@@ -111,7 +137,7 @@ private:
 
     void rebuildJson()
     {
-        profile = grab::buildDeviceProfile (*block, transport, notesField.getText());
+        profile = grab::buildDeviceProfile (*block, transport, notesField.getText(), nameField.getText().trim());
         json = grab::profileToJson (profile);
         jsonView.setText (json, juce::dontSendNotification);
     }
@@ -145,6 +171,7 @@ private:
         }
         rebuildJson();
         saveEndpoint (endpoint);
+        saveCredit (nameField.getText().trim());   // remember the name for next time
         setStatus ("Submitting...");
         submitBtn.setEnabled (false);
 
@@ -189,8 +216,8 @@ private:
     juce::var profile;
     juce::String json;
 
-    juce::Label title, endpointLabel, notesLabel, statusLabel;
-    juce::TextEditor jsonView, endpointField, notesField;
+    juce::Label title, endpointLabel, nameLabel, notesLabel, statusLabel;
+    juce::TextEditor jsonView, endpointField, nameField, notesField;
     juce::TextButton submitBtn { "Submit" }, saveBtn { "Save to file" }, closeBtn { "Close" };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ContributePanel)

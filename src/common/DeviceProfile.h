@@ -67,7 +67,7 @@ inline const char* configTypeName (roli::Block::ConfigMetaData::ConfigType t)
 /** Build the device-profile `var` for one block. `block` is non-const because the
     config accessors are non-const. `transport` is "USB"/"BLE". */
 inline juce::var buildDeviceProfile (roli::Block& block, const juce::String& transport,
-                                     const juce::String& notes = {})
+                                     const juce::String& notes = {}, const juce::String& credit = {})
 {
     auto* root = new juce::DynamicObject();
     root->setProperty ("schemaVersion", 1);
@@ -131,6 +131,8 @@ inline juce::var buildDeviceProfile (roli::Block& block, const juce::String& tra
     root->setProperty ("configItems", items);
     root->setProperty ("unknownConfigIds", unknown);
     root->setProperty ("notes", notes);
+    if (credit.isNotEmpty())                 // opt-in attribution; omitted entirely when left blank
+        root->setProperty ("credit", credit);
 
     return juce::var (root);
 }

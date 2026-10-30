@@ -1,10 +1,11 @@
-// KeyboardView — a pseudo-3D ROLI keywave drawn at the top of the window, sized to the
-// connected keyboard's range. Our own vector art (not ROLI's device renders).
+// KeyboardView — the ROLI device surface drawn at the top of the window. Our own vector art
+// (not ROLI's device renders).
 //
-// Each key is shaded as a rounded vertical cylinder (dark edges, bright crest keyline) to
-// mimic the moulded-rubber keywave; black keys are raised ridges with a soft drop shadow.
-// A per-family "smoothness" matches the hardware: Block keys are crisper, RISE softer, GRAND
-// softest. Read-only for now; the plan is live 5D-touch rings and a DNA-chain join.
+// BLOCKS are modular: however the user snaps them, the SDK reports each block's place in a shared
+// logical-unit grid (getBlockAreaWithinLayout + getRotation), so we draw the real X/Y arrangement
+// as tiles — a Seaboard keybed (6x3 units), a Lightpad pad-grid (2x2), a Control block (2x1), a
+// LUMI/Piano flat keybed — each with live 5D-touch rings (Strike disc + Press ring) and, in Chord
+// mode, half-opacity ghost notes. RISE/GRAND aren't modular; they draw as a single keybed tile.
 
 #pragma once
 
@@ -14,19 +15,65 @@
 
 #include <atomic>
 #include <map>
+#include <vector>
 
 class KeyboardView  : public juce::Component,
                       private juce::Timer
 {
 public:
-    enum class Family { block, rise, grand, lumi };
+    enum class Family { block, rise, grand, lumi, lightpad, control };
 
-    KeyboardView() = default;
+    // One drawn block, positioned in the shared logical-unit grid (origin = master's top-left).
+    struct Tile
+    {
+        juce::uint64 uid = 0;        // block UID (the touch source); 0 = the single RISE/GRAND keybed
+        Family family = Family::rise;
+        float ux = 0, uy = 0;        // top-left in logical units
+        float uw = 6, uh = 3;        // footprint in logical units (already rotated by the SDK)
+        int   rotation = 0;          // art orientation, 90-degree steps clockwise (0..3)
+        int   octaves = 2;           // keybed octaves (keyboards only)
+        int   grid = 15;             // LED grid resolution (lightpad only)
+    };
 
-    void setOctaves (int o)   { if (octaves != o) { octaves = juce::jlimit (1, 7, o); repaint(); } }
-    void setFamily  (Family f){ if (family  != f) { family  = f; repaint(); } }
-    void setBlocks  (int n)   { n = juce::jlimit (1, 6, n); if (blocks != n) { blocks = n; repaint(); } }
+    KeyboardView() { buildLegacyLocked(); computeBoundsLocked(); }
+
+    // --- Legacy single-keybed setters (RISE/GRAND and the dev previews) --------------------------
+    // These build a one-tile layout; the real multi-block arrangement comes through setLayout().
+    // They always rebuild (not guarded on value) so a call also leaves any prior Block layout mode.
+    void setOctaves (int o)   { octaves = juce::jlimit (1, 8, o); rebuildLegacy(); }
+    void setFamily  (Family f){ family = f; rebuildLegacy(); }
+    void setBlocks  (int)     { /* retained for call sites; real chaining now comes via setLayout() */ }
     int  getOctaves() const   { return octaves; }
+
+    // The real DNA arrangement: tiles from the device topology. Empty falls back to the legacy keybed.
+    void setLayout (std::vector<Tile> t)
+    {
+        {
+            const juce::ScopedLock sl (touchLock);
+            tiles = std::move (t);
+            usingLayout = ! tiles.empty();
+            if (! usingLayout) buildLegacyLocked();
+            computeBoundsLocked();
+            dirty = true;
+        }
+        repaint();   // called on the message thread (device connect / selection)
+    }
+
+    // The block(s) of the currently-selected device, highlighted in a multi-block arrangement (the
+    // rest dim, like ROLI Dashboard). No effect when every drawn tile belongs to the selection.
+    void setSelected (std::vector<juce::uint64> s)
+    {
+        const juce::ScopedLock sl (touchLock);
+        if (selectedUids != s) { selectedUids = std::move (s); dirty = true; }
+    }
+
+    // Active chord-mode intervals (semitones above the played note), empty = Chord Off. Each live
+    // touch on a keybed then also draws a ghost marker at these offsets (the auto-played notes).
+    void setChord (std::vector<int> offsets)
+    {
+        const juce::ScopedLock sl (touchLock);
+        if (chordOffsets != offsets) { chordOffsets = std::move (offsets); dirty = true; }
+    }
 
     // LUMI / Piano key lighting, mirroring the device's active-mode Color Scheme (semantics from
     // ROLI support): 0 Pro (root in a highlight, scale white), 1 User (root + scale in your Global/
@@ -42,9 +89,9 @@ public:
         repaint();
     }
 
-    // Live 5D-touch markers — white rings that grow with pressure. Positions are normalised
-    // across the whole (chained) keyboard: x 0..1 left->right, y 0..1 top->bottom, z = pressure.
-    // setTouch may be called from the MIDI thread; a 60 Hz timer coalesces the repaints.
+    // --- Live 5D-touch markers (Equator style): Strike -> solid disc (fixed for the note's life),
+    // Press -> ring breathing around it. Glide/Slide are the disc's x/y position; Lift isn't shown.
+    // setTouch may be called from the MIDI thread; a 60 Hz timer eases values and coalesces repaints.
     void startTouchDisplay()
     {
         { const juce::ScopedLock sl (touchLock); touches.clear(); }
@@ -56,206 +103,296 @@ public:
         { const juce::ScopedLock sl (touchLock); touches.clear(); }
         repaint();
     }
-    void setTouch (juce::uint64 id, float x, float y, float z, bool end)
+
+    // nx/ny are 0..1 within the tile's own (unrotated) surface. tileUid picks the tile.
+    void setTouch (juce::uint64 tileUid, int fingerId, float nx, float ny, float z, float strike, bool end)
     {
         const juce::ScopedLock sl (touchLock);
-        if (end) touches.erase (id);
-        else     touches[id] = { x, y, z, juce::Time::getMillisecondCounterHiRes() };
+        const Key key { tileUid, fingerId };
+        if (end) { touches.erase (key); dirty = true; return; }
+        const double now = juce::Time::getMillisecondCounterHiRes();
+        auto it = touches.find (key);
+        if (it == touches.end())
+            touches[key] = { nx, ny, z, strike, nx, ny, z, now };   // new finger: displayed snaps to first sample
+        else
+        {
+            auto& t = it->second;
+            t.x = nx; t.y = ny; t.z = z; t.strike = strike; t.lastMs = now;
+        }
         dirty = true;
     }
 
-    // Natural width at the target key size. The layout centres the view at min(this, available)
-    // so keys stay a fixed scale on a wide window (narrow-range devices don't stretch), while
-    // wide-range devices (RISE 2) still shrink to fit a narrow one. A DNA chain draws one body
-    // per block, touching with a thin seam.
-    int  preferredWidth() const { return blocks * octaves * 7 * kWhiteKeyW + 2 * kBodyMargin; }
+    int preferredWidth() const { return 600; }   // the view is laid out full-width; content self-centres
+
+    // Clicking a block in the drawn arrangement selects it (uid of the clicked tile), the way you'd
+    // click a block in ROLI Dashboard. uid 0 (the single RISE/GRAND keybed) never fires.
+    std::function<void (juce::uint64)> onTileClicked;
+
+    void mouseDown (const juce::MouseEvent& e) override
+    {
+        const auto uid = tileUidAt (e.position);
+        if (uid != 0 && onTileClicked != nullptr) onTileClicked (uid);
+    }
+    void mouseMove (const juce::MouseEvent& e) override
+    {
+        setMouseCursor (tileUidAt (e.position) != 0 ? juce::MouseCursor::PointingHandCursor
+                                                     : juce::MouseCursor::NormalCursor);
+    }
 
     void paint (juce::Graphics& g) override
     {
-        // Chained Seaboard Blocks snap edge-to-edge into one continuous keyboard, so they draw
-        // as a single board of (blocks x octaves) octaves — keys run seamlessly across the join.
-        const int octs = blocks * octaves;
-        const int totalWhites = octs * 7;
-        if (totalWhites <= 0) return;
-
-        // Fixed key size, drawn at a constant scale and centred. Wider than the window simply
-        // clips (resizing reveals more/less — the keys never change size).
-        const float ww    = (float) kWhiteKeyW;
-        const float bodyW = totalWhites * ww + 2.0f * kBodyMargin;
-        auto full = getLocalBounds().toFloat();
-        juce::Rectangle<float> r (full.getCentreX() - bodyW * 0.5f, full.getY() + 1.0f, bodyW, full.getHeight() - 2.0f);
-
-        if (family == Family::lumi)   // flat, per-key colours (no 3D keywave, no touch rings)
+        std::vector<Tile> ts;
+        std::map<Key, Live> liveTouches;
+        std::vector<int> chord;
+        std::vector<juce::uint64> sel;
+        float bw, bh, bx, by;
         {
-            drawLumiBoard (g, r, octs);
-            return;
+            const juce::ScopedLock sl (touchLock);
+            ts = tiles; liveTouches = touches; chord = chordOffsets; sel = selectedUids;
+            bw = boundsW; bh = boundsH; bx = boundsX; by = boundsY;
         }
+        if (ts.empty() || bw <= 0 || bh <= 0) return;
 
-        drawBoard (g, r, octs);
+        // Only dim/highlight when the selection is a strict subset of what's drawn (a mixed cluster);
+        // a single-group arrangement draws plainly.
+        const auto isSel = [&sel] (juce::uint64 u) { return std::find (sel.begin(), sel.end(), u) != sel.end(); };
+        bool anyUnsel = false;
+        for (auto& t : ts) if (! isSel (t.uid)) { anyUnsel = true; break; }
+        const bool highlight = ! sel.empty() && anyUnsel;
 
-        // Mark each block boundary with only a thin seam line — the B of one block sits flush to
-        // the C of the next (no extra gap), the way the hardware snaps together.
-        if (blocks > 1)
+        // Fit the whole arrangement into our bounds, preserving square units and centring.
+        auto full = getLocalBounds().toFloat().reduced (2.0f);
+        const float scale = juce::jmin (full.getWidth() / bw, full.getHeight() / bh);
+        const float ox = full.getCentreX() - bw * scale * 0.5f - bx * scale;
+        const float oy = full.getCentreY() - bh * scale * 0.5f - by * scale;
+
+        for (auto& t : ts)
         {
-            auto keys = r.reduced (kBodyMargin, kKeyInsetV);
-            g.setColour (juce::Colours::black.withAlpha (0.40f));
-            for (int b = 1; b < blocks; ++b)
-            {
-                const float jx = keys.getX() + (float) (b * octaves * 7) * ww;
-                g.fillRect (jx - 0.75f, r.getY() + 2.0f, 1.5f, r.getHeight() - 4.0f);
-            }
-        }
-
-        // Live touch markers: a white ring + soft fill that grows with pressure, over the keys.
-        std::vector<Live> snapshot;
-        { const juce::ScopedLock sl (touchLock); snapshot.reserve (touches.size());
-          for (auto& kv : touches) snapshot.push_back (kv.second); }
-        if (! snapshot.empty())
-        {
-            auto keys = r.reduced (kBodyMargin, kKeyInsetV);
-            for (auto& t : snapshot)
-            {
-                const float cx  = keys.getX() + juce::jlimit (0.0f, 1.0f, t.x) * keys.getWidth();
-                const float cy  = keys.getY() + juce::jlimit (0.0f, 1.0f, t.y) * keys.getHeight();
-                const float rad = 7.0f + juce::jlimit (0.0f, 1.0f, t.z) * 15.0f;
-                juce::Rectangle<float> circ (cx - rad, cy - rad, rad * 2.0f, rad * 2.0f);
-                g.setColour (juce::Colours::white.withAlpha (0.18f));
-                g.fillEllipse (circ);
-                g.setColour (juce::Colours::white.withAlpha (0.90f));
-                g.drawEllipse (circ, 1.0f);
-            }
+            juce::Rectangle<float> foot (ox + t.ux * scale, oy + t.uy * scale, t.uw * scale, t.uh * scale);
+            drawTile (g, t, foot.reduced (0.5f), liveTouches, chord, highlight, highlight && isSel (t.uid));
         }
     }
 
 private:
+    struct Key
+    {
+        juce::uint64 uid; int finger;
+        bool operator< (const Key& o) const noexcept { return uid != o.uid ? uid < o.uid : finger < o.finger; }
+    };
+
+    // Targets from MIDI (strike fixed at touch start) + displayed values eased toward them + last-seen.
+    struct Live { float x, y, z, strike; float dx, dy, dz; double lastMs; };
+
     void timerCallback() override
     {
-        // Drop rings whose finger has stopped reporting — the touch-end can arrive late when many
-        // fingers share the device's bandwidth, so a short staleness timeout keeps release snappy.
         {
             const juce::ScopedLock sl (touchLock);
             const double now = juce::Time::getMillisecondCounterHiRes();
             for (auto it = touches.begin(); it != touches.end();)
             {
                 if (now - it->second.lastMs > kTouchTimeoutMs) { it = touches.erase (it); dirty = true; }
-                else ++it;
+                else
+                {
+                    // Ease displayed position/press toward the latest sample so 7-bit MIDI steps and
+                    // the report cadence don't look jittery. Strike snaps - it's a one-shot impact.
+                    auto& t = it->second;
+                    t.dx += (t.x - t.dx) * kTouchSmooth;
+                    t.dy += (t.y - t.dy) * kTouchSmooth;
+                    t.dz += (t.z - t.dz) * kTouchSmooth;
+                    if (std::abs (t.x - t.dx) + std::abs (t.y - t.dy) + std::abs (t.z - t.dz) > 0.001f)
+                        dirty = true;
+                    ++it;
+                }
             }
         }
         if (dirty.exchange (false)) repaint();
     }
 
+    // --- layout bookkeeping ---------------------------------------------------------------------
+    void rebuildLegacy()
+    {
+        {
+            const juce::ScopedLock sl (touchLock);
+            usingLayout = false;   // the legacy setters are the RISE/GRAND + preview path - leave layout mode
+            buildLegacyLocked();
+            computeBoundsLocked();
+            dirty = true;
+        }
+        repaint();
+    }
+    void buildLegacyLocked()
+    {
+        // One keybed tile sized ~3 units per octave tall-by-3 (Seaboard-like 2:1 at 2 octaves).
+        Tile t; t.uid = 0; t.family = family; t.octaves = octaves;
+        t.ux = 0; t.uy = 0; t.uw = (float) juce::jmax (1, octaves) * 3.0f; t.uh = 3.0f;
+        tiles.assign (1, t);
+    }
+    void computeBoundsLocked()
+    {
+        if (tiles.empty()) { boundsX = boundsY = 0; boundsW = boundsH = 1; return; }
+        float x0 = tiles[0].ux, y0 = tiles[0].uy, x1 = tiles[0].ux + tiles[0].uw, y1 = tiles[0].uy + tiles[0].uh;
+        for (auto& t : tiles)
+        { x0 = juce::jmin (x0, t.ux); y0 = juce::jmin (y0, t.uy);
+          x1 = juce::jmax (x1, t.ux + t.uw); y1 = juce::jmax (y1, t.uy + t.uh); }
+        boundsX = x0; boundsY = y0; boundsW = juce::jmax (0.1f, x1 - x0); boundsH = juce::jmax (0.1f, y1 - y0);
+    }
+
+    // Which tile's footprint contains p (view pixels), or 0 if none. Same fit transform as paint().
+    juce::uint64 tileUidAt (juce::Point<float> p) const
+    {
+        std::vector<Tile> ts; float bw, bh, bx, by;
+        { const juce::ScopedLock sl (touchLock); ts = tiles; bw = boundsW; bh = boundsH; bx = boundsX; by = boundsY; }
+        if (ts.empty() || bw <= 0 || bh <= 0) return 0;
+        auto full = getLocalBounds().toFloat().reduced (2.0f);
+        const float scale = juce::jmin (full.getWidth() / bw, full.getHeight() / bh);
+        const float ox = full.getCentreX() - bw * scale * 0.5f - bx * scale;
+        const float oy = full.getCentreY() - bh * scale * 0.5f - by * scale;
+        for (auto& t : ts)
+            if (t.uid != 0
+                && juce::Rectangle<float> (ox + t.ux * scale, oy + t.uy * scale, t.uw * scale, t.uh * scale).contains (p))
+                return t.uid;
+        return 0;
+    }
+
+    // --- one tile (art + its touch markers), rotated about its centre if the block is rotated -----
+    void drawTile (juce::Graphics& g, const Tile& t, juce::Rectangle<float> foot,
+                   const std::map<Key, Live>& liveTouches, const std::vector<int>& chord,
+                   bool highlight = false, bool selected = false)
+    {
+        const float cx = foot.getCentreX(), cy = foot.getCentreY();
+        const bool odd = (t.rotation & 1) != 0;
+        // Native (unrotated) rect: the footprint with w/h swapped back when rotated 90/270.
+        juce::Rectangle<float> nat = odd ? juce::Rectangle<float> (cx - foot.getHeight() * 0.5f, cy - foot.getWidth() * 0.5f,
+                                                                   foot.getHeight(), foot.getWidth())
+                                         : foot;
+        juce::Graphics::ScopedSaveState sss (g);
+        if (t.rotation != 0)
+            g.addTransform (juce::AffineTransform::rotation (t.rotation * juce::MathConstants<float>::halfPi, cx, cy));
+
+        // Dashboard-style selection: every block stays fully visible; only its accent border changes.
+        // The selected device's block(s) get a bright border, the others a dim one. With no selection
+        // (a single device, or nothing highlighted) the border is the normal accent.
+        const juce::Colour border = selected ? grab::theme::accent.brighter (0.25f)
+                                  : highlight ? grab::theme::accent.withAlpha (0.28f)
+                                              : grab::theme::accent.withAlpha (0.9f);
+
+        const bool keybed = (t.family == Family::block || t.family == Family::rise || t.family == Family::grand);
+        if      (t.family == Family::lumi)     drawFlatKeybed (g, nat, t.octaves, border);
+        else if (t.family == Family::lightpad) drawPad (g, nat, t.grid, border);
+        else if (t.family == Family::control)  drawControl (g, nat, border);
+        else                                   drawKeybed (g, nat, t.family, t.octaves, border);
+
+        // Touch markers for this tile.
+        std::vector<const Live*> mine;
+        for (auto& kv : liveTouches) if (kv.first.uid == t.uid) mine.push_back (&kv.second);
+        if (mine.empty()) return;
+
+        auto inset = (t.family == Family::lightpad || t.family == Family::control) ? nat.reduced (kBodyMargin)
+                                                                                   : nat.reduced (kBodyMargin, kKeyInsetV);
+        auto drawMarker = [&g, &inset] (float nx, float ny, float strike, float press, float a)
+        {
+            const float mx = inset.getX() + juce::jlimit (0.0f, 1.0f, nx) * inset.getWidth();
+            const float my = inset.getY() + juce::jlimit (0.0f, 1.0f, ny) * inset.getHeight();
+            const float inner = 3.0f + juce::jlimit (0.0f, 1.0f, strike) * 11.0f;
+            const float outer = juce::jmax (inner + 2.0f, 6.0f + juce::jlimit (0.0f, 1.0f, press) * 16.0f);
+            juce::Rectangle<float> discC (mx - inner, my - inner, inner * 2.0f, inner * 2.0f);
+            juce::Rectangle<float> ringC (mx - outer, my - outer, outer * 2.0f, outer * 2.0f);
+            g.setColour (juce::Colours::white.withAlpha (0.10f * a)); g.fillEllipse (ringC);
+            g.setColour (juce::Colours::white.withAlpha (0.85f * a)); g.drawEllipse (ringC, 1.4f);
+            g.setColour (juce::Colours::white.withAlpha (0.80f * a)); g.fillEllipse (discC);
+        };
+
+        // Chord ghosts only on keybeds, where x is linear in semitones (a +k-semitone note sits
+        // k/(octaves*12) along). On a pad grid the note layout isn't a pitch axis, so no ghosts.
+        const float semi = keybed ? 1.0f / (float) juce::jmax (1, t.octaves * 12) : 0.0f;
+        for (auto* m : mine)
+        {
+            if (keybed)
+                for (int off : chord)
+                    drawMarker (m->dx + (float) off * semi, m->dy, m->strike, m->dz, 0.5f);
+            drawMarker (m->dx, m->dy, m->strike, m->dz, 1.0f);
+        }
+    }
+
     // 12-bit scale masks (bit n set = semitone n above the root is in the scale), taken verbatim
-    // from ROLI Dashboard's own Littlefoot library (LittleFootLibrary/Scale.littlefoot,
-    // Scale_getScaleBitMask) so GRAB's lit keys match the device exactly across all 19 scales.
+    // from ROLI Dashboard's own Littlefoot library (Scale.littlefoot) so lit keys match the device.
     static int scaleMask (int scaleId)
     {
         static const int masks[19] = {
-            0xab5, // 0 major
-            0x5ad, // 1 minor
-            0x9ad, // 2 harmonic minor
-            0x4a5, // 3 pentatonic neutral
-            0x295, // 4 pentatonic major
-            0x4a9, // 5 pentatonic minor
-            0x4e9, // 6 blues
-            0x6ad, // 7 dorian
-            0x5ab, // 8 phrygian
-            0xad5, // 9 lydian
-            0x6b5, // 10 mixolydian
-            0x56b, // 11 locrian
-            0x555, // 12 whole tone
-            0xb6d, // 13 arabic (A)
-            0x575, // 14 arabic (B)
-            0x8d1, // 15 japanese
-            0x8b1, // 16 ryukyu
-            0x57b, // 17 8-tone spanish
-            0xfff  // 18 chromatic
+            0xab5, 0x5ad, 0x9ad, 0x4a5, 0x295, 0x4a9, 0x4e9, 0x6ad, 0x5ab, 0xad5,
+            0x6b5, 0x56b, 0x555, 0xb6d, 0x575, 0x8d1, 0x8b1, 0x57b, 0xfff
         };
         return (scaleId >= 0 && scaleId < 19) ? masks[scaleId] : 0xfff;
     }
 
-    // Colour for a key by its pitch class (0..11), per the active Color Scheme.
     juce::Colour keyColour (int pitchClass, bool white) const
     {
         const int  rel     = (((pitchClass - rootNote) % 12) + 12) % 12;
         const bool inScale = ((scaleMask (scaleId) >> rel) & 1) != 0;
         const bool isRoot  = (rel == 0);
-        const juce::Colour off  (0xff0c0d12);   // out of scale: effectively dark
+        const juce::Colour off  (0xff0c0d12);
         const juce::Colour dim  (0xff15161f);
         const auto rainbow = [pitchClass] (float v) { return juce::Colour::fromHSV ((float) pitchClass / 12.0f, 0.85f, v, 1.0f); };
 
         switch (colourScheme)
         {
-            case 2: // Piano: plain white/black keyboard
-                return white ? juce::Colour (0xffe9ebee) : juce::Colour (0xff15161b);
-            case 3: // Stage: whole keyboard a dim rainbow (brightens when played on the device)
-                return rainbow (0.35f);
-            case 4: // Rainbow: in-key notes only, full-brightness rainbow
-                return inScale ? rainbow (1.0f) : off;
-            case 0: // Pro: root highlighted, scale notes white, rest dim
-                return isRoot ? juce::Colour (rootArgb).withAlpha (1.0f)
-                     : inScale ? juce::Colour (0xffe9ebee) : dim;
-            case 1: default: // User: your Global/Root colours on the scale
-                return isRoot ? juce::Colour (rootArgb).withAlpha (1.0f)
-                     : inScale ? juce::Colour (inScaleArgb).withAlpha (1.0f) : dim;
+            case 2: return white ? juce::Colour (0xffe9ebee) : juce::Colour (0xff15161b);
+            case 3: return rainbow (0.35f);
+            case 4: return inScale ? rainbow (1.0f) : off;
+            case 0: return isRoot ? juce::Colour (rootArgb).withAlpha (1.0f) : inScale ? juce::Colour (0xffe9ebee) : dim;
+            case 1: default: return isRoot ? juce::Colour (rootArgb).withAlpha (1.0f)
+                                 : inScale ? juce::Colour (inScaleArgb).withAlpha (1.0f) : dim;
         }
     }
 
     // Flat, per-key coloured keyboard for LUMI / Piano (Dashboard-style), not the Seaboard keywave.
-    void drawLumiBoard (juce::Graphics& g, juce::Rectangle<float> r, int octaveCount)
+    void drawFlatKeybed (juce::Graphics& g, juce::Rectangle<float> r, int octaveCount,
+                         juce::Colour border = grab::theme::accent.withAlpha (0.9f))
     {
-        const float ww = (float) kWhiteKeyW;
-
         g.setColour (juce::Colour (0xff0c0d12));
         g.fillRoundedRectangle (r, 10.0f);
-        g.setColour (grab::theme::accent.withAlpha (0.9f));
+        g.setColour (border);
         g.drawRoundedRectangle (r.reduced (1.0f), 10.0f, 1.4f);
 
         auto keys = r.reduced (kBodyMargin, kKeyInsetV);
-        const int   totalWhites = octaveCount * 7;
+        const int   totalWhites = juce::jmax (1, octaveCount * 7);
+        const float ww     = keys.getWidth() / (float) totalWhites;
         const float blackH = keys.getHeight() * 0.60f;
         const float bw     = ww * 0.60f;
 
-        // White keys (C D E F G A B -> pitch classes 0 2 4 5 7 9 11).
         static const int whitePc[7]    = { 0, 2, 4, 5, 7, 9, 11 };
-        static const bool blackAfter[7] = { true, true, false, true, true, true, false }; // after C D _ F G A _
+        static const bool blackAfter[7] = { true, true, false, true, true, true, false };
         static const int blackPc[7]    = { 1, 3, -1, 6, 8, 10, -1 };
 
         for (int w = 0; w < totalWhites; ++w)
         {
-            const int pc = whitePc[w % 7];
             juce::Rectangle<float> k (keys.getX() + w * ww, keys.getY(), ww, keys.getHeight());
             k = k.reduced (1.0f, 0.0f);
-            g.setColour (keyColour (pc, true));
+            g.setColour (keyColour (whitePc[w % 7], true));
             g.fillRoundedRectangle (k, 2.5f);
             g.setColour (juce::Colours::black.withAlpha (0.35f));
-            g.drawRoundedRectangle (k, 2.5f, 1.0f);    // key separator
+            g.drawRoundedRectangle (k, 2.5f, 1.0f);
         }
-
-        // Black keys on top.
         for (int o = 0; o < octaveCount; ++o)
             for (int i = 0; i < 7; ++i)
                 if (blackAfter[i])
                 {
-                    const int w  = o * 7 + i;
-                    const int pc = blackPc[i];
-                    const float cx = keys.getX() + (float) (w + 1) * ww;
+                    const float cx = keys.getX() + (float) (o * 7 + i + 1) * ww;
                     juce::Rectangle<float> blk (cx - bw * 0.5f, keys.getY(), bw, blackH);
                     g.setColour (juce::Colours::black.withAlpha (0.45f));
                     g.fillRoundedRectangle (blk.expanded (1.2f, 0.0f), 2.5f);
-                    g.setColour (keyColour (pc, false));
+                    g.setColour (keyColour (blackPc[i], false));
                     g.fillRoundedRectangle (blk, 2.5f);
                 }
     }
 
-    void drawBoard (juce::Graphics& g, juce::Rectangle<float> r, int octaveCount)
+    // Pseudo-3D moulded keywave for Seaboard / RISE / GRAND.
+    void drawKeybed (juce::Graphics& g, juce::Rectangle<float> r, Family fam, int octaveCount,
+                     juce::Colour border = grab::theme::accent.withAlpha (0.9f))
     {
-        const int whitesPerOct = 7;
-        const int totalWhites   = octaveCount * whitesPerOct;
-        const float ww = (float) kWhiteKeyW;
-
-        // Per-family feel: corner radius, how bright the crest catches light.
-        const float radius  = family == Family::block ? 2.5f : family == Family::rise ? 4.0f : 5.5f;
-        const float crestLum = family == Family::block ? 0.00f : family == Family::rise ? -0.06f : -0.10f;
+        const int   totalWhites = juce::jmax (1, octaveCount * 7);
+        const float radius   = fam == Family::block ? 2.5f : fam == Family::rise ? 4.0f : 5.5f;
+        const float crestLum = fam == Family::block ? 0.00f : fam == Family::rise ? -0.06f : -0.10f;
 
         const juce::Colour whiteEdge  (0xff111318);
         const juce::Colour whiteCrest = juce::Colour (0xff3a3f4a).brighter (crestLum >= 0 ? crestLum : 0.0f)
@@ -263,79 +400,98 @@ private:
         const juce::Colour blackEdge  (0xff060708);
         const juce::Colour blackCrest (0xff22252c);
 
-        // The keywave surface is a mid-grey — halfway between the cylinder's dark edge and light
-        // crest. It fills the whole body and bleeds to the top/bottom edges; the raised keys rise
-        // out of it, leaving flat glide strips above and below (both still sense glide / x-y).
         const juce::Colour flatSurface = whiteEdge.interpolatedWith (whiteCrest, 0.5f);
         g.setColour (flatSurface);
         g.fillRoundedRectangle (r, 12.0f);
-        g.setColour (grab::theme::accent.withAlpha (0.9f));
+        g.setColour (border);
         g.drawRoundedRectangle (r.reduced (1.0f), 12.0f, 1.6f);
 
         auto keys = r.reduced (kBodyMargin, kKeyInsetV);
-        const float blackH   = keys.getHeight() * (family == Family::block ? 0.42f : 0.50f);
+        const float ww       = keys.getWidth() / (float) totalWhites;
+        const float blackH   = keys.getHeight() * (fam == Family::block ? 0.42f : 0.50f);
         const float glideTop = keys.getHeight() * 0.11f;
-
-        // A black key follows C, D, F, G, A (white-key indices 0,1,3,4,5).
         static const bool blackAfter[7] = { true, true, false, true, true, true, false };
 
-        // White keys — rounded vertical cylinders (dark edge -> bright crest -> dark edge),
-        // rising from the flat surface, with a soft base shadow for depth.
         for (int w = 0; w < totalWhites; ++w)
         {
             juce::Rectangle<float> col (keys.getX() + w * ww, keys.getY(), ww, keys.getHeight());
             auto k = col.withTrimmedTop (glideTop).withTrimmedBottom (glideTop).reduced (0.8f, 0.0f);
-
             juce::ColourGradient grad (whiteEdge, k.getX(), 0.0f, whiteEdge, k.getRight(), 0.0f, false);
             grad.addColour (0.5, whiteCrest);
             g.setGradientFill (grad);
             g.fillRoundedRectangle (k, radius);
-
-            // base shadow where the raised bump meets the lower flat strip
             g.setColour (juce::Colours::black.withAlpha (0.28f));
             g.fillRoundedRectangle (k.removeFromBottom (k.getHeight() * 0.14f), radius);
-            // (no specular keyline on white keys — ROLI's render doesn't show one)
         }
-
-        // Black keys — narrower raised ridges on top, with a soft drop shadow beneath.
         for (int o = 0; o < octaveCount; ++o)
-            for (int i = 0; i < whitesPerOct; ++i)
+            for (int i = 0; i < 7; ++i)
                 if (blackAfter[i])
                 {
-                    const int w = o * whitesPerOct + i;
-                    const float cx = keys.getX() + (w + 1) * ww;       // boundary between this white and the next
+                    const float cx = keys.getX() + (float) (o * 7 + i + 1) * ww;
                     const float bw = ww * 0.58f;
                     juce::Rectangle<float> blk (cx - bw * 0.5f, keys.getY() + glideTop, bw, blackH);
-
-                    // drop shadow
                     g.setColour (juce::Colours::black.withAlpha (0.45f));
                     g.fillRoundedRectangle (blk.translated (0.0f, 3.0f).expanded (1.5f, 1.0f), radius + 1.0f);
-
-                    // the ridge (cylinder shading)
                     juce::ColourGradient bg (blackEdge, blk.getX(), 0.0f, blackEdge, blk.getRight(), 0.0f, false);
                     bg.addColour (0.5, blackCrest);
                     g.setGradientFill (bg);
                     g.fillRoundedRectangle (blk, radius);
-
-                    // keyline on the black key
                     g.setColour (juce::Colours::white.withAlpha (0.22f));
                     g.fillRoundedRectangle (blk.getCentreX() - 0.7f, blk.getY() + 3.0f, 1.4f, blk.getHeight() - 7.0f, 0.7f);
                 }
     }
 
-private:
-    // Proportions taken from ROLI Dashboard's Seaboard Block render (2 octaves ~ 2.6:1 body,
-    // slim ~1:5 white keys). Fixed scale: never stretches with the window.
-    static constexpr int kWhiteKeyW  = 18;   // white-key width (px)
-    static constexpr int kBodyMargin = 3;    // small side margin so the accent border frames the keys (not over them)
-    static constexpr int kKeyInsetV  = 4;    // vertical inset of the keys from the body edge (keys run tall)
+    // Lightpad: a square body with an NxN grid of dim LED dots (touch rings + ghosts draw over it).
+    void drawPad (juce::Graphics& g, juce::Rectangle<float> r, int gridN,
+                  juce::Colour border = grab::theme::accent.withAlpha (0.9f))
+    {
+        gridN = juce::jlimit (3, 30, gridN);
+        g.setColour (juce::Colour (0xff0b0c11));
+        g.fillRoundedRectangle (r, 10.0f);
+        g.setColour (border);
+        g.drawRoundedRectangle (r.reduced (1.0f), 10.0f, 1.6f);
 
-    int    octaves = 2;
-    int    blocks  = 1;     // DNA-chained bodies drawn side-by-side (identical-type cluster)
+        auto pad = r.reduced (kBodyMargin + 2.0f);
+        const float cell = juce::jmin (pad.getWidth(), pad.getHeight()) / (float) gridN;
+        const float dot  = cell * 0.62f;
+        const float gx   = pad.getCentreX() - cell * gridN * 0.5f;
+        const float gy   = pad.getCentreY() - cell * gridN * 0.5f;
+        g.setColour (juce::Colours::white.withAlpha (0.08f));
+        for (int yy = 0; yy < gridN; ++yy)
+            for (int xx = 0; xx < gridN; ++xx)
+                g.fillEllipse (gx + xx * cell + (cell - dot) * 0.5f, gy + yy * cell + (cell - dot) * 0.5f, dot, dot);
+    }
+
+    // Control block (Live / Loop / Touch): a short dark body with a row of button discs.
+    void drawControl (juce::Graphics& g, juce::Rectangle<float> r,
+                      juce::Colour border = grab::theme::accent.withAlpha (0.7f))
+    {
+        g.setColour (juce::Colour (0xff17181e));
+        g.fillRoundedRectangle (r, 9.0f);
+        g.setColour (border);
+        g.drawRoundedRectangle (r.reduced (1.0f), 9.0f, 1.4f);
+
+        auto body = r.reduced (kBodyMargin + 2.0f);
+        const int n = 5;
+        const float d = juce::jmin (body.getHeight() * 0.7f, body.getWidth() / (float) (n + 1));
+        const float gap = (body.getWidth() - n * d) / (float) (n + 1);
+        g.setColour (juce::Colours::white.withAlpha (0.14f));
+        for (int i = 0; i < n; ++i)
+            g.fillEllipse (body.getX() + gap + i * (d + gap), body.getCentreY() - d * 0.5f, d, d);
+    }
+
+    // --- constants / state ----------------------------------------------------------------------
+    static constexpr int kBodyMargin = 3;    // side margin so the accent border frames the content
+    static constexpr int kKeyInsetV  = 4;    // vertical inset of keys from the body edge
+
+    int    octaves = 2;                      // legacy keybed size (RISE/GRAND + previews)
     Family family  = Family::rise;
 
-    // LUMI / Piano key-colour state (see setColourScheme). colourScheme: 0 Pro, 1 User, 2 Piano,
-    // 3 Stage, 4 Rainbow.
+    std::vector<Tile> tiles;                 // the drawn arrangement (legacy keybed or real topology)
+    bool   usingLayout = false;              // true once setLayout() has supplied real tiles
+    float  boundsX = 0, boundsY = 0, boundsW = 1, boundsH = 1;   // unit-space bounding box of `tiles`
+
+    // LUMI / Piano key-colour state (see setColourScheme).
     int           colourScheme = 1;
     int           scaleId     = 0;
     int           rootNote    = 0;
@@ -343,10 +499,12 @@ private:
     juce::uint32  rootArgb    = 0xffffffff;
 
     static constexpr double kTouchTimeoutMs = 140.0;   // drop a ring this long after its last update
-    struct Live { float x, y, z; double lastMs; };     // normalised position + pressure + last-seen
-    std::map<juce::uint64, Live> touches;    // active touches, keyed by block+finger id
-    juce::CriticalSection        touchLock;  // setTouch (MIDI thread) vs paint (message thread)
-    std::atomic<bool>            dirty { false };
+    static constexpr float  kTouchSmooth    = 0.35f;   // per-60Hz-frame easing toward the latest sample
+    std::map<Key, Live>   touches;           // active touches, keyed by {tile uid, finger}
+    std::vector<int>      chordOffsets;      // chord-mode ghost intervals (semitones), empty = off
+    std::vector<juce::uint64> selectedUids;  // blocks of the selected device (highlighted vs dimmed)
+    juce::CriticalSection touchLock;         // setTouch/setLayout (any thread) vs paint (message thread)
+    std::atomic<bool>     dirty { false };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (KeyboardView)
 };

@@ -269,7 +269,7 @@ enum PresetMenuId
 Rise2Component::Rise2Component (seaprobe::RawLogger& loggerToUse) : logger (loggerToUse)
 {
     liveCc.fill (-1);   // no CC data yet
-    touchNote.fill (-1); touchZ.fill (0.0f); touchBend.fill (0.0f);
+    touchNote.fill (-1); touchZ.fill (0.0f); touchBend.fill (0.0f); touchStrike.fill (0.0f);
     addAndMakeVisible (statusLabel);
     addAndMakeVisible (infoLabel);
     infoLabel.setColour (juce::Label::textColourId, juce::Colours::white.withAlpha (0.7f));
@@ -533,19 +533,29 @@ void Rise2Component::handleIncomingMidiMessage (juce::MidiInput*, const juce::Mi
         if (message.isNoteOnOrOff())
         {
             const bool on = message.isNoteOn() && message.getVelocity() > 0;
-            if (on) { touchNote[(size_t) ch] = message.getNoteNumber(); touchZ[(size_t) ch] = message.getFloatVelocity(); }
-            onTouch (ch, touchNote[(size_t) ch], on ? touchZ[(size_t) ch] : 0.0f, touchBend[(size_t) ch], ! on);
+            if (on)
+            {
+                touchNote[(size_t) ch]   = message.getNoteNumber();
+                touchStrike[(size_t) ch] = message.getFloatVelocity();   // Strike: fixed for the note
+                touchZ[(size_t) ch]      = message.getFloatVelocity();   // seed Press until pressure arrives
+            }
+            onTouch (ch, touchNote[(size_t) ch], on ? touchZ[(size_t) ch] : 0.0f, touchBend[(size_t) ch],
+                     touchStrike[(size_t) ch], ! on);
             if (! on) touchNote[(size_t) ch] = -1;
         }
         else if (message.isChannelPressure())
         {
             touchZ[(size_t) ch] = (float) message.getChannelPressureValue() / 127.0f;
-            if (touchNote[(size_t) ch] >= 0) onTouch (ch, touchNote[(size_t) ch], touchZ[(size_t) ch], touchBend[(size_t) ch], false);
+            if (touchNote[(size_t) ch] >= 0)
+                onTouch (ch, touchNote[(size_t) ch], touchZ[(size_t) ch], touchBend[(size_t) ch],
+                         touchStrike[(size_t) ch], false);
         }
         else // pitch wheel
         {
             touchBend[(size_t) ch] = ((float) message.getPitchWheelValue() - 8192.0f) / 8192.0f;
-            if (touchNote[(size_t) ch] >= 0) onTouch (ch, touchNote[(size_t) ch], touchZ[(size_t) ch], touchBend[(size_t) ch], false);
+            if (touchNote[(size_t) ch] >= 0)
+                onTouch (ch, touchNote[(size_t) ch], touchZ[(size_t) ch], touchBend[(size_t) ch],
+                         touchStrike[(size_t) ch], false);
         }
     }
 

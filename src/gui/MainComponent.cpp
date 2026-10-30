@@ -299,6 +299,7 @@ MainComponent::MainComponent()
     footer.setVersion (GRAB_VERSION);
     checkForUpdate();   // ask GitHub for the latest release; lights up the footer if newer
     addChildComponent (keyboardView);   // shown only for keyboard devices
+    keyboardView.onTileClicked = [this] (juce::uint64 uid) { selectBlockByUid (uid); }; // Dashboard-style click-to-select
 
     addChildComponent (busyLabel);      // shown only while a factory reset reboots the device
     busyLabel.setJustificationType (juce::Justification::centred);
@@ -332,10 +333,28 @@ MainComponent::MainComponent()
     // watching instead of giving up after launch. A live session or dev preview is left alone.
     deviceList = juce::MidiDeviceListConnection::make ([this]
     {
-        // Only (re-)scan when fully idle: a non-null source means a connect is already in
-        // progress or established, so leave it alone (don't interrupt it or loop).
-        if (source != nullptr || block != nullptr || rise2Page != nullptr
-            || ! simConfig.empty() || grandPreview)
+        // Already connected: leave the live session alone UNLESS a port we're using has vanished
+        // (the device was unplugged or powered off). The stock library can be slow to drop the
+        // block then, leaving a stale keybed on screen, so reconnect to rebuild the topology - that
+        // clears the gone device. (Physically separating two BLE Seaboards does NOT drop a port, so
+        // this never fires for a DNA separate - that's handled by the link tracker.)
+        if (source != nullptr)
+        {
+            if (detector != nullptr)
+            {
+                const auto avail = juce::MidiInput::getAvailableDevices();
+                for (auto& p : detector->getSelectedPairs())
+                {
+                    bool present = false;
+                    for (auto& a : avail) if (a.identifier == p.input.identifier) { present = true; break; }
+                    if (! present) { connect (requestedTransport); return; }
+                }
+            }
+            return;
+        }
+
+        // Otherwise only (re-)scan when fully idle.
+        if (block != nullptr || rise2Page != nullptr || ! simConfig.empty() || grandPreview)
             return;
         auto looksRoli = [] (const juce::MidiDeviceInfo& d)
         {
@@ -429,6 +448,7 @@ void MainComponent::connect (seaprobe::Transport transport)
         keyboardView.setOctaves (keyboardOctavesForName (riseName));
         keyboardView.setFamily (isGrand ? KeyboardView::Family::grand : KeyboardView::Family::rise);
         keyboardView.setBlocks (1);   // a RISE/GRAND is a single keybed (no DNA chaining)
+        keyboardView.setChord ({});   // RISE/GRAND have no Chord mode - clear any Seaboard ghosts
         keyboardView.setVisible (true);
 
         // Size the GRAND keyboard from its reported key count (Studio 37 / Stage 61 / 88): the port
@@ -441,13 +461,15 @@ void MainComponent::connect (seaprobe::Transport transport)
 
         // Live touch rings from the RISE/GRAND's performance MIDI (they have no BLOCKS touch surface).
         keyboardView.startTouchDisplay();
-        rise2Page->onTouch = [this] (int chan, int note, float pressure, float bend, bool end)
+        rise2Page->onTouch = [this] (int chan, int note, float pressure, float bend, float strike, bool end)
         {
             const int   octs = juce::jmax (1, keyboardView.getOctaves());
             const int   base = 60 - octs * 6;   // centre the drawn keyboard roughly on middle C
             const float x = juce::jlimit (0.0f, 1.0f,
                 ((float) note - (float) base + bend * 2.0f) / (float) (octs * 12));   // bend nudges x (Glide)
-            keyboardView.setTouch ((juce::uint64) chan, x, 0.5f, pressure, end);      // setTouch is thread-safe
+            // y stays centred: RISE/GRAND Slide (CC74) isn't parsed here, and the GRAND has none (4D).
+            // Tile 0 is the single RISE/GRAND keybed (not a DNA block).
+            keyboardView.setTouch (0, chan, x, 0.5f, pressure, strike, end);   // setTouch is thread-safe
         };
 
         resized();
@@ -606,11 +628,45 @@ void MainComponent::updateBlockList (const roli::BlockTopology& topo)
 
     updateKeyboardForBlock(); // joined keywave for a Seaboard (chain draws side-by-side)
 
+    // Count distinct devices (a dual-homed device appears on both transports with the same uid).
+    std::vector<juce::uint64> uniqueUids;
+    for (auto& b : topo.blocks)
+        if (b != nullptr && std::find (uniqueUids.begin(), uniqueUids.end(), (juce::uint64) b->uid) == uniqueUids.end())
+            uniqueUids.push_back ((juce::uint64) b->uid);
+    const int blockCount = (int) uniqueUids.size();
+    const int dnaLinks   = detector != nullptr ? (int) detector->getDnaLinks().size() : 0;
+
+    const bool unseen = blockCount == 1 && detector != nullptr && detector->hasUnseenDnaNeighbour();
+
     setStatus ("Connected (" + (detector != nullptr ? detector->getActiveTransport() : juce::String())
-               + "): " + juce::String (topo.blocks.size()) + " block(s)"
+               + "): " + juce::String (blockCount) + " block(s)"
+               + (blockCount > 1 ? ", " + juce::String (dnaLinks) + " DNA link(s)" : juce::String())
                + (block != nullptr ? "   -   " + block->serialNumber + " fw " + block->versionNumber
                                        + " battery " + juce::String (juce::roundToInt (block->getBatteryLevel() * 100.0f)) + "%"
-                                     : juce::String()));
+                                     : juce::String())
+               + (unseen ? grab::u8 ("   -   DNA-linked block visible over Bluetooth \xe2\x80\x94 switch to Auto to see it")
+                         : juce::String()));
+
+    // Diagnostic: log what the SDK reports about the physical arrangement, so we can see whether DNA
+    // join/separate is detectable (does connections[] change? do block positions become adjacent?).
+    if (logger != nullptr)
+    {
+        logger->line ("TOPOLOGY: " + juce::String (topo.blocks.size()) + " block(s), "
+                      + juce::String (topo.connections.size()) + " connection(s)");
+        for (auto& b : topo.blocks)
+            if (b != nullptr)
+            {
+                const auto a = b->getBlockAreaWithinLayout();
+                logger->line ("  block " + b->serialNumber
+                              + "  master=" + juce::String (b->isMasterBlock() ? "yes" : "no")
+                              + "  area=(" + juce::String (a.x) + "," + juce::String (a.y) + " "
+                              + juce::String (a.width) + "x" + juce::String (a.height) + ")"
+                              + "  rot=" + juce::String (b->getRotation()));
+            }
+        for (auto& c : topo.connections)
+            logger->line ("  connection: " + juce::String ((juce::int64) c.device1)
+                          + " <-> " + juce::String ((juce::int64) c.device2));
+    }
 
     if (block != nullptr)
     {
@@ -645,33 +701,176 @@ void MainComponent::updateLumiKeyboardColours()
     keyboardView.setColourScheme (scheme, scale, key, globalC, rootC);
 }
 
+// Chord-mode intervals (semitones above the played note) per ROLI's Chord config (id 24), in the
+// device's option order (see ConfigOverrides::chordNames). Value 0 = Off = no ghost notes. Verified
+// against ROLI Dashboard / a Seaboard Block (fixed shapes rooted on the played note, not diatonic).
+static std::vector<int> chordIntervalsFor (int chord)
+{
+    switch (chord)
+    {
+        case 1:  return { 12 };             // Octave
+        case 2:  return { 7 };              // Fifth
+        case 3:  return { 4, 7 };           // Major
+        case 4:  return { 3, 7 };           // minor
+        case 5:  return { 5, 7 };           // Sus4
+        case 6:  return { 2, 7 };           // Sus2
+        case 7:  return { 4, 7, 10 };       // 7th
+        case 8:  return { 4, 7, 11 };       // Major7
+        case 9:  return { 3, 7, 10 };       // minor7
+        case 10: return { 4, 7, 10, 14 };   // 9th
+        case 11: return { 3, 7, 10, 14 };   // minor9
+        case 12: return { 3, 6 };           // Diminished
+        case 13: return { 4, 8 };           // Augmented
+        case 14: return { 3, 6, 10 };       // m7b5
+        default: return {};                 // 0 Off (or unknown)
+    }
+}
+
+void MainComponent::pushChordGhosts()
+{
+    // Chord ghosts only make sense on the Seaboard Block (the one touch-ring family with a Chord
+    // config), so clear them otherwise - a stale chord must never haunt another device's rings.
+    const bool seaboard = block != nullptr && block->getType() == roli::Block::Type::seaboardBlock;
+    if (! seaboard) { keyboardView.setChord ({}); return; }
+
+    auto it = pendingValues.find (24);                                   // Chord (id 24): 0 = Off
+    keyboardView.setChord (chordIntervalsFor (it != pendingValues.end() ? (int) it->second : 0));
+}
+
+// Map each block in the selected device's DNA group to a drawn tile, positioned by the SDK's
+// shared-unit layout (getBlockAreaWithinLayout + rotation). However the user snaps the blocks,
+// this reproduces the real X/Y arrangement — Seaboard keybed, Lightpad pad-grid, Control row, LUMI.
+std::vector<KeyboardView::Tile> MainComponent::buildBlockTiles()
+{
+    std::vector<KeyboardView::Tile> out;
+    if (source == nullptr || block == nullptr)
+        return out;
+
+    const auto topo = source->getCurrentTopology();
+
+    // Draw EVERY connected block, like ROLI Dashboard. In Auto (USB+BLE) a device reachable on both
+    // transports is reported twice with the SAME uid; dedup so it draws once. The selected block is
+    // highlighted; tiles with no usable layout (not DNA-joined) get reflowed into a gapped row.
+    std::vector<juce::uint64> seen;
+    std::map<juce::uint64, juce::String> serialOf;
+    for (auto& b : topo.blocks)
+    {
+        if (b == nullptr || std::find (seen.begin(), seen.end(), (juce::uint64) b->uid) != seen.end())
+            continue;
+        seen.push_back ((juce::uint64) b->uid);
+        serialOf[(juce::uint64) b->uid] = b->serialNumber;
+
+        KeyboardView::Tile t;
+        t.uid      = (juce::uint64) b->uid;
+        t.rotation = ((b->getRotation() % 4) + 4) % 4;
+
+        // Default footprint per model (logical units, from roli_BlockModels.h), used if the SDK
+        // reports a degenerate layout area.
+        int dw = 2, dh = 2;
+        switch (b->getType())
+        {
+            case roli::Block::Type::seaboardBlock:    t.family = KeyboardView::Family::block;    t.octaves = 2; dw = 6; dh = 3; break;
+            case roli::Block::Type::lumiKeysBlock:    t.family = KeyboardView::Family::lumi;      t.octaves = 2; dw = 6; dh = 3; break;
+            case roli::Block::Type::roliPiano49:      t.family = KeyboardView::Family::lumi;      t.octaves = 4; dw = 14; dh = 4; break;
+            case roli::Block::Type::lightPadBlock:    t.family = KeyboardView::Family::lightpad;  t.grid = 15;   dw = 2; dh = 2; break;
+            case roli::Block::Type::lightpadProBlock: t.family = KeyboardView::Family::lightpad;  t.grid = 15;   dw = 4; dh = 4; break;
+            case roli::Block::Type::liveBlock:
+            case roli::Block::Type::loopBlock:
+            case roli::Block::Type::touchBlock:
+            case roli::Block::Type::developerControlBlock: t.family = KeyboardView::Family::control; dw = 2; dh = 1; break;
+            default: continue;   // airwave / unknown: not drawn
+        }
+
+        const auto area = b->getBlockAreaWithinLayout();
+        t.ux = (float) area.x;  t.uy = (float) area.y;
+        t.uw = (float) (area.width  > 0 ? area.width  : dw);
+        t.uh = (float) (area.height > 0 ? area.height : dh);
+        out.push_back (t);
+    }
+
+    // The SDK only lays a cluster out when it sees the DNA link as a topology connection; otherwise
+    // every block comes back at the origin and the tiles would stack on top of each other. Detect
+    // that (any overlap) and fall back to a left-to-right row so a chain still draws as two bodies.
+    bool overlap = false;
+    for (size_t i = 0; i < out.size() && ! overlap; ++i)
+        for (size_t j = i + 1; j < out.size() && ! overlap; ++j)
+        {
+            const auto& a = out[i]; const auto& c = out[j];
+            overlap = a.ux < c.ux + c.uw && c.ux < a.ux + a.uw && a.uy < c.uy + c.uh && c.uy < a.uy + a.uh;
+        }
+    if (overlap && out.size() > 1)
+    {
+        // The stock library doesn't lay a cross-transport DNA cluster out, so lay it out ourselves,
+        // using the links we stitched from the raw topology packets: DNA-joined neighbours draw
+        // touching (gap 0), independent blocks keep a gap so they read as separate boards.
+        const auto links = (detector != nullptr) ? detector->getDnaLinks()
+                                                  : std::vector<std::pair<juce::String, juce::String>>{};
+        auto linked = [&links] (const juce::String& a, const juce::String& b)
+        {
+            for (auto& l : links)
+                if ((l.first == a && l.second == b) || (l.first == b && l.second == a)) return true;
+            return false;
+        };
+        std::sort (out.begin(), out.end(), [] (const KeyboardView::Tile& a, const KeyboardView::Tile& b)
+                   { return a.ux != b.ux ? a.ux < b.ux : a.uy != b.uy ? a.uy < b.uy : a.uid < b.uid; });
+        float x = 0.0f;
+        for (size_t i = 0; i < out.size(); ++i)
+        {
+            out[i].ux = x; out[i].uy = 0.0f; out[i].rotation = 0;
+            x += out[i].uw;
+            if (i + 1 < out.size())
+                x += linked (serialOf[out[i].uid], serialOf[out[i + 1].uid]) ? 0.0f : 1.0f;
+        }
+    }
+
+    return out;
+}
+
+void MainComponent::selectBlockByUid (juce::uint64 clickedUid)
+{
+    // The dropdown lists one entry per group (rep uid in blockOrder); a clicked tile may be any
+    // member of a group. Find the group that owns the clicked block and drive the dropdown, which
+    // fires its onChange -> selectBlock on the rep. Selecting the already-current group is a no-op.
+    for (size_t i = 0; i < blockOrder.size(); ++i)
+    {
+        const auto rep = blockOrder[i];
+        bool match = (rep == (roli::Block::UID) clickedUid);
+        if (! match)
+        {
+            auto it = clusterMembers.find (rep);
+            if (it != clusterMembers.end())
+                for (auto m : it->second)
+                    if (m == (roli::Block::UID) clickedUid) { match = true; break; }
+        }
+        if (match) { blockBox.setSelectedId ((int) i + 1, juce::sendNotification); return; }
+    }
+}
+
 void MainComponent::updateKeyboardForBlock()
 {
-    const auto type = block != nullptr ? block->getType() : roli::Block::Type::unknown;
-    const bool isSeaboard = type == roli::Block::Type::seaboardBlock;
-    const bool isLumi     = type == roli::Block::Type::lumiKeysBlock;
-    const bool isPiano    = type == roli::Block::Type::roliPiano49;
+    const auto type  = block != nullptr ? block->getType() : roli::Block::Type::unknown;
+    auto       tiles = buildBlockTiles();
 
-    if (isSeaboard)
+    if (! tiles.empty())
     {
-        auto it = clusterMembers.find (selectedBlockUid);
-        const std::vector<roli::Block::UID> members = (it != clusterMembers.end()) ? it->second
-                                                                                   : std::vector<roli::Block::UID> { selectedBlockUid };
-        keyboardView.setOctaves (2);                       // a Seaboard Block is 2 octaves
-        keyboardView.setFamily  (KeyboardView::Family::block);
-        keyboardView.setBlocks  (juce::jmax (1, (int) members.size())); // chained Seaboards draw as one
+        keyboardView.setLayout (tiles);        // the real DNA arrangement, tiled by topology
         keyboardView.setVisible (true);
-        setTouchListening (members);                       // live 5D-touch rings
-    }
-    else if (isLumi || isPiano)
-    {
-        // A flat, per-key coloured keyboard (LUMI/Piano) that mirrors the lit scale, like Dashboard.
-        keyboardView.setOctaves (isPiano ? 4 : 2);         // Piano 49 ~ 4 octaves; LUMI/Piano M = 2
-        keyboardView.setFamily  (KeyboardView::Family::lumi);
-        keyboardView.setBlocks  (1);
-        keyboardView.setVisible (true);
-        setTouchListening ({});
-        updateLumiKeyboardColours();
+
+        // Highlight the selected device's block(s) within the arrangement (dims the rest, like Dashboard).
+        std::vector<juce::uint64> selUids;
+        auto cit = clusterMembers.find (selectedBlockUid);
+        if (cit != clusterMembers.end()) for (auto m : cit->second) selUids.push_back ((juce::uint64) m);
+        else                             selUids.push_back ((juce::uint64) selectedBlockUid);
+        keyboardView.setSelected (selUids);
+
+        // Listen for touches on every member; setTouchListening skips blocks with no touch surface
+        // (control blocks, un-surfaced keybeds), so the arrangement still draws statically for those.
+        std::vector<roli::Block::UID> members;
+        for (auto& t : tiles) members.push_back ((roli::Block::UID) t.uid);
+        setTouchListening (members);
+
+        if (type == roli::Block::Type::lumiKeysBlock || type == roli::Block::Type::roliPiano49)
+            updateLumiKeyboardColours();        // light any LUMI/Piano tile from its scale/colours
     }
     else
     {
@@ -679,6 +878,7 @@ void MainComponent::updateKeyboardForBlock()
         setTouchListening ({});
     }
 
+    pushChordGhosts();     // Seaboard/Lightpad: feed the active Chord mode to the touch-ring ghosts (clears otherwise)
     populatePresetBox();   // ROLI preset picker: shown + filled only for a Seaboard
 }
 
@@ -721,11 +921,21 @@ void MainComponent::touchChanged (roli::TouchSurface&, const roli::TouchSurface:
         g = it->second;
     }
 
+    // nx/ny are 0..1 within this block's own surface; the keyboard view places them on the block's
+    // tile, so no cross-chain remap is needed any more (each block is its own positioned tile).
     const float nx = juce::jlimit (0.0f, 1.0f, t.x / g.w);
     const float ny = juce::jlimit (0.0f, 1.0f, t.y / g.h);
-    const float cx = ((float) g.index + nx) / (float) g.count;   // across the whole chain
     const juce::uint64 id = t.blockUID ^ ((juce::uint64) (juce::uint32) t.index * 0x9E3779B97F4A7C15ULL);
-    keyboardView.setTouch (id, cx, ny, t.z, t.isTouchEnd);
+
+    // Strike = the initial contact pressure, captured once at touch-start and held for the note's
+    // life (the Seaboard Block reports x/y/z continuously, not a one-shot note-on velocity).
+    float strike;
+    if (t.isTouchEnd)                    { blockTouchStrike.erase (id); strike = 0.0f; }
+    else if (t.isTouchStart)             { strike = juce::jlimit (0.0f, 1.0f, t.z); blockTouchStrike[id] = strike; }
+    else { auto s = blockTouchStrike.find (id); strike = s != blockTouchStrike.end() ? s->second
+                                                                                     : juce::jlimit (0.0f, 1.0f, t.z); }
+
+    keyboardView.setTouch ((juce::uint64) t.blockUID, (int) t.index, nx, ny, t.z, strike, t.isTouchEnd);
 }
 
 void MainComponent::selectBlock (roli::Block::UID uid)
@@ -955,6 +1165,16 @@ void MainComponent::timerCallback()
         rowsBuilt = true;
     }
 
+    // DNA join/separate doesn't change the block set (both blocks stay present over BLE), so the
+    // topology callback won't fire. Poll our stitched link state and re-lay-out when it changes:
+    // blocks snap touching when DNA-joined, gap apart when separated.
+    if (source != nullptr && detector != nullptr)
+    {
+        juce::String sig (detector->hasUnseenDnaNeighbour() ? "U;" : "");
+        for (auto& l : detector->getDnaLinks()) sig << l.first << "~" << l.second << ";";
+        if (sig != lastDnaSig) { lastDnaSig = sig; updateBlockList (source->getCurrentTopology()); }
+    }
+
     checkConnectTimeout();
 }
 
@@ -1074,6 +1294,7 @@ void MainComponent::applyLiveConfigChange (const roli::Block::ConfigMetaData& me
 
     updateSaveEnabled();
     updateLumiKeyboardColours();   // a device-reported change (scale/key/colour/mode) re-lights the graphic
+    pushChordGhosts();             // ...and a Chord-mode change re-aims the touch ghosts
 }
 
 void MainComponent::rebuildRows()
@@ -1200,7 +1421,17 @@ void MainComponent::rebuildRows()
     resized(); // positions the cards and sizes rowHolder
     saveButton.setEnabled (false);
     updateLumiKeyboardColours();   // (re)light the LUMI/Piano keyboard from the freshly-read config
-    setStatus (statusLabel.getText() + "   -   " + juce::String ((int) rows.size())
+
+    // Append the item/section count to the connect status, first stripping any count we appended on
+    // an earlier rebuild (rebuildRows can fire several times per connect) so it doesn't accumulate.
+    juce::String base = statusLabel.getText();
+    const int itemsIdx = base.lastIndexOf (" items in ");
+    if (itemsIdx >= 0)
+    {
+        const int sepIdx = base.substring (0, itemsIdx).lastIndexOf ("   -   ");
+        if (sepIdx >= 0) base = base.substring (0, sepIdx);
+    }
+    setStatus (base + "   -   " + juce::String ((int) rows.size())
                + " items in " + juce::String ((int) groupOrder.size()) + " sections");
 }
 
@@ -1216,6 +1447,7 @@ void MainComponent::onItemChanged (juce::uint32 id, juce::int32 value)
             c->setChanged (differs);
     updateSaveEnabled();
     updateLumiKeyboardColours();   // live-light the keyboard as scale/key/colours/mode are edited
+    pushChordGhosts();             // live-update the chord ghosts as Chord mode is edited
 
     // Live-write, Dashboard-style: queue this edit and let the throttle flush it to the
     // device within ~75 ms. A drag coalesces into one burst per window instead of a write
@@ -1705,6 +1937,7 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
             case 'P': forcePianoPreview(); return true;
             case 'L': forceLumiPreview();  return true;
             case 'G': forceGrandPreview(); return true;
+            case 'B': forceLightpadPreview(); return true;
             default:  break;
         }
     }
@@ -1904,6 +2137,81 @@ void MainComponent::forceGrandPreview()
     keyboardView.setVisible (true);
     rise2Page->previewSyntheticGrand();
     if (logger != nullptr) logger->line ("DEV: Seaboard GRAND preview (RISE page, preliminary 4D/3-pedal)");
+    resized();
+}
+
+// Secret dev shortcut (Ctrl+Alt+Shift+B): the Lightpad's decoded config page, plus a synthetic DNA
+// arrangement (Seaboard + two Lightpad/Control columns) so the topology tiling is visible without
+// hardware. Values are from the DB Lightpad profiles; the layout mimics the Dashboard screenshots.
+void MainComponent::forceLightpadPreview()
+{
+    if (! simConfig.empty()) { connect (seaprobe::Transport::Auto); return; }  // toggle off
+
+    if (source != nullptr) { source->setActive (false); source.reset(); }
+    block = nullptr;
+    stopTimer();
+    if (rise2Page != nullptr) { removeChildComponent (rise2Page.get()); rise2Page.reset(); }
+    setBlocksControlsVisible (true);
+    presetBox.setVisible (false);   // presets are Seaboard-only for now
+
+    using CT = roli::Block::ConfigMetaData::ConfigType;
+    const auto mk = [] (int id, juce::int32 val, const char* name, CT type, int mn, int mx,
+                        const char* group, std::initializer_list<const char*> opts)
+    {
+        const char* arr[roli::Block::ConfigMetaData::numOptionNames] = {};
+        int i = 0; for (auto* o : opts) if (i < roli::Block::ConfigMetaData::numOptionNames) arr[i++] = o;
+        return roli::Block::ConfigMetaData ((juce::uint32) id, val, { mn, mx }, true, name, type, arr, group);
+    };
+
+    // The 25 items a Lightpad reports (DB profile #15, fw 1.1.0). Scale (22), Chord (24) and
+    // Glide/Slide Tracking (30/31) get their names from applyConfigOverrides in rebuildRows.
+    simConfig.clear();
+    auto add = [&] (roli::Block::ConfigMetaData m, juce::int32 v) { simConfig.push_back ({ m, v }); };
+    add (mk (2, 1, "MIDI Mode", CT::options, 0, 2, "MIDI Settings", { "Multi Channel", "MPE", "Single Channel" }), 1);
+    add (mk (3, 48, "Pitch Bend Range", CT::integer, 0, 96, "MIDI Settings", {}), 48);
+    add (mk (9, 15, "No. MIDI Channels", CT::integer, 1, 15, "MIDI Settings", {}), 15);
+    add (mk (40, 0, "MPE Zone", CT::options, 0, 1, "MIDI Settings", { "Lower Zone", "Upper Zone" }), 0);
+    add (mk (4, 0, "Octave", CT::integer, -4, 6, "Pitch", {}), 0);
+    add (mk (5, 0, "Transpose", CT::integer, -11, 11, "Pitch", {}), 0);
+    add (mk (6, 74, "Slide CC", CT::integer, 0, 127, "Play mode", {}), 74);
+    add (mk (7, 2, "Slide Mode", CT::options, 0, 2, "Play mode", { "Absolute", "Relative Unipolar", "Relative Bipolar" }), 2);
+    add (mk (17, 0, "Piano Mode", CT::boolean, 0, 1, "Play mode", {}), 0);
+    add (mk (18, 0, "Glide Rate", CT::integer, 0, 127, "Play mode", {}), 0);
+    add (mk (19, 0, "Glide Lock Enable", CT::boolean, 0, 1, "Play mode", {}), 0);
+    add (mk (20, 4, "Mode", CT::integer, 1, 5, "Play mode", {}), 4);
+    add (mk (22, 0, "Scale", CT::integer, 0, 18, "Play mode", {}), 0);
+    add (mk (23, 0, "Hide Mode", CT::boolean, 0, 1, "Play mode", {}), 0);
+    add (mk (24, 0, "Chord", CT::integer, 0, 14, "Play mode", {}), 0);
+    add (mk (30, 1, "Glide Tracking", CT::integer, 1, 4, "Play mode", {}), 1);
+    add (mk (31, 1, "Slide Tracking", CT::integer, 1, 4, "Play mode", {}), 1);
+    add (mk (32, 1, "Pressure Tracking", CT::options, 0, 5, "Play mode",
+             { "Poly Aftertouch", "Last Played", "Highest", "Lowest", "Disabled", "Hardest" }), 1);
+    add (mk (10, 50, "Strike Sensitivity", CT::integer, 0, 127, "Sensitivity", {}), 50);
+    add (mk (11, 100, "Glide Sensitivity", CT::integer, 0, 127, "Sensitivity", {}), 100);
+    add (mk (12, 127, "Slide Sensitivity", CT::integer, 0, 127, "Sensitivity", {}), 127);
+    add (mk (13, 72, "Pressure Sensitivity", CT::integer, 0, 127, "Sensitivity", {}), 72);
+    add (mk (14, 127, "Lift Sensitivity", CT::integer, 0, 127, "Sensitivity", {}), 127);
+    add (mk (15, 0, "Fixed Velocity", CT::boolean, 0, 1, "Sensitivity", {}), 0);
+    add (mk (16, 127, "Fixed Velocity Value", CT::integer, 1, 127, "Sensitivity", {}), 127);
+
+    // Synthetic DNA arrangement: a Seaboard (6x3) beside two Lightpad(2x2)+Control(2x1) columns.
+    std::vector<KeyboardView::Tile> tiles;
+    auto tile = [] (juce::uint64 uid, KeyboardView::Family fam, float x, float y, float w, float h, int oct)
+    {
+        KeyboardView::Tile t; t.uid = uid; t.family = fam; t.ux = x; t.uy = y; t.uw = w; t.uh = h; t.octaves = oct; return t;
+    };
+    tiles.push_back (tile (101, KeyboardView::Family::block,    0, 0, 6, 3, 2));
+    tiles.push_back (tile (102, KeyboardView::Family::lightpad, 6, 0, 2, 2, 0));
+    tiles.push_back (tile (103, KeyboardView::Family::control,  6, 2, 2, 1, 0));
+    tiles.push_back (tile (104, KeyboardView::Family::lightpad, 8, 0, 2, 2, 0));
+    tiles.push_back (tile (105, KeyboardView::Family::control,  8, 2, 2, 1, 0));
+    keyboardView.setLayout (tiles);
+    keyboardView.setSelected ({ 102 });   // highlight the Lightpad, dim the rest (demo the selection look)
+    keyboardView.setVisible (true);
+
+    setStatus ("Lightpad + DNA arrangement preview (simulated, no hardware).  Ctrl+Alt+Shift+B to exit.");
+    if (logger != nullptr) logger->line ("DEV: Lightpad preview (" + juce::String ((int) simConfig.size()) + " synthetic items, 5-tile layout)");
+    rebuildRows();
     resized();
 }
 
