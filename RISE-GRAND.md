@@ -81,8 +81,8 @@ NRPN on channel 1: `B0 63 00  B0 62 <n>  B0 06 <v>  B0 26 00`.
 
 | NRPN | setting | values |
 |---|---|---|
-| 0 and 7 | Glide and Slide tracking (Dashboard sets both) | 1 Last Played, 2 Highest, 3 Lowest |
-| 4 | Press tracking | 0 Poly Aftertouch, 1 Last Played (Channel Pressure), 2 Highest, 3 Lowest |
+| 0 and 7 | Glide and Slide tracking (Dashboard sets both) | 1 Last Played, 2 Highest, 3 Lowest, 4 Disabled |
+| 4 | Press (one enum; Dashboard splits it into Press Mode + Press Tracking) | 0 Poly Aftertouch, 1 Channel Pressure/Last Played, 2 Highest, 3 Lowest, 4 Disabled |
 | 2 | Octave | octave + 4 |
 | 3 | Transpose | semitones + 64 |
 
@@ -341,11 +341,13 @@ The Dashboard manual confirms the GRAND's full settings panel — it is the **sa
 - **MIDI Settings:** Channel Mode (Multi / Single), MPE (On/Off), Ch. Range, Global Channel, and
   Glide/Slide + Press tracking.
 
-**Tracking options (RISE *and* GRAND):** Glide/Slide Tracking and Press Tracking are
-**Last Note, Highest, Lowest, Disabled** — note the 4th is **Disabled**. Press Mode is
-**Poly Pressure / Channel Pressure**. (GRAB's RISE page currently offers only Last/Highest/Lowest,
-and the BLOCKS override lists "Multi-Channel" as a 4th — worth reconciling against a RISE capture of
-the `Disabled` value.) The pedal type being auto-detected on the RISE but a dropdown on the GRAND
+**Tracking options (RISE *and* GRAND):** Glide/Slide Tracking (NRPN 0/7) and Press (NRPN 4) are
+**Last Played, Highest, Lowest, Disabled**. Press is actually one NRPN-4 enum that Dashboard shows
+as two controls: **Press Mode** (Poly Aftertouch = 0, Channel Pressure = 1-4) and **Press Tracking**
+(the 1-4 part). GRAB models the whole NRPN as one "Press Mode" dropdown. Confirmed end to end from
+BabeleDunnit's sweep captures (issue #6): glide/press sweeps gave 1-4, Press Mode toggles gave 0
+(Poly) vs the current tracking value — so `Disabled = 4` is now in GRAB for RISE and GRAND alike.
+The pedal type being auto-detected on the RISE but a dropdown on the GRAND
 matches what we see: the RISE has one pedal, the GRAND three with explicit type.
 
 Vendor `2af4` is shared across ROLI devices (the Seaboard **Block** is `vid_2af4 pid_0700`);

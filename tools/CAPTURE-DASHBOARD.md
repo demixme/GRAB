@@ -13,12 +13,9 @@ capture helps most for:
   Block, Drum Block, …) don't. Capture Dashboard while you change those app/mode settings.
 - **Live / Loop / Touch** control blocks — only basic settings are read today; a capture is what
   adds the rest.
-- the **original Seaboard RISE (25/49, fw 1.x)** — one small gap: Dashboard can set a
-  Glide/Slide/Press **Tracking** to **"Disabled"**, a value GRAB doesn't have yet. Capture that
-  one change and we can add it.
 
-(The Seaboard **Block / RISE 2 / GRAND**, **ROLI Piano** and **Piano M / LUMI** are already fully
-mapped — for those, a one-click **Contribute…** profile is all that's needed.)
+(The Seaboard **Block / RISE 2 / RISE 25 / 49 / GRAND**, **ROLI Piano** and **Piano M / LUMI** are
+already fully mapped — for those, a one-click **Contribute…** profile is all that's needed.)
 
 Pick the method for your computer:
 
@@ -48,8 +45,6 @@ after each. Deliberately **odd values** are easy to spot in the decode.
   Fader Block, Drum Block), change its **mode/layout settings**, and **switch between apps/modes**.
   Each app's settings are what we're missing — change as many as you can.
 - **Live / Loop / Touch** — change every setting Dashboard exposes for the block.
-- **Seaboard RISE 25 / 49** — set a **Glide**, **Slide** *or* **Pressure Tracking** to
-  **"Disabled"** (and back). That one value is the only gap.
 
 The more distinct settings you change in one session, the more we confirm at once.
 

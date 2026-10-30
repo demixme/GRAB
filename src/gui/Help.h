@@ -57,7 +57,8 @@ inline juce::String helpForParameter (const juce::String& name)
         { "Slide Tracking",        "Which note's slide is sent on the master channel." },
         { "Pressure Tracking",     "How pressure is sent - poly aftertouch, or channel pressure for the last/highest/lowest note." },
         { "Press Tracking",        "How pressure is sent - poly aftertouch, or channel pressure for the last/highest/lowest note." },
-        { "Glide & Slide Tracking","Which note's glide and slide are sent on the master channel." },
+        { "Press Mode",            "How pressure is sent: Poly Aftertouch (per note), Channel Pressure tracked by last/highest/lowest note, or Disabled." },
+        { "Glide & Slide Tracking","Which note's glide and slide are sent on the master channel (last/highest/lowest, or disabled)." },
         { "Side-Button",       "What the side button switches - presets only, or presets and MIDI mode." },
 
         // MIDI CC assignments (RISE)

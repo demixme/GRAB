@@ -92,9 +92,7 @@ private:
         add (H1,    "What does your device need?\n");
         add (H2,    "Fully supported:");
         add (Body,  "  Seaboard Block / Block M, RISE 25 / 49 / 2, GRAND, ROLI Piano, Piano M / LUMI Keys.\n");
-        add (Body,  "    They read + live-edit fully \xe2\x80\x94 just send a profile (way 1) to confirm names & ranges.\n");
-        add (Note,  "    RISE 25 / 49 only, one gap: also capture Dashboard setting a Glide/Slide/Press Tracking to "
-                    "\"Disabled\" (way 3).\n\n");
+        add (Body,  "    They read + live-edit fully \xe2\x80\x94 just send a profile (way 1) to confirm names & ranges.\n\n");
 
         add (H2,    "Work in progress:");
         add (Body,  "  Lightpad Block / Pad \xe2\x80\x94 its settings work, but its apps (Note Grid, Fader, Drum...) don't.\n");

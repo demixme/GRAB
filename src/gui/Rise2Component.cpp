@@ -71,11 +71,18 @@ const std::vector<Field>& fields()
           // MPE master channel, or the Multi/Single START channel (firstMember+1).
           [] (const rise2::State& s) { return s.mode() == rise2::Mode::mpe ? s.channel() : s.startChannel(); }, {} },
         { kBend,     "Pitch Bend Range", "MIDI Settings", CT::integer, 1, 96, {}, gbyte (off::bendRange, goff::bendRange), {} },
-        { kGlideTracking, "Glide & Slide Tracking", "MIDI Settings", CT::options, 1, 3, { "Last Played", "Highest", "Lowest" },
+        // Tracking is NRPN 0 (glide) / NRPN 4 (press): 1 Last Played, 2 Highest, 3 Lowest, 4 Disabled
+        // (confirmed from BabeleDunnit's sweep captures, issue #6). Disabled (4) was missing before -
+        // this also closes the long-standing RISE 25/49 gap (same 0x78 enum).
+        { kGlideTracking, "Glide & Slide Tracking", "MIDI Settings", CT::options, 1, 4, { "Last Played", "Highest", "Lowest", "Disabled" },
           // GRAND tracking is write-only (not in its reply), so show the default on the GRAND.
           [] (const rise2::State& s) { return s.grand ? 1 : s.at (off::glideTracking); }, rise2::glideSlideTracking },
-        { kPressTracking, "Press Tracking",  "MIDI Settings", CT::options, 0, 3,
-          { "Poly Aftertouch", "Last Played (Channel Pressure)", "Highest", "Lowest" },
+        // Press is one NRPN-4 enum that Dashboard splits into "Press Mode" (Poly vs Channel Pressure)
+        // and "Press Tracking". Value 0 = Poly Aftertouch; 1-4 = Channel Pressure tracked by Last
+        // Played / Highest / Lowest / Disabled. One faithful dropdown covers the whole value.
+        { kPressTracking, "Press Mode",  "MIDI Settings", CT::options, 0, 4,
+          { "Poly Aftertouch", "Channel Pressure (Last Played)", "Channel Pressure (Highest)",
+            "Channel Pressure (Lowest)", "Disabled" },
           [] (const rise2::State& s) { return s.grand ? 1 : s.at (off::pressTracking); }, rise2::pressTracking },
         { kPortForwarding, "MIDI Port Forwarding", "MIDI Settings", CT::boolean, 0, 1, {}, byte (off::portForwarding), param (0x4d) },
         { kPortThrottle,   "MIDI Port Throttle",   "MIDI Settings", CT::options, 0, 3, { "Off", "Half", "Quarter", "Note On/Off" },

@@ -15,7 +15,7 @@ helps most — each is explained under [The two things you can send](#the-two-th
 |---|---|---|
 | **Seaboard Block / Block M** | ✅ Full read + live edit | **Contribute a profile** (1 click) — confirms names & ranges |
 | **Seaboard RISE 2** | ✅ Full | **Contribute a profile** |
-| **Seaboard RISE 25 / 49** (original) | ✅ Full — *one gap* | **Contribute a profile** + a **Dashboard capture** of you setting a Glide/Slide/Press **Tracking** to **"Disabled"** (so we can add that option) |
+| **Seaboard RISE 25 / 49** (original) | ✅ Full | **Contribute a profile** |
 | **Seaboard GRAND** | ✅ Full (octave & tracking are write-only) | **Contribute a profile** |
 | **ROLI Piano 49** | ✅ Full | **Contribute a profile** |
 | **Piano M / LUMI Keys** | ✅ Full | **Contribute a profile** |
