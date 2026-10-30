@@ -139,3 +139,8 @@ _Contributed by Legitimate_Horror_72 (Piano 49, fw 1.5.0)._
 
 **Note:** items `0` vs `9`/`40` swap when **MIDI Mode** changes, so a preset that switches
 modes only fully applies after a **save + reload**.
+
+_The Piano M item map above was verified end-to-end against a full ROLI Dashboard capture
+(every item exercised one at a time, right after a factory reset) contributed by **lluisgerard**
+(Piano M, fw RISE1.00 — [issue #11](../../issues/11)); it confirmed the map is complete and that
+Color Scheme value 2 = Piano._

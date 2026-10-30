@@ -233,7 +233,11 @@ private:
     struct TouchGeom { int index; int count; float w, h; }; // block's place in the chain + its size
     std::map<roli::Block::UID, TouchGeom> touchGeometry;
     juce::CriticalSection touchGeomLock;
-    std::map<juce::uint64, float> blockTouchStrike;   // Strike (initial contact z) per live touch id
+    // Strike per live touch id. The Seaboard reports z (pressure) continuously, not a one-shot
+    // note-on velocity, and z is still rising on the first touch-start packet - so Strike is the
+    // PEAK z over a short window after contact, then locked for the note's life (Press keeps moving).
+    struct StrikeCapture { float peak = 0.0f; double startMs = 0.0; bool locked = false; };
+    std::map<juce::uint64, StrikeCapture> blockTouchStrike;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
 };

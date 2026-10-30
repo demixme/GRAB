@@ -375,7 +375,9 @@ GRAB is built by the community. In particular:
   Dashboard capture that cracked the GRAND configuration — confirming it is the RISE `0x78`
   protocol and letting GRAB map its reply and controls ([issue #6](../../issues/6)).
 - **[lluisgerard](https://github.com/lluisgerard)** confirmed **Piano M / LUMI Keys** support on
-  hardware (including a chained pair) and added the **editable key-colour picker** ([PR #8](../../pull/8)).
+  hardware (including a chained pair), added the **editable key-colour picker** ([PR #8](../../pull/8)),
+  and contributed a full **Piano M Dashboard capture** that verified the complete config map and
+  added the named **Color Scheme** dropdown ([issue #11](../../issues/11)).
 - **[gofer723](https://github.com/gofer723)** reverse-engineered and reported the **RISE 2 Multi/Single
   Channel** protocol (start channel + channel count via RPN), which fixed GRAB's Multi Channel mode
   ([issue #9](../../issues/9)).

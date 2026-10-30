@@ -45,6 +45,12 @@ inline void applyConfigOverrides (roli::Block::ConfigMetaData& meta)
         "Whole Tone", "Arabic (A)", "Arabic (B)", "Japanese", "Ryukyu", "8-Tone Spanish", "Chromatic"
     };
 
+    // Color Scheme, per mode slot (ids 100/107/114/121 = mode 0..3). The library ships these as
+    // plain integers; the names and order are from ROLI Dashboard and PIANO.md, and value 2 = Piano
+    // was confirmed from lluisgerard's full Piano M Dashboard capture (issue #11). With a mode's
+    // scheme set to User (1) the Piano/LUMI lights only the in-scale keys natively - see PIANO.md.
+    static const char* const schemeNames[] = { "Pro", "User", "Piano", "Stage", "Rainbow" };
+
     switch ((roli::BlocksProtocol::BlockConfigId) meta.item)
     {
         case roli::BlocksProtocol::chord:
@@ -75,6 +81,19 @@ inline void applyConfigOverrides (roli::Block::ConfigMetaData& meta)
             meta.range = { 0, count - 1 };
             for (int i = 0; i < roli::Block::ConfigMetaData::numOptionNames; ++i)
                 meta.optionNames[i] = (i < count) ? juce::String (scaleNames[i]) : juce::String();
+            return;
+        }
+
+        case roli::BlocksProtocol::mode0_colorType:
+        case roli::BlocksProtocol::mode1_colorType:
+        case roli::BlocksProtocol::mode2_colorType:
+        case roli::BlocksProtocol::mode3_colorType:
+        {
+            const int count = (int) (sizeof (schemeNames) / sizeof (schemeNames[0]));
+            meta.type  = CT::options;
+            meta.range = { 0, count - 1 };
+            for (int i = 0; i < roli::Block::ConfigMetaData::numOptionNames; ++i)
+                meta.optionNames[i] = (i < count) ? juce::String (schemeNames[i]) : juce::String();
             return;
         }
 
