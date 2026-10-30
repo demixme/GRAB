@@ -1,18 +1,24 @@
 # Capturing ROLI Dashboard ↔ device traffic
 
 GRAB can **read** a device by asking it for its settings, but to **write** a setting it
-has to send the exact MIDI message ROLI Dashboard sends. **This guide works for any ROLI
-device** — the steps are the same whatever you own. Right now it's most useful for:
+has to send the exact MIDI message ROLI Dashboard sends. GRAB can't record that itself
+(Dashboard owns the port), so we need a short, **passive** recording of **Dashboard talking to
+the device** while you change a few settings — about 10 minutes. **This only observes traffic:
+it sends nothing to the device and never touches firmware.**
 
-- the **original Seaboard RISE (25/49, fw 1.x)** — GRAB shows it read-only; a capture
-  confirms the `0x78 3D <param>` write numbers (known only on the RISE 2) and unlocks writing;
-- the **Seaboard GRAND** — not mapped at all yet (if you have one, please run **Help add
-  device…** in GRAB *first* so we can see its protocol, then do this capture for writes).
+**This guide works for any ROLI device** — the steps are the same whatever you own. Right now a
+capture helps most for:
 
-To fill the gap we need a capture of **Dashboard talking to the device** while a few
-settings are changed. GRAB can't record this itself (Dashboard owns the port), so it's a
-quick, passive capture — about 10 minutes. **This only observes traffic — it sends nothing
-to the device and never touches firmware.**
+- **Lightpad Block / Pad** — its basic settings work, but its **apps/modes** (Note Grid, Fader
+  Block, Drum Block, …) don't. Capture Dashboard while you change those app/mode settings.
+- **Live / Loop / Touch** control blocks — only basic settings are read today; a capture is what
+  adds the rest.
+- the **original Seaboard RISE (25/49, fw 1.x)** — one small gap: Dashboard can set a
+  Glide/Slide/Press **Tracking** to **"Disabled"**, a value GRAB doesn't have yet. Capture that
+  one change and we can add it.
+
+(The Seaboard **Block / RISE 2 / GRAND**, **ROLI Piano** and **Piano M / LUMI** are already fully
+mapped — for those, a one-click **Contribute…** profile is all that's needed.)
 
 Pick the method for your computer:
 
@@ -22,10 +28,12 @@ Pick the method for your computer:
 All three produce the same thing: the messages Dashboard sends. Send us the result and we
 do the decoding.
 
-## What to change (both methods)
+## What to change (while the capture runs)
 
-While the capture is running, open Dashboard, let it connect, and change these one at a
-time, pressing **Save/Edit** after each. The odd values are easy to spot in the decode:
+Open Dashboard, let it connect, and change settings **one at a time**, pressing **Save/Edit**
+after each. Deliberately **odd values** are easy to spot in the decode.
+
+**Any device — start with these:**
 
 | Setting | Set it to |
 |---|---|
@@ -34,7 +42,16 @@ time, pressing **Save/Edit** after each. The odd values are easy to spot in the 
 | Strike Sensitivity | **77** |
 | Slide CC | **101** |
 
-(More settings are welcome — the more you change, the more we can confirm in one go.)
+**Then, for your specific device:**
+
+- **Lightpad / Pad** — this is the valuable part. In Dashboard, open an **app** (Note Grid,
+  Fader Block, Drum Block), change its **mode/layout settings**, and **switch between apps/modes**.
+  Each app's settings are what we're missing — change as many as you can.
+- **Live / Loop / Touch** — change every setting Dashboard exposes for the block.
+- **Seaboard RISE 25 / 49** — set a **Glide**, **Slide** *or* **Pressure Tracking** to
+  **"Disabled"** (and back). That one value is the only gap.
+
+The more distinct settings you change in one session, the more we confirm at once.
 
 ---
 
@@ -95,14 +112,13 @@ Dashboard talk to the RISE directly, no USB capture or admin needed.
    component into `~/Library/Audio/MIDI Drivers` — approve it and **relaunch the app** if it
    asks. (macOS 10.13+; spying works on 11.2 and later.)
 3. In the **Sources** list, tick the entry under **"Spy on output to destinations"** for
-   your **Seaboard RISE** (that's the destination Dashboard sends to). Leave MIDI Monitor
-   running.
+   **your device** (that's the destination Dashboard sends to). Leave MIDI Monitor running.
 4. **Open ROLI Dashboard**, let it connect, and make the changes in the table above
    (Save/Edit after each). You'll see the messages appear in MIDI Monitor as you go.
 5. **File → Save** to export the log (it keeps the SysEx).
 6. **Send us the file** — attach it to [issue #1](../../issues/1).
 
-If the RISE connects over **Bluetooth**, connect it first in **Audio MIDI Setup → MIDI
+If the device connects over **Bluetooth**, connect it first in **Audio MIDI Setup → MIDI
 Studio → Bluetooth**, then spy on it the same way.
 
 ---

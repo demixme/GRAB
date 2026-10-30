@@ -1,12 +1,15 @@
 # Device profiles, diagnostics & self-learning
 
+> **Just want to help?** See **[CONTRIBUTING.md](CONTRIBUTING.md)** — it has a device-by-device
+> map of what to send and how. This page is the **technical reference** for the data and endpoints.
+
 GRAB can contribute anonymized data to a small store you control, so the project can
-*self-learn* — discover config ids on new/un-named devices (e.g. RISE/GRAND), confirm
-ranges, build a community name map the tool pulls back, and gather the raw protocol of
-devices it can't talk to yet.
+*self-learn* — discover config ids on new/un-named devices, confirm ranges, build a community
+name map the tool pulls back, and gather the raw protocol of devices it can't talk to yet.
 
 **All opt-in, on demand, previewed.** Nothing is sent automatically; every dialog shows
-exactly what will be sent and offers Save-to-file / Open-issue alternatives.
+exactly what will be sent and offers Save-to-file / Open-issue alternatives. If a network submit
+fails, GRAB auto-saves the payload to a file so nothing is lost.
 
 ## What can be contributed (all from the GUI)
 | Button | What it sends | Endpoint |
@@ -62,7 +65,8 @@ Plus the self-learn **pull** and the maintainer **export**:
     // ... one entry per active config id
   ],
   "unknownConfigIds": [96, 97],         // active on device but no name in our table
-  "notes": ""                           // optional free text from the contributor
+  "notes": "",                          // optional free text from the contributor
+  "credit": ""                          // optional contributor name/handle (omitted when blank)
 }
 ```
 Response: `201` with `{ "message": "...", "id": N }`.
