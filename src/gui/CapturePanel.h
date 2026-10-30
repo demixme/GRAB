@@ -459,9 +459,15 @@ private:
             << buildLines().joinIntoString ("\n") << "\n";
 
         if (f.replaceWithText (out))
-            setStatus ("Saved: " + f.getFullPathName());
+        {
+            lastSavedPath = f.getFullPathName();
+            setStatus ("Saved: " + lastSavedPath);
+        }
         else
+        {
+            lastSavedPath.clear();
             setStatus ("Could not write file.");
+        }
     }
 
     void openIssue()
@@ -545,12 +551,19 @@ private:
     void onSubmitResult (int code, const juce::String& err)
     {
         submitBtn.setEnabled (true);
-        if (err.isNotEmpty())
-            setStatus ("Submit failed (" + err + "). Try Save to file or Open issue.");
-        else if (code >= 200 && code < 300)
+        if (err.isEmpty() && code >= 200 && code < 300)
+        {
             setStatus ("Thank you! Capture submitted (HTTP " + juce::String (code) + ").");
-        else
-            setStatus ("Server returned HTTP " + juce::String (code) + ". Try Save or Open issue.");
+            return;
+        }
+        // Submit failed: auto-save the capture so it's never lost, and point the user at the file so
+        // they can attach it to a GitHub issue (use 'Open issue') or email it.
+        const auto why = err.isNotEmpty() ? err : "HTTP " + juce::String (code);
+        saveToFile();
+        setStatus (lastSavedPath.isNotEmpty()
+                     ? "Submit failed (" + why + "). Saved a copy to: " + lastSavedPath
+                       + "  - use 'Open issue' and attach it, or email it."
+                     : "Submit failed (" + why + "). Use 'Save to file' or 'Open issue'.");
     }
 
     static juce::File settingsFile()
@@ -606,6 +619,7 @@ private:
     juce::ToggleButton configOnlyToggle;
     juce::TableListBox table;
     juce::TextEditor  notesField, nameField;
+    juce::String      lastSavedPath;
 
     std::unique_ptr<juce::MidiInput> input;
     juce::CriticalSection lock;

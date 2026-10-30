@@ -156,9 +156,15 @@ private:
                                    + "-" + block->versionNumber + "-"
                                    + juce::Time::getCurrentTime().formatted ("%Y%m%d-%H%M%S") + ".json");
         if (f.replaceWithText (json))
-            setStatus ("Saved: " + f.getFullPathName());
+        {
+            lastSavedPath = f.getFullPathName();
+            setStatus ("Saved: " + lastSavedPath);
+        }
         else
+        {
+            lastSavedPath.clear();
             setStatus ("Could not write file.");
+        }
     }
 
     void submit()
@@ -203,18 +209,26 @@ private:
     void onSubmitResult (int code, const juce::String& err)
     {
         submitBtn.setEnabled (true);
-        if (err.isNotEmpty())
-            setStatus ("Submit failed (" + err + "). You can Save to file instead.");
-        else if (code >= 200 && code < 300)
+        if (err.isEmpty() && code >= 200 && code < 300)
+        {
             setStatus ("Thank you! Submitted (HTTP " + juce::String (code) + ").");
-        else
-            setStatus ("Server returned HTTP " + juce::String (code) + ". Try Save to file.");
+            return;
+        }
+        // Submit failed (network blocked, offline, proxy, server error): auto-save so the data is
+        // never lost, and tell the user where it is so they can attach it to a GitHub issue / email.
+        const auto why = err.isNotEmpty() ? err : "HTTP " + juce::String (code);
+        saveToFile();
+        setStatus (lastSavedPath.isNotEmpty()
+                     ? "Submit failed (" + why + "). Saved a copy to: " + lastSavedPath
+                       + "  - attach it to a GitHub issue or email it."
+                     : "Submit failed (" + why + "). Use 'Save to file'.");
     }
 
     roli::Block::Ptr block;
     juce::String transport;
     juce::var profile;
     juce::String json;
+    juce::String lastSavedPath;
 
     juce::Label title, endpointLabel, nameLabel, notesLabel, statusLabel;
     juce::TextEditor jsonView, endpointField, nameField, notesField;
