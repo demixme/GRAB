@@ -153,11 +153,11 @@ namespace goffset
         firstMember = 63, lastMember = 64, masterChannel = 65, mpeOn = 66,
         keyCount = 62,                     // 0x3E = 62 on a GRAND 62
         pedal1Cc = 67, pedal2Cc = 69, pedal3Cc = 71,   // 2-byte pairs; low byte is the CC
-        // Byte 78 is OCTAVE (stored octave+64), confirmed by BabeleDunnit's 0.1.58 roundtrip (issue #6).
-        // Byte 79 is the strong candidate for TRANSPOSE (same +64 bias): it reads 64 (= transpose 0) in
-        // all 92 captured replies, sits right after octave, and is the only other +64-biased slot. Not
-        // yet seen at a non-zero value (every capture had transpose 0), so confirm on hardware; if wrong
-        // it reads a constant 0, no worse than the old write-only default.
+        // Glide Tracking (73, 1-4) and Press Mode (75, 0-4) sit just before the pitch block; byte 78 is
+        // OCTAVE and 79 TRANSPOSE (both +64 bias). All confirmed by diffing BabeleDunnit's non-default
+        // reply against a default one (issue #6): transpose +11 -> 75, Glide Disabled -> 73=4, Press
+        // Poly -> 75=0. So the GRAND reports everything after all - nothing is write-only.
+        glideTracking = 73, pressTracking = 75,
         bendRange = 77, octave = 78, transpose = 79,
         glideSens = 80, pressSens = 81,
         replySize = 85                     // body after F0 00 21 10 78 3a is 80 bytes -> raw is 87

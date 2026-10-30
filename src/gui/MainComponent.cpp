@@ -1067,7 +1067,28 @@ void MainComponent::openCaptureWindow()
         return { "item " + juce::String (item), juce::String (value) };
     };
 
-    openDialog (new CapturePanel (std::move (describe)), "MIDI capture");
+    // Open the capture window NON-modally, so you can keep using GRAB (change settings, Reload from
+    // device) while it records - a modal window would block that, which is the whole point of watching
+    // the device's replies live. Self-deletes on close; only one at a time.
+    if (captureWindow != nullptr)
+    {
+        captureWindow->toFront (true);
+        return;
+    }
+
+    struct CaptureWindow : juce::DialogWindow
+    {
+        CaptureWindow (juce::Colour bg) : juce::DialogWindow ("MIDI capture", bg, true, true) {}
+        void closeButtonPressed() override { delete this; }
+    };
+
+    auto* w = new CaptureWindow (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
+    w->setUsingNativeTitleBar (true);
+    w->setContentOwned (new CapturePanel (std::move (describe)), true);
+    w->setResizable (true, false);
+    w->centreAroundComponent (this, w->getWidth(), w->getHeight());
+    w->setVisible (true);
+    captureWindow = w;   // SafePointer clears itself when the window self-deletes
 }
 
 std::pair<juce::String, juce::String> MainComponent::describeConfig (juce::uint32 item, juce::int32 value) const

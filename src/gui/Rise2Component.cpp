@@ -75,15 +75,14 @@ const std::vector<Field>& fields()
         // (confirmed from BabeleDunnit's sweep captures, issue #6). Disabled (4) was missing before -
         // this also closes the long-standing RISE 25/49 gap (same 0x78 enum).
         { kGlideTracking, "Glide & Slide Tracking", "MIDI Settings", CT::options, 1, 4, { "Last Played", "Highest", "Lowest", "Disabled" },
-          // GRAND tracking is write-only (not in its reply), so show the default on the GRAND.
-          [] (const rise2::State& s) { return s.grand ? 1 : s.at (off::glideTracking); }, rise2::glideSlideTracking },
+          [] (const rise2::State& s) { return s.at (s.grand ? goff::glideTracking : off::glideTracking); }, rise2::glideSlideTracking },
         // Press is one NRPN-4 enum that Dashboard splits into "Press Mode" (Poly vs Channel Pressure)
         // and "Press Tracking". Value 0 = Poly Aftertouch; 1-4 = Channel Pressure tracked by Last
         // Played / Highest / Lowest / Disabled. One faithful dropdown covers the whole value.
         { kPressTracking, "Press Mode",  "MIDI Settings", CT::options, 0, 4,
           { "Poly Aftertouch", "Channel Pressure (Last Played)", "Channel Pressure (Highest)",
             "Channel Pressure (Lowest)", "Disabled" },
-          [] (const rise2::State& s) { return s.grand ? 1 : s.at (off::pressTracking); }, rise2::pressTracking },
+          [] (const rise2::State& s) { return s.at (s.grand ? goff::pressTracking : off::pressTracking); }, rise2::pressTracking },
         { kPortForwarding, "MIDI Port Forwarding", "MIDI Settings", CT::boolean, 0, 1, {}, byte (off::portForwarding), param (0x4d) },
         { kPortThrottle,   "MIDI Port Throttle",   "MIDI Settings", CT::options, 0, 3, { "Off", "Half", "Quarter", "Note On/Off" },
           byte (off::portThrottle), param (0x4e) },
@@ -160,14 +159,14 @@ bool isRiseOnlyField (juce::uint32 id)
 }
 bool isGrandOnlyField (juce::uint32 id) { return id == kPedal1Cc || id == kPedal2Cc || id == kPedal3Cc; }
 
-// The fields a real GRAND shows. Reads/writes confirmed from BabeleDunnit's Dashboard captures
-// (issue #6): pedals, glide (stored inverted), octave (byte 78), transpose (byte 79, candidate), the
-// MIDI block (mode / channel / count / bend, via grandMidiMode's RPN-6 reset). Glide/press tracking
-// (NRPN 0 / 4) are write-only - not in the GRAND's reply - so GRAB keeps the last value set.
+// The fields a real GRAND shows. All reads/writes confirmed from BabeleDunnit's Dashboard captures
+// (issue #6): pedals, glide (stored inverted), glide tracking (73), press mode (75), octave (78),
+// transpose (79), and the MIDI block (mode / channel / count / bend, via grandMidiMode's RPN-6 reset).
+// The GRAND reports every one of these, so all round-trip - nothing is write-only.
 bool isGrandField (juce::uint32 id)
 {
     // No kZone: the GRAND is a lower-zone-only MPE device (Dashboard shows no Upper option).
-    // Mode / channel / bend write via grandMidiMode; glide/press tracking are write-only (see writeFor).
+    // Mode / channel / bend write via grandMidiMode (see writeFor); everything else reads + writes.
     return id == kGlideSens || id == kPedal1Cc || id == kPedal2Cc || id == kPedal3Cc
         || id == kTranspose
         || id == kMode || id == kMembers || id == kChannel || id == kBend
@@ -718,28 +717,13 @@ void Rise2Component::rebuildRows()
     // & Slide Tracking but NEVER reports them in its reply (proven by diffing 28 identify dumps against
     // 175 such writes, issue #6), so Reload can't read them. Rather than snap them back to a misleading
     // default, keep what the user last set. (Octave is different - the GRAND does report it, byte 78.)
-    const auto prior = pendingValues;
-    // Press Mode and Glide/Slide Tracking are not in the GRAND's reply (no offset found), so keep the
-    // user's last value across reloads. Transpose now reads from byte 79 (candidate), so it's no longer
-    // here. (Octave always read live from byte 78.)
-    const auto writeOnlyHere = [this] (juce::uint32 id)
-    { return grand && (id == kPressTracking || id == kGlideTracking); };
-
     deviceValues.clear();
     pendingValues.clear();
     dirtyWrites.clear();
     liveWriter.cancel();
 
     for (auto& f : fields())
-    {
-        int v = f.read (state);
-        if (writeOnlyHere (f.id))
-        {
-            const auto it = prior.find (f.id);
-            if (it != prior.end()) v = it->second;   // preserve the user's last value across reloads
-        }
-        deviceValues[f.id] = pendingValues[f.id] = v;
-    }
+        deviceValues[f.id] = pendingValues[f.id] = f.read (state);
 
     const auto onChange = [this] (juce::uint32 id, juce::int32 v) { onItemChanged (id, v); };
 
@@ -757,7 +741,7 @@ void Rise2Component::rebuildRows()
         auto addRow = [&] (const Field& f)
         {
             roli::Block::ConfigMetaData meta (f.id);
-            meta.name = writeOnlyHere (f.id) ? juce::String (f.name) + " (write-only)" : juce::String (f.name);
+            meta.name = f.name;
             meta.group = f.group;
             meta.type = f.type;
             meta.range = { f.lo, f.hi };

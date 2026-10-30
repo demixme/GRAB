@@ -10,8 +10,8 @@ hides those (they're writable, just not readable on that firmware).
 The **Seaboard GRAND is fully supported (v0.1.52)** — a `0x78` RISE-family device with a compact
 **87-byte `3A` reply** (vs the RISE's 224). Its config is the RISE's `3D` / RPN / NRPN protocol with
 a handful of **GRAND-specific differences** (3 pedals + switch types, glide stored **inverted**,
-octave **+64** bias not +4, mode set with a leading **RPN 6 = 16 on ch 1** "reset", and octave +
-tracking are **write-only**). It is **4D — no slide**. The whole protocol was reverse-engineered
+octave **+64** bias not +4, and mode set with a leading **RPN 6 = 16 on ch 1** "reset"). It reports
+its full state, so everything round-trips. It is **4D — no slide**. The whole protocol was reverse-engineered
 from **BabeleDunnit's** Dashboard captures (issue #6); the complete map is in **"Seaboard GRAND —
 complete protocol"** below. The RISE 2 protocol section is confirmed on that device; the rest of
 this document collects what is known for the other models.
@@ -247,15 +247,17 @@ RISE-family device, **4D (no slide)**, with an **87-byte `3A` reply** (`goffset:
 | Glide sensitivity | `3D 17 <v>` | stored **inverted**: byte = 127 − v |
 | MPE on/off | `3D 0E <1\|0>` | the mode flag |
 | **Mode / channel** | `3D 0E <mpe>`, then **`RPN 6 = 16` on ch 1** (reset), `RPN 6 = <count>` + `RPN 0 = <bend>` on the start channel | MPE: members on ch 2 · Multi/Single: count on the chosen channel. The leading ch-1 reset is mandatory — omitting it makes a channel ≠ 1 read as an MPE-zone start |
-| Octave | `NRPN 2 = octave + 64` | RISE uses +4; **write-only** on the GRAND |
-| Transpose | `NRPN 3 = t + 64` | same as RISE |
-| Glide Tracking | `NRPN 0 = <1-4>` | GRAND sends NRPN 0 only (no Slide/NRPN 7); **write-only** |
-| Press Tracking | `NRPN 4 = <0-4>` | "Press Mode" in Multi; **write-only** |
+| Octave | `NRPN 2 = octave + 64` | RISE uses +4; reads back at byte 78 |
+| Transpose | `NRPN 3 = t + 64` | same as RISE; reads back at byte 79 |
+| Glide Tracking | `NRPN 0 = <1-4>` | GRAND sends NRPN 0 only (no Slide/NRPN 7); reads back at byte 73 |
+| Press Tracking | `NRPN 4 = <0-4>` | "Press Mode" in Multi; reads back at byte 75 |
 
 **Reads** (`goffset::`): model 6, firmware 38, keyCount 62, mode block first 63 / last 64 / master
-65 / mpeOn 66, pedals 67/69/71, bend 77, transpose 78, glide 80 (un-invert: `127 − byte`), press
-81. **Octave and both trackings are not in the reply** — the GRAND silently accepts those writes
-but never echoes them, so GRAB shows a default and writes on change (as Dashboard does).
+65 / mpeOn 66, pedals 67/69/71, **glide tracking 73 (1-4), press mode 75 (0-4)**, bend 77, **octave
+78, transpose 79** (both +64), glide 80 (un-invert: `127 − byte`), press 81. The GRAND reports all of
+these, so everything round-trips — nothing is write-only. (Confirmed by diffing a non-default reply
+against a default one, issue #6: transpose +11 → byte 79 = 75, Glide Disabled → 73 = 4, Press Poly →
+75 = 0.)
 
 **Editions:** key count (byte 62) distinguishes **Studio (37) / Stage (61-62) / First Edition
 (88)**; GRAB sizes the keyboard graphic as `round(keyCount / 12)` octaves. **Live touch rings** are
@@ -323,7 +325,8 @@ Write params (`3D`), confirmed from the same capture: pedals `08/0A/0C` (+ compa
 
 **All now confirmed** (see "Seaboard GRAND — complete protocol" at the top): the MIDI-mode block
 reads at offsets 63–66, mode/bend/members write via RPN (with the mandatory `RPN 6 = 16` ch-1
-reset), octave/transpose via NRPN, and octave + tracking are write-only. The sections below are the
+reset), octave/transpose via NRPN, and glide tracking / press mode / octave / transpose all read
+back at bytes 73 / 75 / 78 / 79. The sections below are the
 incremental decode history.
 
 ### GRAND Dashboard settings (from the ROLI Dashboard manual, chapter 5)

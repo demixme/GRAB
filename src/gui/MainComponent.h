@@ -217,6 +217,7 @@ private:
     std::vector<std::pair<juce::Component*, int>> layoutOrder;
 
     std::unique_ptr<juce::FileChooser> chooser;
+    juce::Component::SafePointer<juce::DialogWindow> captureWindow;  // non-modal, so GRAB stays usable while capturing
 
     std::unique_ptr<Rise2Component> rise2Page;  // shown instead of the BLOCKS page for a RISE
     bool risePreviewVerified = true;            // toggles verified/unverified on the dev preview shortcut

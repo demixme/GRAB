@@ -30,6 +30,11 @@ do the decoding.
 > the capture tools only see the device's *output* — touch/sensor notifications, battery, etc. —
 > **not** Dashboard's writes, so a Bluetooth capture comes back with nothing to decode. Plug the
 > USB cable in first, and let Dashboard connect over USB.
+>
+> ⚠️ **Plugging in USB isn't enough — turn Bluetooth off too.** BLOCKS (Lightpad, Seaboard Block…)
+> keep using their Bluetooth link even once the USB cable is in, so Dashboard talks over BT and the
+> USB capture stays empty. **Turn off your computer's Bluetooth** (or "Forget/Unpair" the device),
+> then confirm in Dashboard that it's connected **over USB** before you capture.
 
 ## What to change (while the capture runs)
 
