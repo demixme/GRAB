@@ -82,9 +82,12 @@ const std::vector<Field>& fields()
           byte (off::portThrottle), param (0x4e) },
 
         { kOctave,    "Octave",    "Play mode", CT::integer, -4, 4, {},
-          // GRAND octave is write-only (not in its reply) and uses a +64 data bias (see writeFor).
-          [] (const rise2::State& s) { return s.grand ? 0 : s.at (off::octave) - 4; }, rise2::octave },
-        { kTranspose, "Transpose", "Play mode", CT::integer, -12, 12, {}, gbyte (off::transpose, goff::transpose, -64), rise2::transpose },
+          // GRAND reports octave at byte 78 (octave+64 bias); RISE at off::octave (+4 bias). The
+          // GRAND write uses the +64 bias too (see writeFor). (Confirmed from the 0.1.58 roundtrip.)
+          [] (const rise2::State& s) { return s.grand ? s.at (goff::octave) - 64 : s.at (off::octave) - 4; }, rise2::octave },
+        { kTranspose, "Transpose", "Play mode", CT::integer, -12, 12, {},
+          // The GRAND never reports transpose back (write-only), so show the default there.
+          [] (const rise2::State& s) { return s.grand ? 0 : s.at (off::transpose) - 64; }, rise2::transpose },
         { kSemitoneLegato, "Semitone Legato", "Play mode", CT::boolean, 0, 1, {}, byte (off::semitoneLegato), param (0x4c) },
         { kSlideCc,   "Slide CC",   "Play mode", CT::integer, 0, 127, {}, byte (off::slideCc), param (0x38) },
         { kSlideMode, "Slide Mode", "Play mode", CT::options, 0, 2, { "Absolute", "Relative Unipolar", "Relative Bipolar" },
@@ -151,13 +154,13 @@ bool isRiseOnlyField (juce::uint32 id)
 bool isGrandOnlyField (juce::uint32 id) { return id == kPedal1Cc || id == kPedal2Cc || id == kPedal3Cc; }
 
 // The fields a real GRAND shows. Reads and writes are both confirmed from BabeleDunnit's Dashboard
-// captures (issue #6): pedals, glide (stored inverted), transpose, the MIDI block (mode / channel /
-// count / bend, via grandMidiMode's RPN-6 reset), and - write-only, since the GRAND never reports
-// them back - octave (NRPN 2, +64 bias) and glide/press tracking (NRPN 0 / 4). See writeFor().
+// captures (issue #6): pedals, glide (stored inverted), octave (byte 78), the MIDI block (mode /
+// channel / count / bend, via grandMidiMode's RPN-6 reset), and - write-only, since the GRAND never
+// reports them back - transpose and glide/press tracking (NRPN 0 / 4). See writeFor().
 bool isGrandField (juce::uint32 id)
 {
     // No kZone: the GRAND is a lower-zone-only MPE device (Dashboard shows no Upper option).
-    // Mode / channel / bend write via grandMidiMode; octave + tracking are write-only (see writeFor).
+    // Mode / channel / bend write via grandMidiMode; transpose + tracking are write-only (see writeFor).
     return id == kGlideSens || id == kPedal1Cc || id == kPedal2Cc || id == kPedal3Cc
         || id == kTranspose
         || id == kMode || id == kMembers || id == kChannel || id == kBend
@@ -389,7 +392,7 @@ void Rise2Component::previewSyntheticGrand()
     put (goff::firmware, "0.6.9");
     raw[goff::keyCount] = 62;
     raw[goff::pedal1Cc] = 60; raw[goff::pedal2Cc] = 67; raw[goff::pedal3Cc] = 66;
-    raw[goff::bendRange] = 12; raw[goff::transpose] = 64;  // -> 0
+    raw[goff::bendRange] = 12; raw[goff::octave] = 64;  // octave 0 (byte 78 = octave+64)
     raw[goff::glideSens] = 80; raw[goff::pressSens] = 100;
     // MPE lower zone, 15 members (as the real GRAND in BabeleDunnit's capture reported).
     raw[goff::firstMember] = 1; raw[goff::lastMember] = 15; raw[goff::masterChannel] = 0; raw[goff::mpeOn] = 1;

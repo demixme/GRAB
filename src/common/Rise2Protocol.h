@@ -153,7 +153,10 @@ namespace goffset
         firstMember = 63, lastMember = 64, masterChannel = 65, mpeOn = 66,
         keyCount = 62,                     // 0x3E = 62 on a GRAND 62
         pedal1Cc = 67, pedal2Cc = 69, pedal3Cc = 71,   // 2-byte pairs; low byte is the CC
-        bendRange = 77, transpose = 78,
+        // Byte 78 is OCTAVE (stored octave+64), not transpose: confirmed by BabeleDunnit's 0.1.58
+        // roundtrip (issue #6) - setting Octave in Dashboard moved this byte. The GRAND never
+        // reports transpose back (it's write-only, like glide/press tracking), so it has no offset.
+        bendRange = 77, octave = 78,
         glideSens = 80, pressSens = 81,
         replySize = 85                     // body after F0 00 21 10 78 3a is 80 bytes -> raw is 87
     };
