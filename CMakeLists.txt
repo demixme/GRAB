@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(GRAB VERSION 0.1.65 LANGUAGES C CXX)  # bump with each release; tag vX.Y.Z to match
+project(GRAB VERSION 0.1.66 LANGUAGES C CXX)  # bump with each release; tag vX.Y.Z to match
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -105,9 +105,21 @@ if(MSVC)
     target_compile_options(GRAB PRIVATE /utf-8)
 endif()
 
+# ---------------------------------------------------------------------------
+# Localisation: embed the UI translation files (JUCE LocalisedStrings format)
+# so they ship inside the binary. Add languages in localization/ and list them
+# here; Main.cpp picks one by the system language. See localization/README.md.
+# ---------------------------------------------------------------------------
+juce_add_binary_data(GRABTranslations SOURCES
+    localization/grab_fr.txt
+    localization/grab_it.txt
+    localization/grab_de.txt
+    localization/grab_es.txt)
+
 target_link_libraries(GRAB PRIVATE
     sea_sysex
     roli_blocks_basics
+    GRABTranslations
     juce::juce_gui_extra
     juce::juce_audio_devices
     juce::juce_cryptography

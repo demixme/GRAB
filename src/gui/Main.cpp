@@ -4,10 +4,28 @@
 
 #include "MainComponent.h"
 #include "Theme.h"
+#include "BinaryData.h"   // embedded translation files (see CMakeLists / localization/)
 
 #ifndef GRAB_VERSION
  #define GRAB_VERSION "0.0.0-dev"
 #endif
+
+// Pick the UI language from the system locale and load its translation file (JUCE LocalisedStrings).
+// Unmatched languages leave the default (no mappings), so TRANS() falls back to the English source.
+// Extend coverage by wrapping more strings in TRANS() and adding lines to the localization/ files.
+static void setupLocalisation()
+{
+    const auto lang = juce::SystemStats::getDisplayLanguage().substring (0, 2).toLowerCase();
+    const char* data = nullptr; int size = 0;
+    if      (lang == "fr") { data = BinaryData::grab_fr_txt; size = BinaryData::grab_fr_txtSize; }
+    else if (lang == "it") { data = BinaryData::grab_it_txt; size = BinaryData::grab_it_txtSize; }
+    else if (lang == "de") { data = BinaryData::grab_de_txt; size = BinaryData::grab_de_txtSize; }
+    else if (lang == "es") { data = BinaryData::grab_es_txt; size = BinaryData::grab_es_txtSize; }
+
+    if (data != nullptr)
+        juce::LocalisedStrings::setCurrentMappings (
+            new juce::LocalisedStrings (juce::String::fromUTF8 (data, size), /*ignoreCaseOfKeys*/ false));
+}
 
 class GRABApplication  : public juce::JUCEApplication
 {
@@ -20,6 +38,7 @@ public:
 
     void initialise (const juce::String&) override
     {
+        setupLocalisation();   // before any UI is built, so TRANS() in constructors resolves
         juce::LookAndFeel::setDefaultLookAndFeel (&lookAndFeel);   // before the window, so it picks up the dark bg
         // Show the version in the title bar so a user reporting a bug can read off their build.
         mainWindow = std::make_unique<MainWindow> (getApplicationName() + " " + getApplicationVersion());

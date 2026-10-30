@@ -1,0 +1,15 @@
+language: German
+countries: de at ch li
+
+"Reload from device" = "Vom Gerät neu laden"
+"Save to device" = "Auf Gerät speichern"
+"Autosave" = "Autom. Speichern"
+"Contribute..." = "Beitragen..."
+"Advanced..." = "Erweitert..."
+"Diagnose..." = "Diagnose..."
+"Connection Type:" = "Verbindungstyp:"
+"Auto" = "Auto"
+"USB" = "USB"
+"BLE" = "BLE"
+"ROLI device:" = "ROLI-Gerät:"
+"Preset..." = "Voreinstellung..."

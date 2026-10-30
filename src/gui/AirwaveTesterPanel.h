@@ -32,7 +32,7 @@ public:
     AirwaveTesterPanel()
     {
         addAndMakeVisible (title);
-        title.setText ("Airwave Expression emulator " + grab::u8 ("\xe2\x80\x94") + " experimental",
+        title.setText ("Airwave Expression emulator " + grab::u8 ("-") + " experimental",
                        juce::dontSendNotification);
         title.setFont (juce::Font (juce::FontOptions (18.0f)).boldened());
         title.setColour (juce::Label::textColourId, grab::theme::accent);

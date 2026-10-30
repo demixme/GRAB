@@ -88,6 +88,7 @@ private:
     void applyRisePreset (const juce::String& name);   // apply a built-in ROLI preset (live-writes)
     void updateEnabled();
     void saveToDevice();
+    void flashSaved();        // briefly show "Saved" on the button after a write lands
     void loadPreset();        // import a preset from a user-chosen .json file
     void savePreset();        // export the current settings to a user-chosen .json file
     void setStatus (const juce::String&);
@@ -132,8 +133,11 @@ private:
 
     juce::Label      statusLabel;
     juce::Label      infoLabel;
-    juce::TextButton reloadButton { "Reload from device" };
-    juce::TextButton saveButton   { "Save to device" };
+    juce::TextButton   reloadButton { "Reload from device" };
+    juce::TextButton   saveButton   { "Save to device" };
+    juce::ToggleButton autosaveToggle { "Autosave" };   // on: edits write live; off: manual Save
+    bool               savedFlash = false;               // button is briefly showing "Saved" after a write
+    int                savedFlashGen = 0;                 // only the newest flash's timer reverts (no mid-drag blink)
     juce::ComboBox   presetBox;   // unified: ROLI presets + the user's own saved presets
     std::vector<juce::File> userPresetFiles;   // menu index -> saved-preset file (parallel to the combo)
     std::unique_ptr<juce::FileChooser> chooser;

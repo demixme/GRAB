@@ -1,0 +1,15 @@
+language: Spanish
+countries: es mx ar co cl pe ve
+
+"Reload from device" = "Recargar desde el dispositivo"
+"Save to device" = "Guardar en el dispositivo"
+"Autosave" = "Autoguardado"
+"Contribute..." = "Contribuir..."
+"Advanced..." = "Avanzado..."
+"Diagnose..." = "Diagnosticar..."
+"Connection Type:" = "Tipo de conexión:"
+"Auto" = "Auto"
+"USB" = "USB"
+"BLE" = "BLE"
+"ROLI device:" = "Dispositivo ROLI:"
+"Preset..." = "Preajuste..."

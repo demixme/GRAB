@@ -284,10 +284,22 @@ Rise2Component::Rise2Component (seaprobe::RawLogger& loggerToUse) : logger (logg
     infoLabel.setColour (juce::Label::textColourId, juce::Colours::white.withAlpha (0.7f));
     addAndMakeVisible (reloadButton);
     addAndMakeVisible (saveButton);
+    addAndMakeVisible (autosaveToggle);
     reloadButton.onClick = [this] { setStatus ("Reloading from device..."); requestState(); };
     saveButton.onClick   = [this] { saveToDevice(); };
     liveWriter.onTick    = [this] { flushLiveWrites(); };
     saveButton.setEnabled (false);
+
+    // Autosave on (default): edits write live and the Save button just flashes "Saved" when a write
+    // lands - no strobing on/off per keystroke. Off: edits queue and you click Save to write them.
+    autosaveToggle.setToggleState (true, juce::dontSendNotification);
+    autosaveToggle.setTooltip ("On: changes write to the device as you make them. Off: changes wait until you click Save.");
+    autosaveToggle.onClick = [this]
+    {
+        if (autosaveToggle.getToggleState() && ! dirtyWrites.empty())
+            liveWriter.nudge();     // just switched autosave on with edits pending - write them now
+        updateEnabled();
+    };
 
     // One "Preset" menu: ROLI's built-in presets and the user's own saved presets in one list,
     // plus Save / Import / Export actions - the way ROLI Dashboard presents presets.
@@ -611,8 +623,8 @@ void Rise2Component::onState (rise2::State s)
         firmware = state.text (goff::firmware, 8);   // stored for preset metadata
         const int keyCount = state.at (goff::keyCount);
         infoLabel.setText (portName + "   fw " + firmware + "   " + juce::String (keyCount) + " keys"
-                               + "   " + grab::u8 ("\xe2\x80\x94") + " GRAND: full settings + live touch "
-                                 "(octave & tracking are write-only \xe2\x80\x94 the GRAND doesn't report them back)",
+                               + "   " + grab::u8 ("-") + " GRAND: full settings + live touch "
+                                 "(octave & tracking are write-only - the GRAND doesn't report them back)",
                            juce::dontSendNotification);
         // Size the keyboard graphic from the GRAND's reported key count, so the three editions -
         // Studio (37), Stage (61) and the 88-key First Edition - each draw at the right width
@@ -837,7 +849,8 @@ void Rise2Component::onItemChanged (juce::uint32 id, juce::int32 v)
     if (differs && midiOut != nullptr)
     {
         dirtyWrites.insert (id);
-        liveWriter.nudge();
+        if (autosaveToggle.getToggleState())
+            liveWriter.nudge();     // live-write; otherwise the edit waits for a Save click
     }
 }
 
@@ -877,12 +890,37 @@ void Rise2Component::flushLiveWrites()
     dirtyWrites.clear();
 
     if (! msgs.empty())
+    {
         send (msgs);
+        flashSaved();   // a write landed - confirm it clearly instead of strobing the button
+    }
 
     for (auto& r : rows)   r->setChangedFromDevice (deviceValues[r->getId()] != pendingValues[r->getId()]);
     for (auto* c : curves) c->setChanged (deviceValues[c->getId()] != pendingValues[c->getId()]);
     for (auto* f : faders) f->setChanged (deviceValues[f->getId()] != pendingValues[f->getId()]);
     updateEnabled();
+}
+
+void Rise2Component::flashSaved()
+{
+    savedFlash = true;
+    const int gen = ++savedFlashGen;   // supersede any pending revert so a drag keeps the flash lit
+    saveButton.setButtonText (grab::u8 ("Saved"));   // "Saved <checkmark>"
+    saveButton.setColour (juce::TextButton::buttonColourId, grab::theme::accent.withAlpha (0.85f));
+    saveButton.setColour (juce::TextButton::buttonOnColourId, grab::theme::accent.withAlpha (0.85f));
+    saveButton.setEnabled (true);   // show the colour (disabled buttons grey out)
+    saveButton.repaint();
+
+    juce::Component::SafePointer<Rise2Component> safe (this);
+    juce::Timer::callAfterDelay (1100, [safe, gen]
+    {
+        if (safe == nullptr || safe->savedFlashGen != gen) return;   // a newer write re-lit it
+        safe->savedFlash = false;
+        safe->saveButton.setButtonText ("Save to device");
+        safe->saveButton.removeColour (juce::TextButton::buttonColourId);
+        safe->saveButton.removeColour (juce::TextButton::buttonOnColourId);
+        safe->updateEnabled();      // back to normal enabled/disabled state
+    });
 }
 
 void Rise2Component::updateEnabled()
@@ -899,10 +937,16 @@ void Rise2Component::updateEnabled()
         if (id == kChannel) r->setEnabled (mode == rise2::Mode::single || mode == rise2::Mode::multi);
     }
 
-    bool any = false;
-    for (auto& kv : pendingValues)
-        any = any || deviceValues[kv.first] != kv.second;
-    saveButton.setEnabled (any && ! awaitingState && midiOut != nullptr);
+    if (! savedFlash)   // during the "Saved" flash the button is intentionally lit; don't fight it
+    {
+        bool any = false;
+        for (auto& kv : pendingValues)
+            any = any || deviceValues[kv.first] != kv.second;
+        // Autosave on: edits write themselves, so Save is just the flash target (stays disabled, no
+        // strobing). Off: Save lights up when there are unsaved edits and writes them on click.
+        const bool manual = ! autosaveToggle.getToggleState();
+        saveButton.setEnabled (manual && any && ! awaitingState && midiOut != nullptr);
+    }
 }
 
 void Rise2Component::saveToDevice()
@@ -948,7 +992,7 @@ void Rise2Component::saveToDevice()
         return;
 
     send (msgs);
-    saveButton.setEnabled (false);
+    flashSaved();   // confirm the manual save too
     setStatus ("Sent " + juce::String ((int) expected.size()) + " setting(s), re-reading from device...");
 
     juce::Timer::callAfterDelay (300, [safe = juce::Component::SafePointer<Rise2Component> (this)]
@@ -1188,7 +1232,8 @@ void Rise2Component::resized()
 
     auto buttons = r.removeFromTop (30);
     reloadButton.setBounds (buttons.removeFromLeft (165).reduced (2, 0));
-    saveButton  .setBounds (buttons.removeFromLeft (165).reduced (2, 0));
+    saveButton  .setBounds (buttons.removeFromLeft (150).reduced (2, 0));
+    autosaveToggle.setBounds (buttons.removeFromLeft (90).reduced (2, 0));
     buttons.removeFromLeft (8);
     presetBox.setBounds (buttons.removeFromLeft (190).reduced (2, 0));
     r.removeFromTop (6);

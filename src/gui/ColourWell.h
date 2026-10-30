@@ -154,7 +154,7 @@ private:
             presetLabel.setColour (juce::Label::textColourId, textSecondary);
             addAndMakeVisible (presetLabel);
 
-            hint.setText (grab::u8 ("Visible when the active mode\xe2\x80\x99s Color Scheme is User."),
+            hint.setText (grab::u8 ("Visible when the active mode's Color Scheme is User."),
                           juce::dontSendNotification);
             hint.setColour (juce::Label::textColourId, textSecondary);
             hint.setFont (juce::FontOptions (13.0f));

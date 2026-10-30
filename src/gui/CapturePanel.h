@@ -44,7 +44,7 @@ public:
     {
         title.setText (juce::String::fromUTF8 (
                            "MIDI capture (read-only). Pick a port, press Start, then play or operate your device "
-                           "\xe2\x80\x94 or change settings in ROLI Dashboard to capture those. Config changes are "
+                           "- or change settings in ROLI Dashboard to capture those. Config changes are "
                            "shown in plain English; everything is logged raw. GRAB only listens, it never sends. "
                            "Save, open a GitHub issue, or Submit to help add device support."),
                        juce::dontSendNotification);
@@ -271,8 +271,8 @@ private:
         if (input == nullptr)
         {
             setStatus ("Could not open '" + inputs[idx].name
-                       + juce::String::fromUTF8 ("' \xe2\x80\x94 it may be held by another app "
-                                                 "(or GRAB's own connection \xe2\x80\x94 disconnect first)."));
+                       + juce::String::fromUTF8 ("' - it may be held by another app "
+                                                 "(or GRAB's own connection - disconnect first)."));
             return;
         }
 
@@ -291,7 +291,7 @@ private:
         portBox.setEnabled (false);
         refreshBtn.setEnabled (false);
         setStatus ("Listening on '" + capturedPortName
-                   + juce::String::fromUTF8 ("' \xe2\x80\x94 play or operate your device (or edit it in Dashboard)."));
+                   + juce::String::fromUTF8 ("' - play or operate your device (or edit it in Dashboard)."));
     }
 
     void stop()
@@ -478,7 +478,7 @@ private:
              << (nameField.getText().trim().isNotEmpty() ? "**Credit:** " + nameField.getText().trim() + "\n" : juce::String())
              << "**OS:** " << juce::SystemStats::getOperatingSystemName() << "\n"
              << "**Port:** " << capturedPortName << "\n\n"
-             << juce::String::fromUTF8 ("MIDI capture (GRAB -> Capture -> Save to file) \xe2\x80\x94 "
+             << juce::String::fromUTF8 ("MIDI capture (GRAB -> Capture -> Save to file) - "
                                         "**please attach the saved .txt file**. First lines:\n```\n")
              << lines.joinIntoString ("\n").substring (0, 1500) << "\n```\n";
 
@@ -487,7 +487,7 @@ private:
                  .withParameter ("title", "[capture] ")
                  .withParameter ("body", body);
         url.launchInDefaultBrowser();
-        setStatus (juce::String::fromUTF8 ("Opened a prefilled issue \xe2\x80\x94 attach the saved capture file to it."));
+        setStatus (juce::String::fromUTF8 ("Opened a prefilled issue - attach the saved capture file to it."));
     }
 
     void submit()

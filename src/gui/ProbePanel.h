@@ -33,7 +33,7 @@ public:
 
         title.setText (juce::String::fromUTF8 (
                        "Active probe (advanced, use with care). Sends ONE message to a device's "
-                       "output and logs the reply on its input \xe2\x80\x94 for working out the control "
+                       "output and logs the reply on its input - for working out the control "
                        "protocol of a device GRAB doesn't yet fully map (a new or unknown one). "
                        "Review the exact bytes and tick Arm before each send. Firmware/reset/packed "
                        "messages are blocked."),
@@ -253,8 +253,8 @@ private:
     void send()
     {
         const auto bytes = currentBytes();
-        if (bytes.empty()) { setStatus (juce::String::fromUTF8 ("Nothing to send \xe2\x80\x94 enter/select a message.")); return; }
-        if (looksDangerous (bytes)) { setStatus (juce::String::fromUTF8 ("Blocked: firmware/reset/packed message \xe2\x80\x94 not sending.")); return; }
+        if (bytes.empty()) { setStatus (juce::String::fromUTF8 ("Nothing to send - enter/select a message.")); return; }
+        if (looksDangerous (bytes)) { setStatus (juce::String::fromUTF8 ("Blocked: firmware/reset/packed message - not sending.")); return; }
         if (! armButton.getToggleState()) { setStatus ("Review the bytes above, then tick 'Arm send'."); return; }
 
         const int oi = outBox.getSelectedId() - 1;

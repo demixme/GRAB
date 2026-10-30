@@ -1,0 +1,15 @@
+language: Italian
+countries: it ch sm va
+
+"Reload from device" = "Ricarica dal dispositivo"
+"Save to device" = "Salva sul dispositivo"
+"Autosave" = "Salvataggio auto"
+"Contribute..." = "Contribuisci..."
+"Advanced..." = "Avanzate..."
+"Diagnose..." = "Diagnostica..."
+"Connection Type:" = "Tipo di connessione:"
+"Auto" = "Auto"
+"USB" = "USB"
+"BLE" = "BLE"
+"ROLI device:" = "Dispositivo ROLI:"
+"Preset..." = "Preset..."

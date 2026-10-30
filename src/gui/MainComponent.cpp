@@ -7,6 +7,7 @@
 #include "DiagnosePanel.h"
 #include "AirwavePanel.h"
 #include "AirwaveTesterPanel.h"
+#include "AppInspectorPanel.h"
 #include "Help.h"
 
 #include <algorithm>
@@ -207,14 +208,35 @@ MainComponent::MainComponent()
     diagnoseBtn.onClick = [this] { openDialog (new DiagnosePanel(), "Diagnose connection"); };
     addAndMakeVisible (reloadButton);
     addAndMakeVisible (saveButton);
+    addAndMakeVisible (autosaveToggle);
     reloadButton.onClick  = [this] { reloadFromDevice(); };
     saveButton.onClick    = [this] { saveToDevice(); };
     liveWriter.onTick     = [this] { flushLiveWrites(); };
 
+    // Autosave on (default): edits write live and Save just flashes "Saved" when a write lands, rather
+    // than strobing on/off per keystroke. Off: edits queue until you click Save.
+    autosaveToggle.setToggleState (true, juce::dontSendNotification);
+    autosaveToggle.setTooltip ("On: changes write to the device as you make them. Off: changes wait until you click Save.");
+    autosaveToggle.onClick = [this]
+    {
+        if (autosaveToggle.getToggleState() && ! dirtyWrites.empty())
+            liveWriter.nudge();     // switched autosave on with edits pending - write them now
+        updateSaveEnabled();
+    };
+
+    // Localised labels for the top bar (TRANS resolves against the loaded language; English if none).
+    // This is the localisation scaffold - see localization/README.md to extend coverage.
+    reloadButton.setButtonText   (TRANS ("Reload from device"));
+    saveButton.setButtonText     (TRANS ("Save to device"));
+    autosaveToggle.setButtonText (TRANS ("Autosave"));
+    contributeBtn.setButtonText  (TRANS ("Contribute..."));
+    advancedBtn.setButtonText    (TRANS ("Advanced..."));
+    diagnoseBtn.setButtonText    (TRANS ("Diagnose..."));
+
     // One "Preset" menu: ROLI's built-in presets (Seaboard) and the user's own saved presets in
     // one list, plus Save / Import / Export - the way ROLI Dashboard presents presets.
     addChildComponent (presetBox);   // shown with the other Block controls (setBlocksControlsVisible)
-    presetBox.setTextWhenNothingSelected ("Preset...");
+    presetBox.setTextWhenNothingSelected (TRANS ("Preset..."));
     presetBox.onChange = [this]
     {
         const int id = presetBox.getSelectedId();
@@ -239,12 +261,12 @@ MainComponent::MainComponent()
     saveButton.setEnabled (false);
 
     addAndMakeVisible (transportLabel);
-    transportLabel.setText ("Connection Type:", juce::dontSendNotification);
+    transportLabel.setText (TRANS ("Connection Type:"), juce::dontSendNotification);
     transportLabel.setJustificationType (juce::Justification::centredRight);
     addAndMakeVisible (transportBox);
-    transportBox.addItem ("Auto", 1);
-    transportBox.addItem ("USB",  2);
-    transportBox.addItem ("BLE",  3);
+    transportBox.addItem (TRANS ("Auto"), 1);
+    transportBox.addItem (TRANS ("USB"),  2);
+    transportBox.addItem (TRANS ("BLE"),  3);
     transportBox.setSelectedId (1, juce::dontSendNotification);
     transportBox.onChange = [this]
     {
@@ -255,7 +277,7 @@ MainComponent::MainComponent()
     };
 
     addAndMakeVisible (blockLabel);
-    blockLabel.setText ("ROLI device:", juce::dontSendNotification);
+    blockLabel.setText (TRANS ("ROLI device:"), juce::dontSendNotification);
     blockLabel.setJustificationType (juce::Justification::centredRight);
     addAndMakeVisible (blockBox);
     blockBox.onChange = [this]
@@ -283,6 +305,7 @@ MainComponent::MainComponent()
         airwave.addItem (9,  "About Airwave (documentation)...");
         airwave.addItem (10, "Airwave CC tester (emulator)...");   // sends CC21-31 for DAW mapping, no hardware
         m.addSubMenu ("Airwave (experimental)", airwave);
+        m.addItem (11, "BLOCKS app inspector (experimental)...");   // read a .littlefoot app; preview only for now
         m.addItem (4, "How you can help...");
         m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (advancedBtn),
             [this] (int r)
@@ -296,6 +319,7 @@ MainComponent::MainComponent()
                 else if (r == 8) openDialog (new ExplorePanel(), "Help add this device");
                 else if (r == 9) openDialog (new AirwavePanel(), "Airwave & gesture control (experimental)");
                 else if (r == 10) openDialog (new AirwaveTesterPanel(), "Airwave CC tester (experimental)");
+                else if (r == 11) openDialog (new AppInspectorPanel(), "BLOCKS app inspector (experimental)");
             });
     };
 
@@ -503,8 +527,8 @@ void MainComponent::connect (seaprobe::Transport transport)
 
 void MainComponent::setBlocksControlsVisible (bool visible)
 {
-    for (auto* c : std::initializer_list<juce::Component*> { &reloadButton, &saveButton, &presetBox,
-                                                            &blockLabel, &blockBox, &contributeBtn, &viewport })
+    for (auto* c : std::initializer_list<juce::Component*> { &reloadButton, &saveButton, &autosaveToggle,
+                                                            &presetBox, &blockLabel, &blockBox, &contributeBtn, &viewport })
         c->setVisible (visible);
 }
 
@@ -550,7 +574,7 @@ void MainComponent::topologyChanged()
         {
             busyLabel.setVisible (true);
             busyLabel.toFront (false);
-            setStatus (grab::u8 ("Resetting \xe2\x80\x94 please wait for the device to reboot..."));
+            setStatus (grab::u8 ("Resetting - please wait for the device to reboot..."));
         }
         else
         {
@@ -652,7 +676,7 @@ void MainComponent::updateBlockList (const roli::BlockTopology& topo)
                + (block != nullptr ? "   -   " + block->serialNumber + " fw " + block->versionNumber
                                        + " battery " + juce::String (juce::roundToInt (block->getBatteryLevel() * 100.0f)) + "%"
                                      : juce::String())
-               + (unseen ? grab::u8 ("   -   DNA-linked block visible over Bluetooth \xe2\x80\x94 switch to Auto to see it")
+               + (unseen ? grab::u8 ("   -   DNA-linked block visible over Bluetooth - switch to Auto to see it")
                          : juce::String()));
 
     // Diagnostic: log what the SDK reports about the physical arrangement, so we can see whether DNA
@@ -1499,7 +1523,8 @@ void MainComponent::onItemChanged (juce::uint32 id, juce::int32 value)
     if (differs)
     {
         dirtyWrites.insert (id);
-        liveWriter.nudge();
+        if (autosaveToggle.getToggleState())
+            liveWriter.nudge();     // live-write; otherwise the edit waits for a Save click
     }
 }
 
@@ -1541,6 +1566,7 @@ void MainComponent::flushLiveWrites()
         deviceValues[id] = pv->second;                 // optimistic; a reload re-reads the truth
     }
     dirtyWrites.clear();
+    flashSaved();   // a write landed - confirm it clearly instead of strobing the button
 
     // The device now matches (optimistically), so clear the "changed" markers + Save button.
     for (auto& r : rows)
@@ -1556,6 +1582,9 @@ void MainComponent::flushLiveWrites()
 
 void MainComponent::updateSaveEnabled()
 {
+    if (savedFlash)   // during the "Saved" flash the button is intentionally lit; don't fight it
+        return;
+
     bool any = false;
     for (auto& kv : pendingValues)
     {
@@ -1563,7 +1592,31 @@ void MainComponent::updateSaveEnabled()
         if (d != deviceValues.end() && d->second != kv.second)
             any = true;
     }
-    saveButton.setEnabled (any);
+    // Autosave on: edits write themselves, so Save is just the flash target (stays disabled, no
+    // strobing). Off: Save lights up when there are unsaved edits and writes them on click.
+    saveButton.setEnabled (! autosaveToggle.getToggleState() && any);
+}
+
+void MainComponent::flashSaved()
+{
+    savedFlash = true;
+    const int gen = ++savedFlashGen;   // supersede any pending revert so a drag keeps the flash lit
+    saveButton.setButtonText (grab::u8 ("Saved"));   // "Saved <checkmark>"
+    saveButton.setColour (juce::TextButton::buttonColourId, grab::theme::accent.withAlpha (0.85f));
+    saveButton.setColour (juce::TextButton::buttonOnColourId, grab::theme::accent.withAlpha (0.85f));
+    saveButton.setEnabled (true);   // show the colour (disabled buttons grey out)
+    saveButton.repaint();
+
+    juce::Component::SafePointer<MainComponent> safe (this);
+    juce::Timer::callAfterDelay (1100, [safe, gen]
+    {
+        if (safe == nullptr || safe->savedFlashGen != gen) return;   // a newer write re-lit it
+        safe->savedFlash = false;
+        safe->saveButton.setButtonText ("Save to device");
+        safe->saveButton.removeColour (juce::TextButton::buttonColourId);
+        safe->saveButton.removeColour (juce::TextButton::buttonOnColourId);
+        safe->updateSaveEnabled();
+    });
 }
 
 void MainComponent::saveToDevice()
@@ -1593,7 +1646,8 @@ void MainComponent::saveToDevice()
     setStatus ("Wrote " + juce::String (written) + " item(s)"
                + (targets.size() > 1 ? " to " + juce::String ((int) targets.size()) + " chained blocks" : juce::String())
                + "; re-reading from device...");
-    saveButton.setEnabled (false);
+    if (written > 0) flashSaved();            // confirm the manual save
+    else             saveButton.setEnabled (false);
     requestConfig(); // re-sync + rebuild confirms the values that stuck
 }
 
@@ -1653,7 +1707,7 @@ void MainComponent::downloadFirmware()
         .withMessage ("This opens ROLI's download page for your " + product + " in your web browser.\n\n"
                       "You must be signed in to your ROLI account (my.roli.com). It downloads the latest "
                       "firmware as a .syx.zip so you can archive it while ROLI's servers are still up.\n\n"
-                      + grab::u8 ("GRAB does NOT flash firmware \xe2\x80\x94 this is download-only."))
+                      + grab::u8 ("GRAB does NOT flash firmware - this is download-only."))
         .withButton ("Open in browser")   // button 1: Enter / returns 1
         .withButton ("Cancel");           // button 2: Escape / returns 0
     juce::AlertWindow::showAsync (opts, [url] (int result)
@@ -1685,7 +1739,7 @@ void MainComponent::factoryReset()
                       + juce::String::fromUTF8 (
                             " to factory defaults?\n\n"
                             "This restores every setting to its default and reboots the device. "
-                            "It can't be undone \xe2\x80\x94 but it only touches settings; firmware is left alone."))
+                            "It can't be undone - but it only touches settings; firmware is left alone."))
         .withButton ("Factory reset")     // button 1: the action (Enter); Escape/Cancel both abort
         .withButton ("Cancel");           // button 2: returns 0, bound to Escape
 
@@ -1707,11 +1761,11 @@ void MainComponent::factoryReset()
         // The device will drop off the bus and reboot. Show a clear "resetting" overlay so the
         // empty UI isn't mistaken for a disconnect; cleared when config comes back (rebuildRows).
         sp->resettingSinceMs = juce::Time::getMillisecondCounterHiRes();
-        sp->busyLabel.setText (grab::u8 ("Resetting \xe2\x80\x94 please wait for the device to reboot..."),
+        sp->busyLabel.setText (grab::u8 ("Resetting - please wait for the device to reboot..."),
                                juce::dontSendNotification);
         sp->busyLabel.setVisible (true);
         sp->busyLabel.toFront (false);
-        sp->setStatus ("Resetting " + juce::String (n) + grab::u8 (" block(s) \xe2\x80\x94 please wait for the device to reboot..."));
+        sp->setStatus ("Resetting " + juce::String (n) + grab::u8 (" block(s) - please wait for the device to reboot..."));
         sp->logger->line ("FACTORY RESET sent to " + juce::String (n) + " block(s) (user-confirmed).");
     });
 }
@@ -2297,7 +2351,8 @@ void MainComponent::resized()
     auto buttons = r.removeFromTop (30);
     const int bw = 165;
     reloadButton.setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
-    saveButton  .setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
+    saveButton  .setBounds (buttons.removeFromLeft (150).reduced (2, 0));
+    autosaveToggle.setBounds (buttons.removeFromLeft (90).reduced (2, 0));
     buttons.removeFromLeft (8);
     presetBox.setBounds (buttons.removeFromLeft (190).reduced (2, 0));
     r.removeFromTop (6);

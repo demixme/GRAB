@@ -40,10 +40,14 @@ namespace grab::theme
 namespace grab
 {
 
-/** Decode a UTF-8 string literal into a juce::String. Needed because juce::String(const char*)
-    decodes as ASCII/Latin-1 (each byte -> one codepoint), which mangles multi-byte UTF-8 (an
-    em-dash E2 80 94 becomes three garbage chars). Use this for ANY non-ASCII UI text, with the
-    bytes written as hex escapes to keep the source ASCII-clean, e.g. grab::u8 ("\xe2\x80\x94"). */
+/** Decode a UTF-8 string literal into a juce::String. Needed because juce::String(const char*) -
+    and String + const char*, String << const char* - decode as ASCII/Latin-1 (each byte -> one
+    codepoint), which mangles multi-byte UTF-8 (an em-dash E2 80 94 shows as three garbage chars).
+
+    CONVENTION: keep UI text ASCII. It's too easy to leak a raw byte - e.g. an em-dash embedded in
+    a literal that's appended to a String with '+' renders as mojibake even if a neighbouring one is
+    wrapped. So use plain ASCII ("-", "->", ">") for UI strings. This helper stays for the rare case
+    where real UTF-8 is unavoidable (then wrap EVERY piece of the expression, not just one). */
 inline juce::String u8 (const char* utf8) { return juce::String::fromUTF8 (utf8); }
 
 /** Dark ROLI-flavoured look, set as the default LookAndFeel for the whole app. */

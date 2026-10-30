@@ -146,6 +146,7 @@ private:
     void flushLiveWrites();                                  // throttled: write edited items to the device
     std::vector<roli::Block::Ptr> writeTargets() const;      // the selected block + its DNA cluster
     void updateSaveEnabled();
+    void flashSaved();        // briefly show "Saved" on the button after a write lands
     void setStatus (const juce::String&);
     void setBlocksControlsVisible (bool);
 
@@ -203,6 +204,9 @@ private:
     juce::TextButton   reloadButton  { "Reload from device" };
     juce::TextButton   diagnoseBtn   { "Diagnose..." };
     juce::TextButton   saveButton    { "Save to device" };
+    juce::ToggleButton autosaveToggle { "Autosave" };   // on: edits write live; off: manual Save
+    bool               savedFlash = false;              // button briefly showing "Saved" after a write
+    int                savedFlashGen = 0;               // only the newest flash's timer reverts (no mid-drag blink)
     juce::ComboBox     presetBox;   // unified: ROLI presets + the user's own saved presets
     std::vector<juce::File> userPresetFiles;   // menu index -> saved-preset file (parallel to the combo)
     juce::Viewport     viewport;

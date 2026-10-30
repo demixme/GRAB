@@ -1,0 +1,15 @@
+language: French
+countries: fr be ca ch lu mc
+
+"Reload from device" = "Recharger depuis l'appareil"
+"Save to device" = "Enregistrer sur l'appareil"
+"Autosave" = "Enregistrement auto"
+"Contribute..." = "Contribuer..."
+"Advanced..." = "Avancé..."
+"Diagnose..." = "Diagnostiquer..."
+"Connection Type:" = "Type de connexion :"
+"Auto" = "Auto"
+"USB" = "USB"
+"BLE" = "BLE"
+"ROLI device:" = "Appareil ROLI :"
+"Preset..." = "Préréglage..."

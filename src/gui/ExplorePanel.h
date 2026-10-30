@@ -73,7 +73,7 @@ public:
 
         setSize (560, 480);
         setStatus (inIdx >= 0 || outIdx >= 0 ? juce::String ("Ready. Click Run & submit.")
-                                             : juce::String::fromUTF8 ("No ROLI device found \xe2\x80\x94 connect one and reopen."));
+                                             : juce::String::fromUTF8 ("No ROLI device found - connect one and reopen."));
     }
 
     ~ExplorePanel() override { stopListening(); }
@@ -160,7 +160,7 @@ private:
         if (++elapsedTicks >= 20)
         {
             stopListening();
-            setStatus (juce::String::fromUTF8 ("Done \xe2\x80\x94 submitting..."));
+            setStatus (juce::String::fromUTF8 ("Done - submitting..."));
             submit();
         }
     }
@@ -214,7 +214,7 @@ private:
         juce::Array<juce::var> lines; for (auto& l : allLines) lines.add (l);
         cap->setProperty ("lines", lines);
         root->setProperty ("capture", juce::var (cap));
-        root->setProperty ("notes", "auto-explore" + (notesField.getText().isNotEmpty() ? juce::String::fromUTF8 (" \xe2\x80\x94 ") + notesField.getText() : juce::String()));
+        root->setProperty ("notes", "auto-explore" + (notesField.getText().isNotEmpty() ? juce::String::fromUTF8 (" - ") + notesField.getText() : juce::String()));
         return juce::var (root);
     }
 
@@ -236,7 +236,7 @@ private:
                 {
                     p->saveBtn.setEnabled (true); p->issueBtn.setEnabled (true); p->runBtn.setEnabled (true);
                     p->setStatus (err.isNotEmpty() ? "Submit failed (" + err + "). Use Save to file or Open issue."
-                                  : (code >= 200 && code < 300) ? juce::String::fromUTF8 ("Thank you! Submitted \xe2\x80\x94 this really helps.")
+                                  : (code >= 200 && code < 300) ? juce::String::fromUTF8 ("Thank you! Submitted - this really helps.")
                                   : "Server returned HTTP " + juce::String (code) + ". Use Save to file or Open issue.");
                 }
             });
