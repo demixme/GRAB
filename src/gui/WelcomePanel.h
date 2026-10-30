@@ -126,9 +126,11 @@ private:
                     "side, and the only way to add WRITING for a new setting, app or device. (It's how the Seaboard "
                     "GRAND became configurable.) GRAB can't record this itself, so run a free USB/MIDI monitor next "
                     "to Dashboard:\n");
-        add (Body,  "       Windows:  Wireshark + USBPcap \xe2\x80\x94 record the device's USB while you edit in Dashboard.\n");
+        add (Body,  "       Windows:  Wireshark + USBPcap \xe2\x80\x94 connect the device by USB cable (not Bluetooth) and "
+                    "record while you edit in Dashboard.\n");
         add (Body,  "       macOS:  MIDI Monitor (Snoize) with \"Spy on output\" on \xe2\x80\x94 record the \"to device\" "
                     "stream.\n");
+        add (Note,  "       (Over Bluetooth the capture sees only the device's output, not Dashboard's writes.)\n");
         add (Click, "    Then attach the saved file to a GitHub issue \xe2\x80\x94 full step-by-step: \"Open capture guide\" "
                     "below.\n\n");
 

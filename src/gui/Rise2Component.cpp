@@ -93,8 +93,8 @@ const std::vector<Field>& fields()
           // GRAND write uses the +64 bias too (see writeFor). (Confirmed from the 0.1.58 roundtrip.)
           [] (const rise2::State& s) { return s.grand ? s.at (goff::octave) - 64 : s.at (off::octave) - 4; }, rise2::octave },
         { kTranspose, "Transpose", "Play mode", CT::integer, -12, 12, {},
-          // The GRAND never reports transpose back (write-only), so show the default there.
-          [] (const rise2::State& s) { return s.grand ? 0 : s.at (off::transpose) - 64; }, rise2::transpose },
+          // GRAND transpose is byte 79 (candidate, +64 bias - see goffset); RISE at off::transpose.
+          [] (const rise2::State& s) { return s.at (s.grand ? goff::transpose : off::transpose) - 64; }, rise2::transpose },
         { kSemitoneLegato, "Semitone Legato", "Play mode", CT::boolean, 0, 1, {}, byte (off::semitoneLegato), param (0x4c) },
         { kSlideCc,   "Slide CC",   "Play mode", CT::integer, 0, 127, {}, byte (off::slideCc), param (0x38) },
         { kSlideMode, "Slide Mode", "Play mode", CT::options, 0, 2, { "Absolute", "Relative Unipolar", "Relative Bipolar" },
@@ -160,14 +160,14 @@ bool isRiseOnlyField (juce::uint32 id)
 }
 bool isGrandOnlyField (juce::uint32 id) { return id == kPedal1Cc || id == kPedal2Cc || id == kPedal3Cc; }
 
-// The fields a real GRAND shows. Reads and writes are both confirmed from BabeleDunnit's Dashboard
-// captures (issue #6): pedals, glide (stored inverted), octave (byte 78), the MIDI block (mode /
-// channel / count / bend, via grandMidiMode's RPN-6 reset), and - write-only, since the GRAND never
-// reports them back - transpose and glide/press tracking (NRPN 0 / 4). See writeFor().
+// The fields a real GRAND shows. Reads/writes confirmed from BabeleDunnit's Dashboard captures
+// (issue #6): pedals, glide (stored inverted), octave (byte 78), transpose (byte 79, candidate), the
+// MIDI block (mode / channel / count / bend, via grandMidiMode's RPN-6 reset). Glide/press tracking
+// (NRPN 0 / 4) are write-only - not in the GRAND's reply - so GRAB keeps the last value set.
 bool isGrandField (juce::uint32 id)
 {
     // No kZone: the GRAND is a lower-zone-only MPE device (Dashboard shows no Upper option).
-    // Mode / channel / bend write via grandMidiMode; transpose + tracking are write-only (see writeFor).
+    // Mode / channel / bend write via grandMidiMode; glide/press tracking are write-only (see writeFor).
     return id == kGlideSens || id == kPedal1Cc || id == kPedal2Cc || id == kPedal3Cc
         || id == kTranspose
         || id == kMode || id == kMembers || id == kChannel || id == kBend
@@ -719,8 +719,11 @@ void Rise2Component::rebuildRows()
     // 175 such writes, issue #6), so Reload can't read them. Rather than snap them back to a misleading
     // default, keep what the user last set. (Octave is different - the GRAND does report it, byte 78.)
     const auto prior = pendingValues;
+    // Press Mode and Glide/Slide Tracking are not in the GRAND's reply (no offset found), so keep the
+    // user's last value across reloads. Transpose now reads from byte 79 (candidate), so it's no longer
+    // here. (Octave always read live from byte 78.)
     const auto writeOnlyHere = [this] (juce::uint32 id)
-    { return grand && (id == kTranspose || id == kPressTracking || id == kGlideTracking); };
+    { return grand && (id == kPressTracking || id == kGlideTracking); };
 
     deviceValues.clear();
     pendingValues.clear();

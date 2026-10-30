@@ -25,6 +25,12 @@ Pick the method for your computer:
 All three produce the same thing: the messages Dashboard sends. Send us the result and we
 do the decoding.
 
+> ⚠️ **Connect the device by USB cable, not Bluetooth.** We need what Dashboard sends *to the
+> device* (the setting/app **writes**). Over USB those are captured directly. Over **Bluetooth**,
+> the capture tools only see the device's *output* — touch/sensor notifications, battery, etc. —
+> **not** Dashboard's writes, so a Bluetooth capture comes back with nothing to decode. Plug the
+> USB cable in first, and let Dashboard connect over USB.
+
 ## What to change (while the capture runs)
 
 Open Dashboard, let it connect, and change settings **one at a time**, pressing **Save/Edit**
@@ -56,13 +62,15 @@ Best if you're just running the released GRAB and want to help.
 
 1. **Install Wireshark** (free): https://www.wireshark.org/download.html — during install,
    **keep "Install USBPcap" ticked** (that component captures USB).
-2. **Close ROLI Dashboard and GRAB** completely.
-3. Open **Wireshark** and double-click **USBPcap1** in the interface list to start
-   recording. (If step 5 shows nothing, redo with **USBPcap2** — your device is on one of
-   the two.)
-4. **Open ROLI Dashboard**, let it connect, and make the changes in the table above.
-5. **Stop** the capture (red square), then **File → Save As** → save a `.pcapng`.
-6. **Send us the file** — attach it to [issue #1](../../issues/1) (or zip and share). It
+2. **Connect your ROLI device with a USB cable** (not Bluetooth) — USBPcap captures USB, and only
+   a USB connection carries Dashboard's writes to the device.
+3. **Close ROLI Dashboard and GRAB** completely.
+4. Open **Wireshark** and double-click **USBPcap1** in the interface list to start
+   recording. (If step 6 shows no ROLI traffic, redo with **USBPcap2** — your device is on one
+   of the two.)
+5. **Open ROLI Dashboard**, let it connect **over USB**, and make the changes in the table above.
+6. **Stop** the capture (red square), then **File → Save As** → save a `.pcapng`.
+7. **Send us the file** — attach it to [issue #1](../../issues/1) (or zip and share). It
    contains only MIDI/USB traffic.
 
 You don't need to decode it — send the raw `.pcapng` and we'll do the rest.
