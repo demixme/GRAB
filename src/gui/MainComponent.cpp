@@ -5,6 +5,8 @@
 #include "ExplorePanel.h"
 #include "WelcomePanel.h"
 #include "DiagnosePanel.h"
+#include "AirwavePanel.h"
+#include "AirwaveTesterPanel.h"
 #include "Help.h"
 
 #include <algorithm>
@@ -277,6 +279,10 @@ MainComponent::MainComponent()
         m.addSeparator();
         m.addItem (3, "Factory reset (presets only)...", block != nullptr);  // Blocks only; confirm dialog follows
         m.addSeparator();
+        juce::PopupMenu airwave;                               // documentation/research; talks to no ROLI device
+        airwave.addItem (9,  "About Airwave (documentation)...");
+        airwave.addItem (10, "Airwave CC tester (emulator)...");   // sends CC21-31 for DAW mapping, no hardware
+        m.addSubMenu ("Airwave (experimental)", airwave);
         m.addItem (4, "How you can help...");
         m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (advancedBtn),
             [this] (int r)
@@ -288,6 +294,8 @@ MainComponent::MainComponent()
                 else if (r == 5) downloadFirmware();
                 else if (r == 6) openDialog (new DiagnosePanel(), "Diagnose connection");
                 else if (r == 8) openDialog (new ExplorePanel(), "Help add this device");
+                else if (r == 9) openDialog (new AirwavePanel(), "Airwave & gesture control (experimental)");
+                else if (r == 10) openDialog (new AirwaveTesterPanel(), "Airwave CC tester (experimental)");
             });
     };
 

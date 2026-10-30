@@ -713,13 +713,30 @@ void Rise2Component::rebuildRows()
     curveRow.reset();
     curves.clear();
     rowHolder.removeAllChildren();
+
+    // Snapshot the current values before clearing. The GRAND accepts Transpose / Press Mode / Glide
+    // & Slide Tracking but NEVER reports them in its reply (proven by diffing 28 identify dumps against
+    // 175 such writes, issue #6), so Reload can't read them. Rather than snap them back to a misleading
+    // default, keep what the user last set. (Octave is different - the GRAND does report it, byte 78.)
+    const auto prior = pendingValues;
+    const auto writeOnlyHere = [this] (juce::uint32 id)
+    { return grand && (id == kTranspose || id == kPressTracking || id == kGlideTracking); };
+
     deviceValues.clear();
     pendingValues.clear();
     dirtyWrites.clear();
     liveWriter.cancel();
 
     for (auto& f : fields())
-        deviceValues[f.id] = pendingValues[f.id] = f.read (state);
+    {
+        int v = f.read (state);
+        if (writeOnlyHere (f.id))
+        {
+            const auto it = prior.find (f.id);
+            if (it != prior.end()) v = it->second;   // preserve the user's last value across reloads
+        }
+        deviceValues[f.id] = pendingValues[f.id] = v;
+    }
 
     const auto onChange = [this] (juce::uint32 id, juce::int32 v) { onItemChanged (id, v); };
 
@@ -737,7 +754,7 @@ void Rise2Component::rebuildRows()
         auto addRow = [&] (const Field& f)
         {
             roli::Block::ConfigMetaData meta (f.id);
-            meta.name = f.name;
+            meta.name = writeOnlyHere (f.id) ? juce::String (f.name) + " (write-only)" : juce::String (f.name);
             meta.group = f.group;
             meta.type = f.type;
             meta.range = { f.lo, f.hi };

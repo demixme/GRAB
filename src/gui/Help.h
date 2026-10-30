@@ -82,8 +82,17 @@ inline juce::String helpForParameter (const juce::String& name)
         { "Key Pitch Bend Amount", "Pitch-bend span for key-based bends." },
     };
 
-    const auto it = help.find (name);
-    return it != help.end() ? it->second : juce::String();
+    // A field may be shown with a " (write-only)" suffix (e.g. GRAND tracking that the device never
+    // reports back); look up the base name, then note that the value can't be read back.
+    const bool writeOnly = name.endsWith (" (write-only)");
+    const auto base = writeOnly ? name.dropLastCharacters ((int) juce::String (" (write-only)").length()) : name;
+    const auto it = help.find (base);
+    juce::String text = it != help.end() ? it->second : juce::String();
+    if (writeOnly)
+        text = (text.isEmpty() ? juce::String() : text + "\n")
+             + "Write-only on this device: it accepts the value but never reports it back, so Reload "
+               "can't show it - GRAB keeps the value you last set.";
+    return text;
 }
 
 } // namespace grab
