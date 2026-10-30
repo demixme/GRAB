@@ -927,12 +927,11 @@ void MainComponent::touchChanged (roli::TouchSurface&, const roli::TouchSurface:
     const float ny = juce::jlimit (0.0f, 1.0f, t.y / g.h);
     const juce::uint64 id = t.blockUID ^ ((juce::uint64) (juce::uint32) t.index * 0x9E3779B97F4A7C15ULL);
 
-    // Strike = how hard the finger hit. The Seaboard streams z (pressure) continuously and it is
-    // still ramping up on the first touch-start packet, so sampling z once there gives a near-random
-    // value. Instead, track the PEAK z over a short window after contact (a hard hit spikes high and
-    // fast, a soft one stays low), then lock it for the note's life. Press (the ring) keeps tracking
-    // live z after that.
-    constexpr double kStrikeWindowMs = 45.0;
+    // Strike = how hard the finger hit, captured ONCE at contact and held for the note's life, so the
+    // solid disc reflects only the initial impact (Press - the ring - tracks live z). The Seaboard
+    // reports strike as the touch-start's zVelocity (initial contact velocity, already 0..1 - this is
+    // exactly what ROLI's own stack stores as the strike pressure), not the instantaneous z, which is
+    // still ramping at that instant. Fall back to z only if the device didn't send a velocity.
     const float z = juce::jlimit (0.0f, 1.0f, t.z);
     float strike;
     if (t.isTouchEnd)
@@ -940,17 +939,15 @@ void MainComponent::touchChanged (roli::TouchSurface&, const roli::TouchSurface:
         blockTouchStrike.erase (id);
         strike = 0.0f;
     }
+    else if (t.isTouchStart)
+    {
+        strike = juce::jlimit (0.0f, 1.0f, t.zVelocity > 0.0f ? t.zVelocity : z);
+        blockTouchStrike[id] = strike;
+    }
     else
     {
-        auto& cap = blockTouchStrike[id];                      // default-constructs on first contact
-        if (t.isTouchStart)                                    { cap = { z, (double) t.eventTimestamp, false }; }
-        else if (! cap.locked)
-        {
-            cap.peak = juce::jmax (cap.peak, z);
-            if ((double) t.eventTimestamp - cap.startMs >= kStrikeWindowMs)
-                cap.locked = true;
-        }
-        strike = cap.peak;
+        auto s = blockTouchStrike.find (id);
+        strike = s != blockTouchStrike.end() ? s->second : z;
     }
 
     keyboardView.setTouch ((juce::uint64) t.blockUID, (int) t.index, nx, ny, z, strike, t.isTouchEnd);
