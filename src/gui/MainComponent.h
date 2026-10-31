@@ -36,7 +36,11 @@ class ConfigRow  : public juce::Component,
 public:
     using ChangeFn = std::function<void (juce::uint32 id, juce::int32 value)>;
 
-    ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value, ChangeFn onChange);
+    // buttonConfig: this item is a Control Block packed button-data int (CC + mode + min/max/value).
+    // The row then shows a CC slider + a mode dropdown, unpacking on setValue and repacking on change,
+    // so the stored value stays the packed int the device expects.
+    ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value, ChangeFn onChange,
+               bool buttonConfig = false);
 
     void resized() override;
     void paint (juce::Graphics&) override;
@@ -58,6 +62,15 @@ private:
     ConfigType   type;
     juce::Range<juce::int32> range;
     juce::int32  initialValue = 0;   // device value, for right-click reset
+
+    // Control Block packed button-data (ids 66-75): CC in bits 3-9, mode in bits 0-2, with value/min/
+    // max in the high bits (preserved on edit). Shared layout used by the row to split/rebuild it.
+    bool buttonCfg = false;
+    static juce::int32 buttonCC   (juce::int32 packed) { return (packed >> 3) & 0x7F; }
+    static juce::int32 buttonMode (juce::int32 packed) { return packed & 0x7; }
+    static juce::int32 packButton (juce::int32 orig, juce::int32 cc, juce::int32 mode)
+    { return (orig & ~0x3FF) | ((cc & 0x7F) << 3) | (mode & 0x7); }   // keep value/min/max, set cc+mode
+    juce::ComboBox   modeCombo;  // control-block button mode (toggle/pulse/gate/...)
 
     juce::Label      nameLabel;
     juce::Slider     slider;     // integer
@@ -96,6 +109,7 @@ private:
     void forceLumiPreview();   // secret dev shortcut: synthetic Piano M / LUMI Keys page (no hardware)
     void forceGrandPreview();  // secret dev shortcut: synthetic GRAND page (4D, 3 pedals) — no hardware
     void forceLightpadPreview(); // secret dev shortcut: Lightpad config + synthetic DNA arrangement (no hardware)
+    void forceControlPreview();  // secret dev shortcut: Control Block config page (Loop) - button editors + colours
 
     // Live config updates from the device (delivered on the message thread).
     void handleConfigItemChanged (roli::Block&, const roli::Block::ConfigMetaData&, juce::uint32 index) override;

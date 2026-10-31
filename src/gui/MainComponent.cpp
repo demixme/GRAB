@@ -60,11 +60,35 @@ int lowNoteForKeyCount (int keyCount)
 }
 
 //==============================================================================
-ConfigRow::ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value, ChangeFn onChange)
-    : id (meta.item), type (meta.type), range (meta.range), initialValue (value), change (std::move (onChange))
+ConfigRow::ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value, ChangeFn onChange,
+                      bool buttonConfig)
+    : buttonCfg (buttonConfig), id (meta.item), type (meta.type), range (meta.range),
+      initialValue (value), change (std::move (onChange))
 {
     nameLabel.setText (meta.name, juce::dontSendNotification);
     addAndMakeVisible (nameLabel);
+
+    if (buttonCfg)
+    {
+        // Composite: a CC slider + a mode dropdown that together are the packed button int.
+        static const char* const modes[] = { "Toggle", "Pulse", "Gate", "Trigger", "Cycle", "Inc/Dec", "Tri-state" };
+        slider.setSliderStyle (juce::Slider::LinearHorizontal);
+        slider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 44, 22);
+        slider.setRange (0.0, 127.0, 1.0);
+        slider.setValue ((double) buttonCC (value), juce::dontSendNotification);
+        slider.setTooltip ("MIDI CC this button sends");
+        slider.onValueChange = [this] { fireChange(); };
+        for (int i = 0; i < 7; ++i) modeCombo.addItem (modes[i], i + 1);   // itemId = mode + 1
+        modeCombo.setSelectedId (buttonMode (value) + 1, juce::dontSendNotification);
+        modeCombo.setTooltip ("Button behaviour");
+        modeCombo.onChange = [this] { fireChange(); };
+        addAndMakeVisible (slider);
+        addAndMakeVisible (modeCombo);
+        control = &slider;
+        slider.addMouseListener (this, true);
+        modeCombo.addMouseListener (this, true);
+        return;
+    }
 
     switch (type)
     {
@@ -148,6 +172,9 @@ void ConfigRow::fireChange()
 
 juce::int32 ConfigRow::getValue() const
 {
+    if (buttonCfg)
+        return packButton (initialValue, (juce::int32) juce::roundToInt (slider.getValue()),
+                           modeCombo.getSelectedId() - 1);
     switch (type)
     {
         case ConfigType::boolean: return toggle.getToggleState() ? 1 : 0;
@@ -160,6 +187,12 @@ juce::int32 ConfigRow::getValue() const
 
 void ConfigRow::setValue (juce::int32 v)
 {
+    if (buttonCfg)
+    {
+        slider.setValue ((double) buttonCC (v), juce::dontSendNotification);
+        modeCombo.setSelectedId (buttonMode (v) + 1, juce::dontSendNotification);
+        return;
+    }
     switch (type)
     {
         case ConfigType::boolean: toggle.setToggleState (v != 0, juce::dontSendNotification); break;
@@ -180,6 +213,13 @@ void ConfigRow::resized()
     auto r = getLocalBounds().reduced (4, 2);
     const int labelW = juce::jlimit (90, 200, (int) (r.getWidth() * 0.46f));
     nameLabel.setBounds (r.removeFromLeft (labelW));
+    if (buttonCfg)
+    {
+        modeCombo.setBounds (r.removeFromRight (juce::jmin (110, r.getWidth() / 2)));
+        r.removeFromRight (6);
+        slider.setBounds (r);
+        return;
+    }
     if (control != nullptr)
         control->setBounds (r);
 }
@@ -1649,7 +1689,9 @@ void MainComponent::rebuildRows()
 
         auto emitRow = [&] (const Item& item)
         {
-            auto row = std::make_unique<ConfigRow> (item.meta, item.value, onChange);
+            // Control Block packed button-data (ids 66-75) gets the split CC + mode editor.
+            const bool buttonCfg = item.meta.item >= 66 && item.meta.item <= 75;
+            auto row = std::make_unique<ConfigRow> (item.meta, item.value, onChange, buttonCfg);
             card->addItem (*row, rowHeight);
             rows.push_back (std::move (row));
         };
@@ -2296,6 +2338,7 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
             case 'L': forceLumiPreview();  return true;
             case 'G': forceGrandPreview(); return true;
             case 'B': forceLightpadPreview(); return true;
+            case 'C': forceControlPreview();  return true;
             case 'A': { auto* p = new AppInspectorPanel();
                         p->setDeviceLoader ([this] { return appLoadTargetName(); },
                                             [this] (const juce::String& s, const juce::Array<juce::File>& sp) { return loadAppToDevice (s, sp); });
@@ -2398,6 +2441,51 @@ void MainComponent::forcePianoPreview()
     keyboardView.setVisible (true);
     setStatus ("ROLI Piano preview (simulated, no hardware).  Ctrl+Alt+Shift+P to exit.");
     if (logger != nullptr) logger->line ("DEV: ROLI Piano preview (" + juce::String ((int) simConfig.size()) + " synthetic items)");
+    rebuildRows();
+}
+
+// Secret dev shortcut (Ctrl+Alt+Shift+C): a synthetic Control Block (Loop) config page - the decoded
+// ids 0/64/66-75/76-95 at firmware defaults, so you can eyeball the per-button CC + mode editors and
+// the On/Off colour wells (and the Loop graphic) without a control block to hand.
+void MainComponent::forceControlPreview()
+{
+    if (! simConfig.empty()) { connect (seaprobe::Transport::Auto); return; }   // toggle off
+
+    if (source != nullptr) { source->setActive (false); source.reset(); }
+    block = nullptr;
+    stopTimer();
+    if (rise2Page != nullptr) { removeChildComponent (rise2Page.get()); rise2Page.reset(); }
+    setBlocksControlsVisible (true);
+    presetBox.setVisible (false);
+
+    using CT = roli::Block::ConfigMetaData::ConfigType;
+    const auto mk = [] (int id, juce::int32 val, const char* name, CT type, int mn, int mx, const char* group)
+    {
+        const char* arr[roli::Block::ConfigMetaData::numOptionNames] = {};
+        return roli::Block::ConfigMetaData ((juce::uint32) id, val, { mn, mx }, true, name, type, arr, group);
+    };
+    auto add  = [&] (roli::Block::ConfigMetaData m, juce::int32 v) { simConfig.push_back ({ m, v }); };
+    auto pack = [] (int cc, int mode) { return (100 << 24) | (0x7F << 17) | (0 << 10) | ((cc & 0x7F) << 3) | (mode & 0x7); };
+
+    simConfig.clear();
+    add (mk (0,  2, "MIDI Channel", CT::integer, 0, 16, "MIDI Settings"), 2);
+    add (mk (64, 1, "Button Mode",  CT::integer, 0, 2,  "MIDI Settings"), 1);   // -> options in rebuildRows
+    for (int i = 0; i < 10; ++i)                                                 // buttons default CC 102..111, gate
+        add (mk (66 + i, pack (102 + i, 2), "Button", CT::integer, 0, 0, "Buttons"), pack (102 + i, 2));
+    static const juce::int32 onCol[10] = { (juce::int32) 0xFF00FFFF, (juce::int32) 0xFFFF3B30, (juce::int32) 0xFF34C759,
+        (juce::int32) 0xFFFF2D55, (juce::int32) 0xFFFFD60A, (juce::int32) 0xFF5AC8FA, (juce::int32) 0xFFFF9500,
+        (juce::int32) 0xFF0A84FF, (juce::int32) 0xFFBF5AF2, (juce::int32) 0xFF30D158 };
+    for (int i = 0; i < 10; ++i) add (mk (76 + i, onCol[i], "On",  CT::colour, 0, 0, "Button colours"), onCol[i]);
+    for (int i = 0; i < 10; ++i) add (mk (86 + i, (juce::int32) 0xFFFFFFFF, "Off", CT::colour, 0, 0, "Button colours"), (juce::int32) 0xFFFFFFFF);
+
+    std::vector<KeyboardView::Tile> tiles;
+    KeyboardView::Tile t; t.uid = 1; t.family = KeyboardView::Family::control; t.control = KeyboardView::Control::loop;
+    t.ux = 0; t.uy = 0; t.uw = 2; t.uh = 1;
+    tiles.push_back (t);
+    keyboardView.setLayout (tiles);
+    keyboardView.setVisible (true);
+    setStatus ("Control Block preview (Loop, simulated, no hardware).  Ctrl+Alt+Shift+C to exit.");
+    if (logger != nullptr) logger->line ("DEV: Control Block preview (" + juce::String ((int) simConfig.size()) + " synthetic items)");
     rebuildRows();
 }
 

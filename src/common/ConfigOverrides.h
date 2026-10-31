@@ -18,6 +18,29 @@ inline void applyConfigOverrides (roli::Block::ConfigMetaData& meta)
 {
     using CT = roli::Block::ConfigMetaData::ConfigType;
 
+    // Control Block (Live / Loop / Touch) config - the device leaves ids 64-95 unnamed. Decoded from
+    // ROLI's "Control Block Default Program.littlefoot": mode, reset, 10 packed button configs, and
+    // 10 On + 10 Off button colours. These ids are control-block-exclusive (standard BLOCKS config is
+    // < 64 or >= 100). The packed button data gets a split CC/mode editor in rebuildRows; here we at
+    // least name it, and the colours become editable colour wells.
+    {
+        const int id = (int) meta.item;
+        static const char* const ctlMode[] = { "Internal", "MIDI CC", "SysEx" };
+        if (id == 64)
+        {
+            meta.name  = "Button Mode";
+            meta.type  = CT::options;
+            meta.range = { 0, 2 };
+            for (int i = 0; i < roli::Block::ConfigMetaData::numOptionNames; ++i)
+                meta.optionNames[i] = (i < 3) ? juce::String (ctlMode[i]) : juce::String();
+            return;
+        }
+        if (id == 65)             { meta.name = "Reset configs (set 0)"; return; }
+        if (id >= 66 && id <= 75) { meta.name = "Button " + juce::String (id - 66 + 1); return; }  // shown as CC + mode
+        if (id >= 76 && id <= 85) { meta.name = "Button " + juce::String (id - 76 + 1) + " colour (on)";  meta.type = CT::colour; return; }
+        if (id >= 86 && id <= 95) { meta.name = "Button " + juce::String (id - 86 + 1) + " colour (off)"; meta.type = CT::colour; return; }
+    }
+
     // Chord (id 24): confirmed from ROLI Dashboard. Value 0 = Off.
     static const char* const chordNames[] = {
         "Off", "Octave", "Fifth", "Major", "minor", "Sus4", "Sus2", "7th",
