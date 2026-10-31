@@ -154,6 +154,20 @@ real hardware: (1) RISE 49 read works on the latest build on macOS, and (2) the 
 block came back **fully redacted** (`58 58 …` = `X`), confirming the `0x78` identify-reply
 anonymiser shipped in **v0.1.20** scrubs correctly against a live device — no identifiers leaked.
 
+**Field-confirmed on a second RISE 2 (Oct 2026, GRAB 0.1.67, macOS, fw 2.0.2).** A community
+owner (LucidCZ) ran GRAB's labelled auto-explore loop — one setting named per capture — and the
+20+ dumps reproduce the map above exactly. Diffing against his baseline (offsets below are
+**from `F0`**, the same frame as the State-dump table): **octave** moved at **84** (default 4),
+**pitch-bend range** at **83** (default 48; stepped 48 → 60 → 72), **transpose** at **207**
+(default 64 = `+64`), and the sensitivities at **105 / 106 / 108 / 148** — glide / slide / strike /
+lift — with **strike = 101** and **lift = 127**, matching the documented defaults. His log also
+caught the live writes `F0 00 21 10 78 3D 17 <v>` (glide) and `3D 18 <v>` (slide) streaming as the
+sliders were dragged, 0..127, confirming the `3D` set-param ids on real hardware. Two notes for
+anyone reading this capture: his `+`-direction octave/transpose/bend captures did not register (only
+the `−` ones moved the bytes, and they moved *up*), a Dashboard/labelling quirk — the magnitudes are
+correct; and a block around F0 90–98 (plus unrestored glide/slide) changed mid-session and stuck, so
+don't read it as a setting diff.
+
 #### Write protocol confirmed (fw 1.x, from a RISE 25 Dashboard capture)
 
 A contributed macOS Dashboard↔RISE-25 capture (see [tools/CAPTURE-DASHBOARD.md](tools/CAPTURE-DASHBOARD.md))
