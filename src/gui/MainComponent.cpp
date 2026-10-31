@@ -280,12 +280,7 @@ MainComponent::MainComponent()
     blockLabel.setText (TRANS ("ROLI device:"), juce::dontSendNotification);
     blockLabel.setJustificationType (juce::Justification::centredRight);
     addAndMakeVisible (blockBox);
-    blockBox.onChange = [this]
-    {
-        const int idx = blockBox.getSelectedId() - 1;
-        if (idx >= 0 && idx < (int) blockOrder.size())
-            selectBlock (blockOrder[(size_t) idx]);
-    };
+    blockBox.onChange = [this] { onDeviceBoxChanged(); };
 
     addAndMakeVisible (contributeBtn);
     contributeBtn.onClick = [this] { contribute(); };
@@ -371,6 +366,10 @@ MainComponent::MainComponent()
     // watching instead of giving up after launch. A live session or dev preview is left alone.
     deviceList = juce::MidiDeviceListConnection::make ([this]
     {
+        // Keep the device switcher current as keyboards are plugged in / powered off (a RISE
+        // appearing while on BLOCKS, or vice versa) - this only updates the list, never the session.
+        refreshDeviceBox();
+
         // Already connected: leave the live session alone UNLESS a port we're using has vanished
         // (the device was unplugged or powered off). The stock library can be slow to drop the
         // block then, leaving a stale keybed on screen, so reconnect to rebuild the topology - that
@@ -446,6 +445,8 @@ void MainComponent::connect (seaprobe::Transport transport)
     keyboardView.setVisible (false);   // re-shown below for a keyboard device
     block = nullptr;
     selectedBlockUid = 0;
+    currentRiseId = {};         // cleared here; set again if this connect shows a RISE/GRAND
+    deviceEntries.clear();
     learnedForType = {};
     learnedNames.clear();
     blockOrder.clear();
@@ -471,15 +472,29 @@ void MainComponent::connect (seaprobe::Transport transport)
 
     detector = std::make_unique<seaprobe::LoggingDeviceDetector> (*logger, transport);
 
-    if (detector->getSelectedPairs().empty() && Rise2Component::isConnected())
+    // Decide which device to show. By default BLOCKS wins when present (its topology handles the
+    // keyboard + multi-block), and a RISE/GRAND is shown only when no BLOCKS are found. The device
+    // switcher can override this: Prefer::rise forces the RISE page even with a BLOCKS present.
+    const bool haveBlocks = ! detector->getSelectedPairs().empty();
+    const bool riseHere   = Rise2Component::isConnected();
+    const bool goRise      = riseHere && (preferredKind == Prefer::rise || ! haveBlocks);
+
+    if (goRise)
     {
-        juce::String riseName = "Seaboard RISE";
+        // Target the preferred RISE/GRAND output port if the switcher asked for one; else the first.
+        juce::MidiDeviceInfo chosen;
         for (auto& d : juce::MidiOutput::getAvailableDevices())
-            if (rise2::isRisePort (d.name)) { riseName = d.name; break; }
+            if (rise2::isRisePort (d.name))
+            {
+                if (d.identifier == preferredRiseId) { chosen = d; break; }
+                if (chosen.identifier.isEmpty()) chosen = d;
+            }
+        const juce::String riseName = chosen.name.isNotEmpty() ? chosen.name : juce::String ("Seaboard RISE");
+        currentRiseId = chosen.identifier;
         const bool isGrand = rise2::isGrandName (riseName);
 
         setStatus (riseName + " found.");
-        rise2Page = std::make_unique<Rise2Component> (*logger);
+        rise2Page = std::make_unique<Rise2Component> (*logger, chosen.identifier);
         addAndMakeVisible (*rise2Page);
         setBlocksControlsVisible (false);
 
@@ -510,11 +525,12 @@ void MainComponent::connect (seaprobe::Transport transport)
             keyboardView.setTouch (0, chan, x, 0.5f, pressure, strike, end);   // setTouch is thread-safe
         };
 
+        rebuildRiseDeviceEntries();   // list this + any other RISE/GRAND, and a "Blocks" switch entry
         resized();
         return;
     }
 
-    if (detector->getSelectedPairs().empty())
+    if (! haveBlocks)
     {
         setStatus ("No " + juce::String (seaprobe::transportName (transport)) + " Seaboard found. "
                    "Check the cable / Bluetooth, and that ROLI Dashboard isn't holding the port - "
@@ -533,8 +549,10 @@ void MainComponent::connect (seaprobe::Transport transport)
 
 void MainComponent::setBlocksControlsVisible (bool visible)
 {
+    // Note: blockLabel/blockBox (the "ROLI device:" switcher) are NOT here - they're shown in both
+    // BLOCKS and RISE modes and their visibility is driven by fillDeviceBox() (hidden for one device).
     for (auto* c : std::initializer_list<juce::Component*> { &reloadButton, &saveButton, &autosaveToggle,
-                                                            &presetBox, &blockLabel, &blockBox, &contributeBtn, &viewport })
+                                                            &presetBox, &contributeBtn, &viewport })
         c->setVisible (visible);
 }
 
@@ -558,7 +576,10 @@ void MainComponent::topologyChanged()
         blockOrder.clear();
         clusterMembers.clear();
         setTouchListening ({});   // device gone: stop the live rings
+        deviceEntries.clear();
         blockBox.clear (juce::dontSendNotification);
+        blockLabel.setVisible (false);
+        blockBox.setVisible (false);
         rowsBuilt = false;
         configRequested = false;
         rows.clear();
@@ -601,7 +622,7 @@ void MainComponent::updateBlockList (const roli::BlockTopology& topo)
 {
     blockOrder.clear();
     clusterMembers.clear();
-    blockBox.clear (juce::dontSendNotification);
+    deviceEntries.clear();
 
     // Group DNA-chained, same-type blocks under one logical device: they share one config
     // (edit one, the chain mirrors it), exactly like ROLI Dashboard. A block connected only
@@ -643,7 +664,12 @@ void MainComponent::updateBlockList (const roli::BlockTopology& topo)
         if (g.members.size() > 1)
             label += "  x" + juce::String ((int) g.members.size()) + " (chained)";
         label += "  " + rep->serialNumber;
-        blockBox.addItem (label, i + 1);
+
+        DeviceEntry e;
+        e.kind   = DeviceEntry::Kind::blocksCluster;
+        e.repUid = rep->uid;
+        e.label  = label;
+        deviceEntries.push_back (e);   // combo id i+1; BLOCKS clusters stay first, so blockOrder[i] maps
 
         // Keep the selection if the previously-selected uid is any member of this group.
         for (auto& mb : g.members)
@@ -656,7 +682,9 @@ void MainComponent::updateBlockList (const roli::BlockTopology& topo)
         newSelected = blockOrder.empty() ? 0 : blockOrder.front();
     }
     selectedBlockUid = newSelected;
-    blockBox.setSelectedId (selectId, juce::dontSendNotification);
+
+    appendRiseDeviceEntries();        // also offer any connected RISE/GRAND as switch targets
+    fillDeviceBox (selectId);         // mirror deviceEntries into the combo (BLOCKS cluster selected)
 
     const bool blockChanged = (block == nullptr) || (block->uid != selectedBlockUid);
     block = topo.getBlockWithUID (selectedBlockUid);
@@ -715,6 +743,125 @@ void MainComponent::updateBlockList (const roli::BlockTopology& topo)
 
     if (block != nullptr && (blockChanged || ! configRequested))
         requestConfig();
+}
+
+//==============================================================================
+// Unified "ROLI device:" switcher. deviceEntries is the single source of truth for the combo;
+// fillDeviceBox mirrors it. Switching to another connected device re-binds live (connect() for a
+// cross-type change, selectBlock within the live BLOCKS topology) - no power-cycle, no restart.
+
+bool MainComponent::anyBlocksPortPresent() const
+{
+    // A ROLI port that is NOT a RISE/GRAND and not the input-only Airwave: a Seaboard Block,
+    // Lightpad, ROLI Piano or Piano M / LUMI - i.e. something the BLOCKS page can drive.
+    auto roliBlocks = [] (const juce::MidiDeviceInfo& d)
+    {
+        if (rise2::isRisePort (d.name))             return false;   // RISE/GRAND get their own entries
+        if (d.name.containsIgnoreCase ("airwave"))  return false;   // input-only, nothing to configure
+        return d.name.containsIgnoreCase ("seaboard") || d.name.containsIgnoreCase ("block")
+            || d.name.containsIgnoreCase ("lightpad") || d.name.containsIgnoreCase ("piano")
+            || d.name.containsIgnoreCase ("lumi")     || d.name.containsIgnoreCase ("roli")
+            || d.identifier.containsIgnoreCase ("seaboardblock")
+            || d.identifier.containsIgnoreCase ("pianofortynine");
+    };
+    for (auto& d : juce::MidiInput::getAvailableDevices())  if (roliBlocks (d)) return true;
+    for (auto& d : juce::MidiOutput::getAvailableDevices()) if (roliBlocks (d)) return true;
+    return false;
+}
+
+void MainComponent::appendRiseDeviceEntries()
+{
+    for (auto& d : juce::MidiOutput::getAvailableDevices())
+        if (rise2::isRisePort (d.name))
+        {
+            DeviceEntry e;
+            e.kind       = DeviceEntry::Kind::risePort;
+            e.identifier = d.identifier;
+            e.portName   = d.name;
+            e.grand      = rise2::isGrandName (d.name);
+            e.label      = d.name;
+            deviceEntries.push_back (e);
+        }
+}
+
+void MainComponent::rebuildRiseDeviceEntries()
+{
+    // RISE mode: list every RISE/GRAND port (one is the page we're showing) and, if a BLOCKS
+    // device is also connected, one entry to switch back to it.
+    deviceEntries.clear();
+    appendRiseDeviceEntries();
+
+    int selectId = 0;
+    for (int i = 0; i < (int) deviceEntries.size(); ++i)
+        if (deviceEntries[(size_t) i].identifier == currentRiseId) selectId = i + 1;
+    if (selectId == 0 && ! deviceEntries.empty()) selectId = 1;
+
+    if (anyBlocksPortPresent())
+    {
+        DeviceEntry e;
+        e.kind  = DeviceEntry::Kind::blocksSwitch;
+        e.label = grab::u8 ("Seaboard Block / Lightpad / Piano...");
+        deviceEntries.push_back (e);
+    }
+
+    fillDeviceBox (selectId);
+}
+
+void MainComponent::fillDeviceBox (int selectId)
+{
+    blockBox.clear (juce::dontSendNotification);
+    for (int i = 0; i < (int) deviceEntries.size(); ++i)
+        blockBox.addItem (deviceEntries[(size_t) i].label, i + 1);
+    blockBox.setSelectedId (selectId, juce::dontSendNotification);
+
+    // Show the switcher when there's a choice. In BLOCKS mode keep it visible even for one device
+    // (it names the connected block, as before); in RISE mode only show it when switching is possible.
+    const bool show = deviceEntries.size() > 1 || (source != nullptr && ! deviceEntries.empty());
+    blockLabel.setVisible (show);
+    blockBox.setVisible (show);
+}
+
+void MainComponent::refreshDeviceBox()
+{
+    if (source != nullptr)
+    {
+        const auto topo = source->getCurrentTopology();
+        if (! topo.blocks.isEmpty())
+            updateBlockList (topo);        // rebuilds BLOCKS clusters + RISE entries + fills the box
+    }
+    else if (rise2Page != nullptr)
+    {
+        rebuildRiseDeviceEntries();
+    }
+}
+
+void MainComponent::onDeviceBoxChanged()
+{
+    const int idx = blockBox.getSelectedId() - 1;
+    if (idx < 0 || idx >= (int) deviceEntries.size())
+        return;
+
+    const auto e = deviceEntries[(size_t) idx];   // copy: a re-bind clears deviceEntries
+    switch (e.kind)
+    {
+        case DeviceEntry::Kind::blocksCluster:
+            selectBlock (e.repUid);                // within the live topology - no reconnect
+            break;
+
+        case DeviceEntry::Kind::risePort:
+            if (rise2Page != nullptr && e.identifier == currentRiseId)
+                break;                             // already showing this RISE/GRAND
+            preferredKind   = Prefer::rise;
+            preferredRiseId = e.identifier;
+            juce::MessageManager::callAsync ([this] { connect (requestedTransport); });
+            break;
+
+        case DeviceEntry::Kind::blocksSwitch:
+            preferredKind   = Prefer::blocks;
+            preferredRiseId = {};
+            juce::MessageManager::callAsync ([this] { connect (requestedTransport); });
+            break;
+    }
 }
 
 void MainComponent::updateLumiKeyboardColours()
@@ -2404,6 +2551,14 @@ void MainComponent::resized()
         row.removeFromRight (10);
         transportLabel.setBounds (row.removeFromLeft (130));
         transportBox.setBounds (row.removeFromLeft (92).reduced (2, 0));
+        // The "ROLI device:" switcher also appears here so you can switch away from the RISE/GRAND
+        // without restarting (fillDeviceBox hides it when there's nothing to switch to).
+        if (blockBox.isVisible())
+        {
+            row.removeFromLeft (10);
+            blockLabel.setBounds (row.removeFromLeft (84));
+            blockBox.setBounds (row.reduced (2, 0));
+        }
         r.removeFromTop (6);
         placeKeyboard (r);
         rise2Page->setBounds (r);

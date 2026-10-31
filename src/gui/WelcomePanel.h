@@ -140,6 +140,10 @@ private:
 
         // --- good to know -----------------------------------------------------------------------
         add (H1,    "Good to know\n");
+        add (Body,  "    Several devices at once: plug in more than one ROLI device and the ");
+        add (Click, "ROLI device");
+        add (Body,  " dropdown (top row) lists them all - switch between a RISE, a Seaboard, a Lightpad and a "
+                    "GRAND without restarting or power-cycling.\n");
         add (Body,  "    Sharing the device: on Windows 11 25H2+ MIDI is multi-client, so GRAB, Dashboard and your "
                     "DAW share the device. On older Windows, quit other MIDI apps before opening GRAB; Mac/Linux "
                     "already share. (For a Dashboard capture you want Dashboard + the monitor open - not GRAB.)\n");

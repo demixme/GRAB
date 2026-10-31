@@ -277,7 +277,8 @@ enum PresetMenuId
 } // namespace
 
 //==============================================================================
-Rise2Component::Rise2Component (seaprobe::RawLogger& loggerToUse) : logger (loggerToUse)
+Rise2Component::Rise2Component (seaprobe::RawLogger& loggerToUse, juce::String preferredPortIdToUse)
+    : logger (loggerToUse), preferredPortId (std::move (preferredPortIdToUse))
 {
     liveCc.fill (-1);   // no CC data yet
     touchNote.fill (-1); touchZ.fill (0.0f); touchBend.fill (0.0f); touchStrike.fill (0.0f);
@@ -425,17 +426,34 @@ void Rise2Component::previewSyntheticGrand()
 
 void Rise2Component::openPorts()
 {
+    // Pick the output port: the preferred one (GRAB's device switcher targeting a specific
+    // keyboard) if present, else the first RISE/GRAND port - the original behaviour.
+    juce::MidiDeviceInfo chosenOut;
     for (auto& d : juce::MidiOutput::getAvailableDevices())
-        if (rise2::isRisePort (d.name) && midiOut == nullptr)
+        if (rise2::isRisePort (d.name))
         {
-            midiOut = juce::MidiOutput::openDevice (d.identifier);
-            portName = d.name;
-            grand = rise2::isGrandName (d.name);   // provisional; confirmed from the reply's model in onState
+            if (d.identifier == preferredPortId) { chosenOut = d; break; }
+            if (chosenOut.identifier.isEmpty()) chosenOut = d;
         }
 
+    if (chosenOut.identifier.isNotEmpty() && midiOut == nullptr)
+    {
+        midiOut = juce::MidiOutput::openDevice (chosenOut.identifier);
+        portName = chosenOut.name;
+        grand = rise2::isGrandName (chosenOut.name);   // provisional; confirmed from the reply's model in onState
+    }
+
+    // Match the input port to the chosen output where we can (same device name); otherwise the
+    // first RISE/GRAND input. (Identifiers differ between in/out, so match on name.)
     for (auto& d : juce::MidiInput::getAvailableDevices())
-        if (rise2::isRisePort (d.name) && midiIn == nullptr)
+        if (rise2::isRisePort (d.name) && midiIn == nullptr
+             && (chosenOut.name.isEmpty() || d.name == chosenOut.name))
             midiIn = juce::MidiInput::openDevice (d.identifier, this);
+
+    if (midiIn == nullptr)   // fallback: no same-name input, take the first RISE/GRAND input
+        for (auto& d : juce::MidiInput::getAvailableDevices())
+            if (rise2::isRisePort (d.name) && midiIn == nullptr)
+                midiIn = juce::MidiInput::openDevice (d.identifier, this);
 
     if (midiIn != nullptr)
         midiIn->start();

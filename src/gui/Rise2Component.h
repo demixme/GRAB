@@ -30,7 +30,10 @@ class Rise2Component  : public juce::Component,
                         private juce::Timer
 {
 public:
-    explicit Rise2Component (seaprobe::RawLogger& loggerToUse);
+    /** preferredPortId: when several RISE/GRAND ports are present, open this one (by MIDI
+        identifier) rather than the first found - lets GRAB's device switcher target a specific
+        keyboard. Empty = open the first RISE/GRAND port, as before. */
+    explicit Rise2Component (seaprobe::RawLogger& loggerToUse, juce::String preferredPortId = {});
     ~Rise2Component() override;
 
     /** True when a RISE MIDI port is present. */
@@ -109,6 +112,7 @@ private:
     std::unique_ptr<juce::MidiInput>  midiIn;
     juce::MidiDeviceListConnection deviceList;
     juce::String portName;   // "Seaboard RISE 2", the product name the device does not report
+    juce::String preferredPortId;  // identifier to prefer when several RISE/GRAND ports exist ("" = first)
     juce::String firmware;   // last-read firmware string, for preset metadata
 
     rise2::State state;

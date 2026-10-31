@@ -106,6 +106,33 @@ private:
     void connect (seaprobe::Transport transport);
     void updateBlockList (const roli::BlockTopology& topology);
     void selectBlock (roli::Block::UID uid);
+
+    // Unified "ROLI device:" selector (blockBox). It lists every connected ROLI device so the user
+    // can switch between them live, with no restart: each BLOCKS cluster (in BLOCKS mode), every
+    // RISE/GRAND port, and - while a RISE page is shown - a "Seaboard Block(s)" entry to switch back.
+    // Selecting an entry re-binds GRAB to that device (connect() for a cross-type switch, selectBlock
+    // within BLOCKS). One device => the selector hides itself (single-device users see no change).
+    struct DeviceEntry
+    {
+        enum class Kind { blocksCluster, risePort, blocksSwitch };
+        Kind kind = Kind::blocksCluster;
+        roli::Block::UID repUid = 0;          // blocksCluster: the cluster's representative block
+        juce::String identifier, portName;    // risePort: the RISE/GRAND output port
+        bool grand = false;                    // risePort
+        juce::String label;                    // what the combo shows
+    };
+    std::vector<DeviceEntry> deviceEntries;    // parallel to blockBox items (combo id = index + 1)
+    void onDeviceBoxChanged();                 // blockBox.onChange: switch to the picked device
+    void appendRiseDeviceEntries();            // add every RISE/GRAND port to deviceEntries
+    void rebuildRiseDeviceEntries();           // RISE mode: (re)build deviceEntries + fill the box
+    void fillDeviceBox (int selectId);         // mirror deviceEntries into blockBox, set visibility
+    void refreshDeviceBox();                   // re-run the right rebuild for the current mode
+    bool anyBlocksPortPresent() const;         // a non-RISE ROLI (Block/Lightpad/Piano) port is present
+    // How connect() should choose when several devices are present (set by the device switcher).
+    enum class Prefer { autoPick, blocks, rise };
+    Prefer       preferredKind = Prefer::autoPick;
+    juce::String preferredRiseId;   // identifier of the RISE/GRAND port to open (when preferring rise)
+    juce::String currentRiseId;     // identifier of the RISE/GRAND port currently shown ("" if none)
     void selectBlockByUid (juce::uint64 clickedUid); // click a tile in the arrangement -> select its group
     void updateKeyboardForBlock();  // show/size the keywave for the current block (joined for a chain)
     void updateLumiKeyboardColours(); // LUMI/Piano: light the keyboard graphic per scale/key/colours
