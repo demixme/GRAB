@@ -36,13 +36,16 @@ enum PresetMenuId
 // (exact key count, incl. the top C of a C-to-C board) and the touch ring lands on the pressed key.
 std::pair<int, int> riseKeyRange (const juce::String& name)
 {
+    // Low MIDI note of the leftmost key. The RISE 2's lowest key is MIDI 48 (hardware-verified by
+    // LucidCZ: the board sends an octave higher than a naive C2=36 guess) - both Seaboards start at
+    // 48, the 49 just extends an octave higher than the 25. GRAND 88 is a real piano (A0..C8).
     if (name.containsIgnoreCase ("grand"))                                        // Seaboard GRAND
         return name.contains ("88") ? std::pair<int, int> { 21, 88 }             // GRAND 88: A0..C8 (piano)
-             :                        std::pair<int, int> { 36, 61 };            // GRAND 61/62: C2..C7
-    if (name.contains ("25")) return { 48, 25 };                                  // RISE 25: C3..C5 (25 keys)
-    if (name.contains ("49")) return { 36, 49 };                                  // RISE 49: C2..C6 (49 keys)
-    if (name.containsIgnoreCase ("RISE 2") || name.containsIgnoreCase ("RISE2"))  // RISE 2: 49 keys, C2..C6
-        return { 36, 49 };
+             :                        std::pair<int, int> { 48, 61 };            // GRAND 61/62 (inferred)
+    if (name.contains ("25")) return { 48, 25 };                                  // RISE 25: 48..72 (25 keys)
+    if (name.contains ("49")) return { 48, 49 };                                  // RISE 49: 48..96 (49 keys)
+    if (name.containsIgnoreCase ("RISE 2") || name.containsIgnoreCase ("RISE2"))  // RISE 2: 48..96 (verified)
+        return { 48, 49 };
     return { 48, 25 };                                                            // original RISE / default: 2 octaves
 }
 
@@ -50,9 +53,9 @@ std::pair<int, int> riseKeyRange (const juce::String& name)
 // middle C roughly centred; an 88-key board is a real piano, so it starts at A0.
 int lowNoteForKeyCount (int keyCount)
 {
-    if (keyCount >= 85) return 21;                                     // 88-key: A0
+    if (keyCount >= 85) return 21;                                     // 88-key: A0 (real piano range)
     const int octs = juce::jlimit (1, 8, (keyCount + 6) / 12);
-    return 60 - 12 * (octs / 2);
+    return 72 - 12 * (octs / 2);   // ROLI keyboards sit an octave above the naive centre (see riseKeyRange)
 }
 }
 
@@ -2320,8 +2323,8 @@ void MainComponent::forceRisePreview()
         setBlocksControlsVisible (false);
     }
 
-    if (risePreviewVerified) keyboardView.setKeyboardRange (36, 49);   // RISE 2: 49 keys, C2..C6
-    else                     keyboardView.setKeyboardRange (48, 25);   // original RISE: 25 keys, C3..C5
+    if (risePreviewVerified) keyboardView.setKeyboardRange (48, 49);   // RISE 2: 49 keys, MIDI 48..96
+    else                     keyboardView.setKeyboardRange (48, 25);   // original RISE: 25 keys, MIDI 48..72
     keyboardView.setFamily (KeyboardView::Family::rise);
     keyboardView.setBlocks (1);
     keyboardView.setVisible (true);
