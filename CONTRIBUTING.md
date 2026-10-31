@@ -20,7 +20,7 @@ helps most — each is explained under [The two things you can send](#the-two-th
 | **ROLI Piano 49** | ✅ Full | **Contribute a profile** |
 | **Piano M / LUMI Keys** | ✅ Full | **Contribute a profile** |
 | **Lightpad Block / Pad** | 🟡 **Work in progress** — its settings read/write, but its *apps/modes* (Note Grid, Fader Block, Drum Block, …) aren't managed | A **Dashboard capture** of you changing those **app/mode settings** |
-| **Live / Loop / Touch** control blocks | ◻️ Connects, basic shared settings only | **Contribute a profile** *and* a **Dashboard capture** |
+| **Live / Loop / Touch** control blocks | 🟡 **Buttons read + live-edit** — per-button MIDI CC, behaviour, default/min/max, on/off colours (confirmed against Live + Loop) | **Contribute a profile**; for a **Touch Block** (or any connected on its own), **Advanced ▸ Help add device** to confirm layout & defaults |
 | **Airwave** | — Out of scope | Nothing — it's a host-side gesture controller, no on-device settings |
 | **GRAB doesn't see it at all** | — | **Advanced ▸ Help add device (auto-explore) ▸ Run & submit** (one read-only click) |
 

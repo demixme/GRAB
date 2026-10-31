@@ -105,3 +105,42 @@ inline void layoutCardGrid (juce::Viewport& viewport, juce::Component& rowHolder
     for (int b : colBottom) total = juce::jmax (total, b);
     rowHolder.setSize (availW, juce::jmax (total, viewport.getHeight()));
 }
+
+//==============================================================================
+/** Control-block layout: a slim left column for the short "MIDI Settings" (and any other)
+    cards, and the tall consolidated `wideTitle` card ("Buttons") filling the rest — so its
+    per-button rows (CC + behaviour + default/min/max, with interleaved colour rows) fit
+    without the window having to be dragged very wide. Falls back to the normal grid when the
+    window is too narrow for two columns or the wide card isn't present. */
+inline void layoutControlCards (juce::Viewport& viewport, juce::Component& rowHolder,
+                                const std::vector<std::unique_ptr<SectionCard>>& cards,
+                                const juce::String& wideTitle)
+{
+    const int gap    = 10;
+    const int availW = juce::jmax (260, viewport.getWidth() - 14);
+    const int leftW  = juce::jlimit (240, 420, availW * 2 / 5);
+    const int rightW = availW - leftW - gap;
+
+    SectionCard* wide = nullptr;
+    for (auto& c : cards)
+        if (c->getTitle() == wideTitle) { wide = c.get(); break; }
+
+    if (wide == nullptr || rightW < 300)   // too narrow for two columns: use the responsive grid
+    {
+        layoutCardGrid (viewport, rowHolder, cards, "Sensitivity");
+        return;
+    }
+
+    int leftY = 0;
+    for (auto& c : cards)
+    {
+        if (c.get() == wide)
+            continue;
+        c->setBounds (0, leftY, leftW, c->contentHeight());
+        leftY = c->getBottom() + gap;
+    }
+    wide->setBounds (leftW + gap, 0, rightW, wide->contentHeight());
+
+    const int total = juce::jmax (leftY, wide->getBottom() + gap);
+    rowHolder.setSize (availW, juce::jmax (total, viewport.getHeight()));
+}

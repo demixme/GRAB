@@ -13,12 +13,24 @@ instruments configurable and self-documents their protocol.
        alt="GRAB configuring a Seaboard Block: colour-coded 5D sensitivity curves with live touch rings on the keyboard graphic, and MIDI settings, pitch and play-mode cards below.">
 </p>
 
-## Where it's at — v0.1.56
+## Where it's at — v0.1.78
 **Live editing** (changes write as you make them, like Dashboard), a unified **Preset** menu
 (ROLI presets + your own saved presets, per device), and **factory reset** for Blocks — on
 **Windows, macOS and Linux**.
 
-**New in v0.1.56:**
+**New in v0.1.78:**
+- **Control Blocks — Live / Loop / Touch.** GRAB now **reads and live-edits** their buttons in full:
+  per-button **MIDI CC**, **behaviour** (toggle / pulse / gate / trigger / cycle / inc-dec / tri-state),
+  **default / min / max**, and **on/off colours** — each button's settings and its two colours grouped
+  together in one card. Each type is drawn with its real 10-button layout. Decoded from ROLI's factory
+  Littlefoot program and confirmed against Live + Loop profiles — a **Touch Block** capture (and any
+  control block connected on its own) is still welcome to confirm its layout.
+- **Between v0.1.56 and v0.1.77:** pixel-perfect RISE/GRAND keybed and octave alignment, a consolidated
+  **device-info bar** with a battery icon, a **program-upload (sharedDataChange)** decoder, and
+  **multi-client MIDI on Windows** (WinRT, Win 10 1809+) so GRAB shares the device with your DAW and
+  Dashboard. Bluetooth MIDI on Windows needs **Windows MIDI Services** (built into 25H2+); use USB otherwise.
+
+**Earlier highlights:**
 - **Lightpad Block — work in progress.** GRAB now reads and writes its **full settings** (MIDI
   mode, pitch, the five **5D sensitivity curves**, scale, chord, tracking) and draws its **15×15
   pad surface** with live touch. Its Note-Grid *apps/modes* are still out of scope (those need
@@ -59,8 +71,9 @@ Recent additions:
   already share).
 
 **Still needed — contributions very welcome:** **host→device Dashboard captures** for the
-**Lightpad's Note-Grid / Fader / Drum apps** (the shared config is in; the per-app layouts aren't)
-and for **Live / Loop / Touch**; the capture that
+**Lightpad's Note-Grid / Fader / Drum apps** (the shared config is in; the per-app layouts aren't);
+a **Capture MIDI** from a **Touch Block** (Live / Loop / Touch buttons are now live-editable, but a
+Touch capture confirms its layout and defaults — **Advanced ▸ Help add device**); the capture that
 unlocks device-specific features (see **Advanced ▸ How you can help** and
 [tools/CAPTURE-DASHBOARD.md](tools/CAPTURE-DASHBOARD.md)); and testers for the **Linux** build. In
 GRAB, use **Contribute…**, **Advanced ▸ Capture MIDI**, **Advanced ▸ How you can help**, or
@@ -74,7 +87,8 @@ GRAB, use **Contribute…**, **Advanced ▸ Capture MIDI**, **Advanced ▸ How y
 | **ROLI Piano** (49) | ✅ confirmed (config read/write, key colours, named scales + native scale lighting; firmware 1.5.0, Windows) — same BLOCKS protocol · [PIANO.md](PIANO.md) |
 | **Piano M** (24, formerly **LUMI Keys** / LUMI Keys Studio Edition — same hardware, rebranded) | ✅ confirmed (config read/write, named scales, key, colour schemes, key colours; firmware 1.3.9, macOS) — same config items as the ROLI Piano · [LUMI.md](LUMI.md). A **chained pair** is confirmed too: shown as one device, writes reach both, notes run low to high across the pair |
 | **Lightpad Block** / Pad | 🟡 *work in progress* — shared config **read/write** (MIDI mode, pitch, 5D sensitivity curves, scale, chord, tracking) and the **15×15 pad surface** with live touch; its Note-Grid **apps/modes** aren't managed yet (needs Dashboard captures — see **Scope**). **Reports welcome** |
-| **Live / Loop / Touch** control blocks · **Airwave** | ◻️ out of scope *for now* — they connect and GRAB shows their basic shared settings, but ROLI's per-app/mode config isn't managed by GRAB (see **Scope**). **Contributions to add them are welcome** |
+| **Live / Loop / Touch** control blocks | 🟡 *work in progress* — their **buttons read + live-edit** (per-button MIDI CC, behaviour, default/min/max, on/off colours), drawn in each type's real 10-button layout. Decoded from ROLI's factory program, confirmed against Live + Loop; a **Touch Block** capture is still welcome (see **Scope**). **Reports welcome** |
+| **Airwave** | ◻️ out of scope — a host-side camera/gesture controller that only sends MIDI CCs, so there's nothing on the device to configure (GRAB includes Airwave notes + a CC tester under Advanced) |
 | Multiple BLOCKS (DNA-connected cluster) | ✅ the **whole arrangement is drawn** in its real X/Y layout; **click a block to select it**. Identical chained blocks share one config (writes fan out to the chain). **DNA-joined Seaboards over Bluetooth** are detected **live** — drawn touching when joined, apart when separated (over USB only the cabled block is reachable, with a hint to switch to Auto) |
 | Seaboard **RISE 25/49** (original) | ✅ live read/write + ROLI presets — same `0x78`/RPN protocol as the RISE 2, confirmed on a RISE 25 (one caveat: min/max aren't shown — this firmware doesn't report them back) · [RISE-GRAND.md](RISE-GRAND.md) |
 | Seaboard **GRAND** | ✅ supported (v0.1.52) — **4D** (Strike/Glide/Press/Lift, no slide), 3 pedals; its own `0x78`/RPN dialect, fully mapped from Dashboard captures. Read + write for **MIDI mode, channel & count, pitch bend, transpose, glide, pedals**, plus write-only **octave & glide/press tracking** (the GRAND doesn't report those back), and live keyboard touch. Enormous thanks to **BabeleDunnit** for the captures · [RISE-GRAND.md](RISE-GRAND.md) · [issue #6](../../issues/6) |
@@ -85,11 +99,12 @@ Got an **unsupported** device? Run GRAB, open **Advanced… ▸ Help add device 
 **Scope.** GRAB focuses on ROLI's **keyboard-family instruments** — the Seaboard Block
 (Seaboard Block M), Seaboard RISE / RISE 2, and ROLI Piano and Piano M (the rebranded
 LUMI Keys) — where a
-device's configuration is a fixed parameter set GRAB reads and writes in full. The **pad
-and control BLOCKS** (Lightpad/Pad, Live, Loop, Touch) run ROLI's Littlefoot **app** system,
-where each app (Note Grid, Fader Block, Drum Block, …) has its own layout and most settings
-live; GRAB can read their basic shared settings but doesn't manage apps/modes, and it never
-uploads programs. That's where the current scope ends — **not where it has to**: if you'd
+device's configuration is a fixed parameter set GRAB reads and writes in full. The **control
+BLOCKS** (Live / Loop / Touch) are also covered — their per-button config reads and live-edits.
+The **pad BLOCKS** (Lightpad / Pad) run ROLI's Littlefoot **app** system, where each app
+(Note Grid, Fader Block, Drum Block, …) has its own layout and most settings live; GRAB reads
+their shared settings but doesn't manage apps/modes, and it never uploads firmware. That's where
+the current scope ends — **not where it has to**: if you'd
 like your block fully supported, **contributions are very welcome**. **Advanced… ▸ Help add
 device (auto-explore)** and **Advanced… ▸ Capture MIDI** gather exactly what's needed to start
 (the capture tool decodes config changes to plain English and can submit or file an issue), and
@@ -119,10 +134,11 @@ usable whatever happens to ROLI's software and servers.
   firmware, upload Littlefoot programs/apps, or run custom per-key lighting (it only sets
   the device's own key colours) — and it doesn't reproduce Dashboard's full workflow.
 - Finished or polished — expect rough edges. **Confirmed on real hardware: the Seaboard
-  Block, the Seaboard RISE 2, the ROLI Piano 49 and the Piano M / LUMI Keys** so far. Other
-  BLOCKS (Lightpad, Live, Loop, Touch, Airwave) connect and show the config they report, but **app- and
-  mode-specific features aren't covered yet** (e.g. a Lightpad's Fader Block setup) — those
-  need more reports. The **original Seaboard RISE** is **read/write** (same protocol as the
+  Block, the Seaboard RISE 2, the ROLI Piano 49 and the Piano M / LUMI Keys** so far. The
+  **Live / Loop / Touch** control blocks read + live-edit their buttons (confirmed against Live +
+  Loop profiles; a Touch capture is still welcome). The **Lightpad / Pad** connects and shows the
+  config it reports, but its **app- and mode-specific features aren't covered yet** (e.g. a Fader
+  Block setup) — those need more reports. The **original Seaboard RISE** is **read/write** (same protocol as the
   RISE 2, confirmed on a RISE 25; min/max aren't shown); the **GRAND** is **fully configurable**
   (read + write for mode, channel, bend, transpose, glide and pedals; octave & tracking are
   write-only as the GRAND doesn't report them back) — 4D, no slide.

@@ -36,9 +36,11 @@ inline void applyConfigOverrides (roli::Block::ConfigMetaData& meta)
             return;
         }
         if (id == 65)             { meta.name = "Reset configs (set 0)"; return; }
-        if (id >= 66 && id <= 75) { meta.name = "Button " + juce::String (id - 66 + 1); return; }  // shown as CC + mode
-        if (id >= 76 && id <= 85) { meta.name = "Button " + juce::String (id - 76 + 1) + " colour (on)";  meta.type = CT::colour; return; }
-        if (id >= 86 && id <= 95) { meta.name = "Button " + juce::String (id - 86 + 1) + " colour (off)"; meta.type = CT::colour; return; }
+        // Button data + its on/off colours all live in one "Buttons" card; rebuildRows interleaves
+        // each button with its two colour rows, so the colour labels read as sub-rows of the button above.
+        if (id >= 66 && id <= 75) { meta.name = "Button " + juce::String (id - 66 + 1); meta.group = "Buttons"; return; }  // shown as CC + mode
+        if (id >= 76 && id <= 85) { meta.name = "On colour";  meta.type = CT::colour; meta.group = "Buttons"; return; }
+        if (id >= 86 && id <= 95) { meta.name = "Off colour"; meta.type = CT::colour; meta.group = "Buttons"; return; }
     }
 
     // Chord (id 24): confirmed from ROLI Dashboard. Value 0 = Off.

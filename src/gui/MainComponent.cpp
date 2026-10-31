@@ -87,7 +87,8 @@ ConfigRow::ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value
         auto stepper = [this] (juce::Slider& s, juce::int32 v, const char* tip)
         {
             s.setSliderStyle (juce::Slider::IncDecButtons);
-            s.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 40, 20);
+            s.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 50, 22);
+            s.setIncDecButtonsMode (juce::Slider::incDecButtonsNotDraggable);
             s.setRange (0.0, 127.0, 1.0);
             s.setValue ((double) v, juce::dontSendNotification);
             s.setTooltip (tip);
@@ -102,8 +103,8 @@ ConfigRow::ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value
         auto cap = [this] (juce::Label& l, const char* t)
         {
             l.setText (t, juce::dontSendNotification);
-            l.setFont (juce::Font (juce::FontOptions (10.5f)));
-            l.setColour (juce::Label::textColourId, grab::theme::textPrimary.withAlpha (0.5f));
+            l.setFont (juce::Font (juce::FontOptions (11.5f)));
+            l.setColour (juce::Label::textColourId, grab::theme::textPrimary.withAlpha (0.62f));
             l.setJustificationType (juce::Justification::centred);
             addAndMakeVisible (l);
         };
@@ -244,11 +245,14 @@ void ConfigRow::setChangedFromDevice (bool c)
 void ConfigRow::resized()
 {
     auto r = getLocalBounds().reduced (4, 2);
-    const int labelW = juce::jlimit (90, 200, (int) (r.getWidth() * 0.46f));
+    // Button rows pack a lot into one row, so give the "Button N" label a slim column and hand the
+    // rest to the CC/behaviour line and the default/min/max steppers (otherwise the steppers truncate).
+    const int labelW = buttonCfg ? juce::jlimit (64, 96, (int) (r.getWidth() * 0.18f))
+                                 : juce::jlimit (90, 200, (int) (r.getWidth() * 0.46f));
     nameLabel.setBounds (r.removeFromLeft (labelW));
     if (buttonCfg)
     {
-        const int capH = 11;
+        const int capH = 12;
         const int rowH = r.getHeight() / 2;
         const int ctlH = rowH - capH;
         const int modeW = juce::jmin (120, r.getWidth() / 2);
@@ -288,7 +292,7 @@ void ConfigRow::paint (juce::Graphics& g)
 
 //==============================================================================
 static constexpr int rowHeight = 30;
-static constexpr int buttonRowHeight = 62;   // Control-block button rows: CC+behaviour over default/min/max, two lines of captions
+static constexpr int buttonRowHeight = 74;   // Control-block button rows: CC+behaviour over default/min/max, two lines of captions
 static constexpr int sectionHeaderHeight = 30;
 
 // Order config sections roughly like ROLI Dashboard (Sensitivity / 5D first).
@@ -1779,6 +1783,26 @@ void MainComponent::rebuildRows()
                 if ((item.meta.item < 10 || item.meta.item > 14) && ! isCurveMinMax (item.meta.item))
                     emitRow (item);
         }
+        else if (g == "Buttons")
+        {
+            // Control Block: interleave each button's data row (66..75) with its on (76..85) and
+            // off (86..95) colour rows, so one button's CC/behaviour/default/min/max/colours sit
+            // together. Any item outside those ranges (shouldn't happen) is appended afterwards.
+            auto findItem = [&] (juce::uint32 id) -> const Item*
+            {
+                for (const auto& it : groups[g]) if (it.meta.item == id) return &it;
+                return nullptr;
+            };
+            for (int i = 0; i < 10; ++i)
+            {
+                if (auto* d = findItem ((juce::uint32) (66 + i))) emitRow (*d);
+                if (auto* on = findItem ((juce::uint32) (76 + i))) emitRow (*on);
+                if (auto* off = findItem ((juce::uint32) (86 + i))) emitRow (*off);
+            }
+            for (const auto& item : groups[g])
+                if (item.meta.item < 66 || item.meta.item > 95)
+                    emitRow (item);
+        }
         else
         {
             for (const auto& item : groups[g])
@@ -2525,8 +2549,10 @@ void MainComponent::forceControlPreview()
     static const juce::int32 onCol[10] = { (juce::int32) 0xFF00FFFF, (juce::int32) 0xFFFF3B30, (juce::int32) 0xFF34C759,
         (juce::int32) 0xFFFF2D55, (juce::int32) 0xFFFFD60A, (juce::int32) 0xFF5AC8FA, (juce::int32) 0xFFFF9500,
         (juce::int32) 0xFF0A84FF, (juce::int32) 0xFFBF5AF2, (juce::int32) 0xFF30D158 };
-    for (int i = 0; i < 10; ++i) add (mk (76 + i, onCol[i], "On",  CT::colour, 0, 0, "Button colours"), onCol[i]);
-    for (int i = 0; i < 10; ++i) add (mk (86 + i, (juce::int32) 0xFFFFFFFF, "Off", CT::colour, 0, 0, "Button colours"), (juce::int32) 0xFFFFFFFF);
+    // group/name below are overridden by applyConfigOverrides (-> "Buttons", "On/Off colour") so the
+    // colours interleave with their button rows in one card.
+    for (int i = 0; i < 10; ++i) add (mk (76 + i, onCol[i], "On",  CT::colour, 0, 0, "Buttons"), onCol[i]);
+    for (int i = 0; i < 10; ++i) add (mk (86 + i, (juce::int32) 0xFFFFFFFF, "Off", CT::colour, 0, 0, "Buttons"), (juce::int32) 0xFFFFFFFF);
 
     std::vector<KeyboardView::Tile> tiles;
     KeyboardView::Tile t; t.uid = 1; t.family = KeyboardView::Family::control; t.control = KeyboardView::Control::loop;
@@ -2801,7 +2827,16 @@ void MainComponent::resized()
     placeKeyboard (r);
     viewport.setBounds (r);
     busyLabel.setBounds (r);   // overlay centred over the content area (shown during a reset)
-    layoutCardGrid (viewport, rowHolder, cards, "Sensitivity");
+
+    // Control-block page (has a "Buttons" card): give that card the width and keep MIDI Settings slim,
+    // so its busy per-button rows fit without a very wide window. Everything else uses the normal grid.
+    bool controlPage = false;
+    for (auto& c : cards)
+        if (c->getTitle() == "Buttons") { controlPage = true; break; }
+    if (controlPage)
+        layoutControlCards (viewport, rowHolder, cards, "Buttons");
+    else
+        layoutCardGrid (viewport, rowHolder, cards, "Sensitivity");
 }
 
 void MainComponent::paint (juce::Graphics& g)

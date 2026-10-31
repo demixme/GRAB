@@ -11,8 +11,9 @@ capture helps most for:
 
 - **Lightpad Block / Pad** — its basic settings work, but its **apps/modes** (Note Grid, Fader
   Block, Drum Block, …) don't. Capture Dashboard while you change those app/mode settings.
-- **Live / Loop / Touch** control blocks — only basic settings are read today; a capture is what
-  adds the rest.
+- **Live / Loop / Touch** control blocks — their buttons already read + live-edit (CC, behaviour,
+  default/min/max, colours), confirmed against Live + Loop. A **Touch Block** capture (or any control
+  block connected on its own) confirms the remaining layout and defaults.
 
 (The Seaboard **Block / RISE 2 / RISE 25 / 49 / GRAND**, **ROLI Piano** and **Piano M / LUMI** are
 already fully mapped — for those, a one-click **Contribute…** profile is all that's needed.)
@@ -55,7 +56,8 @@ after each. Deliberately **odd values** are easy to spot in the decode.
 - **Lightpad / Pad** — this is the valuable part. In Dashboard, open an **app** (Note Grid,
   Fader Block, Drum Block), change its **mode/layout settings**, and **switch between apps/modes**.
   Each app's settings are what we're missing — change as many as you can.
-- **Live / Loop / Touch** — change every setting Dashboard exposes for the block.
+- **Live / Loop / Touch** — their buttons are already mapped; a capture (especially from a **Touch
+  Block**) mainly confirms per-type layout and defaults, so change every button setting Dashboard exposes.
 
 The more distinct settings you change in one session, the more we confirm at once.
 
