@@ -32,6 +32,10 @@ public:
         float uw = 6, uh = 3;        // footprint in logical units (already rotated by the SDK)
         int   rotation = 0;          // art orientation, 90-degree steps clockwise (0..3)
         int   octaves = 2;           // keybed octaves (keyboards only)
+        // Exact keybed range for the legacy RISE/GRAND keybed, so a 49-key board draws all 49 keys
+        // (C2..C6 incl. the top C) rather than whole octaves. keyCount == 0 => derive from `octaves`.
+        int   lowNote = 48;          // MIDI note of the leftmost key (a C for the C-to-C boards)
+        int   keyCount = 0;          // number of keys to draw; 0 = octaves * 12 whole octaves
         int   grid = 15;             // LED grid resolution (lightpad only)
     };
 
@@ -40,10 +44,37 @@ public:
     // --- Legacy single-keybed setters (RISE/GRAND and the dev previews) --------------------------
     // These build a one-tile layout; the real multi-block arrangement comes through setLayout().
     // They always rebuild (not guarded on value) so a call also leaves any prior Block layout mode.
-    void setOctaves (int o)   { octaves = juce::jlimit (1, 8, o); rebuildLegacy(); }
+    void setOctaves (int o)   { octaves = juce::jlimit (1, 8, o); legacyKeys = 0; rebuildLegacy(); }
     void setFamily  (Family f){ family = f; rebuildLegacy(); }
     void setBlocks  (int)     { /* retained for call sites; real chaining now comes via setLayout() */ }
     int  getOctaves() const   { return octaves; }
+
+    // Exact keybed range: draw `keyCount` keys from `lowNote` (a C for the C-to-C boards). Use this
+    // instead of setOctaves for RISE/GRAND so the real key count is drawn (e.g. a 49-key RISE 2 =
+    // C2..C6, with its top C getting its own key) and the touch ring lands on the true key centres.
+    void setKeyboardRange (int lowNote, int keyCount)
+    {
+        legacyLow  = lowNote;
+        legacyKeys = juce::jmax (1, keyCount);
+        octaves    = juce::jlimit (1, 8, (legacyKeys + 11) / 12);
+        rebuildLegacy();
+    }
+
+    // nx (0..1 across the keybed's white-key span) for a MIDI note on the current legacy keybed,
+    // matching drawKeybed's geometry exactly - so the RISE/GRAND touch ring sits on the pressed key.
+    // bendSemitones nudges it along for Glide (approximate: the average white-key spacing).
+    float legacyNoteToX (int note, float bendSemitones = 0.0f) const
+    {
+        const int kc = legacyKeys > 0 ? legacyKeys : octaves * 12;
+        const int lo = legacyKeys > 0 ? legacyLow  : defaultLowC (octaves);
+        float x = keybedNoteX (note, lo, kc);
+        if (bendSemitones != 0.0f)
+        {
+            const int totalW = keybedWhiteCount (lo, kc);
+            x += bendSemitones * (7.0f / 12.0f) / (float) juce::jmax (1, totalW);
+        }
+        return juce::jlimit (0.0f, 1.0f, x);
+    }
 
     // The real DNA arrangement: tiles from the device topology. Empty falls back to the legacy keybed.
     void setLayout (std::vector<Tile> t)
@@ -222,10 +253,45 @@ private:
     }
     void buildLegacyLocked()
     {
-        // One keybed tile sized ~3 units per octave tall-by-3 (Seaboard-like 2:1 at 2 octaves).
+        // One keybed tile, ~3 logical units per octave wide by 3 tall. Width tracks the real white-key
+        // count (so a 49-key board is sized as 49 keys, not padded to 5 whole octaves); for whole-octave
+        // callers this equals the old octaves*3, so their layout is unchanged.
         Tile t; t.uid = 0; t.family = family; t.octaves = octaves;
-        t.ux = 0; t.uy = 0; t.uw = (float) juce::jmax (1, octaves) * 3.0f; t.uh = 3.0f;
+        t.lowNote  = legacyKeys > 0 ? legacyLow  : defaultLowC (octaves);
+        t.keyCount = legacyKeys;   // 0 => whole octaves (drawKeybed derives from octaves)
+        const int whites = legacyKeys > 0 ? keybedWhiteCount (t.lowNote, legacyKeys) : octaves * 7;
+        t.ux = 0; t.uy = 0;
+        t.uw = juce::jmax (1.0f, (float) whites * (3.0f / 7.0f));   // 3 units / 7 white keys
+        t.uh = 3.0f;
         tiles.assign (1, t);
+    }
+
+    // --- keybed note geometry (shared by drawKeybed and the RISE/GRAND touch mapping) ------------
+    // The keybed is a strip of `keyCount` keys from `lowNote`. White keys are evenly spaced; black
+    // keys sit on the boundary between their white neighbours (drawKeybed draws them there). These
+    // helpers give the white-key count and a note's horizontal centre so rings land on real keys.
+    static bool keyIsWhite (int pc)        { static const bool w[12] = {1,0,1,0,1,1,0,1,0,1,0,1}; return w[((pc % 12) + 12) % 12]; }
+    static int  defaultLowC (int octaves)  { return 60 - 12 * (juce::jlimit (1, 8, octaves) / 2); }  // a C, middle-C centred
+
+    static int keybedWhiteCount (int lowNote, int keyCount)
+    {
+        int n = 0;
+        for (int i = 0; i < keyCount; ++i) if (keyIsWhite (lowNote + i)) ++n;
+        return juce::jmax (1, n);
+    }
+
+    static float keybedNoteX (int note, int lowNote, int keyCount)
+    {
+        // White index within an octave (-1 = black), and, for a black key, the white it sits after.
+        static const int wIdx[12]   = { 0,-1, 1,-1, 2, 3,-1, 4,-1, 5,-1, 6 };
+        static const int bAfter[12] = {-1, 0,-1, 1,-1,-1, 3,-1, 4,-1, 5,-1 };
+        const int totalW = keybedWhiteCount (lowNote, keyCount);
+        const int rel = note - lowNote;
+        const int oct = rel >= 0 ? rel / 12 : -((-rel + 11) / 12);   // floored div (rel may be negative)
+        const int pc  = ((rel % 12) + 12) % 12;
+        const float whitePos = wIdx[pc] >= 0 ? (float) (oct * 7 + wIdx[pc]) + 0.5f    // white-key centre
+                                             : (float) (oct * 7 + bAfter[pc] + 1);     // black on the boundary
+        return juce::jlimit (0.0f, 1.0f, whitePos / (float) totalW);
     }
     void computeBoundsLocked()
     {
@@ -277,10 +343,13 @@ private:
                                               : grab::theme::accent.withAlpha (0.9f);
 
         const bool keybed = (t.family == Family::block || t.family == Family::rise || t.family == Family::grand);
+        // Resolve the keybed's exact key range (keyCount==0 => whole octaves from `octaves`).
+        const int kc = t.keyCount > 0 ? t.keyCount : t.octaves * 12;
+        const int lo = t.keyCount > 0 ? t.lowNote  : defaultLowC (t.octaves);
         if      (t.family == Family::lumi)     drawFlatKeybed (g, nat, t.octaves, border);
         else if (t.family == Family::lightpad) drawPad (g, nat, t.grid, border);
         else if (t.family == Family::control)  drawControl (g, nat, border);
-        else                                   drawKeybed (g, nat, t.family, t.octaves, border);
+        else                                   drawKeybed (g, nat, t.family, lo, kc, border);
 
         // Touch markers for this tile.
         std::vector<const Live*> mine;
@@ -308,9 +377,9 @@ private:
             g.setColour (grab::theme::press.withAlpha  (0.95f * a)); g.drawEllipse (ringC, 1.6f); // pressure ring (teal)
         };
 
-        // Chord ghosts only on keybeds, where x is linear in semitones (a +k-semitone note sits
-        // k/(octaves*12) along). On a pad grid the note layout isn't a pitch axis, so no ghosts.
-        const float semi = keybed ? 1.0f / (float) juce::jmax (1, t.octaves * 12) : 0.0f;
+        // Chord ghosts only on keybeds (Seaboard). Approximate: a +k-semitone ghost sits k keys
+        // along the strip. On a pad grid the note layout isn't a pitch axis, so no ghosts.
+        const float semi = keybed ? 1.0f / (float) juce::jmax (1, kc) : 0.0f;
         for (auto* m : mine)
         {
             if (keybed)
@@ -392,11 +461,12 @@ private:
                 }
     }
 
-    // Pseudo-3D moulded keywave for Seaboard / RISE / GRAND.
-    void drawKeybed (juce::Graphics& g, juce::Rectangle<float> r, Family fam, int octaveCount,
+    // Pseudo-3D moulded keywave for Seaboard / RISE / GRAND. Draws exactly `keyCount` keys from
+    // `lowNote` (white keys first, then blacks on top), so a 49-key board shows all 49 keys.
+    void drawKeybed (juce::Graphics& g, juce::Rectangle<float> r, Family fam, int lowNote, int keyCount,
                      juce::Colour border = grab::theme::accent.withAlpha (0.9f))
     {
-        const int   totalWhites = juce::jmax (1, octaveCount * 7);
+        const int   totalWhites = keybedWhiteCount (lowNote, keyCount);
         const float radius   = fam == Family::block ? 2.5f : fam == Family::rise ? 4.0f : 5.5f;
         const float crestLum = fam == Family::block ? 0.00f : fam == Family::rise ? -0.06f : -0.10f;
 
@@ -416,11 +486,13 @@ private:
         const float ww       = keys.getWidth() / (float) totalWhites;
         const float blackH   = keys.getHeight() * (fam == Family::block ? 0.42f : 0.50f);
         const float glideTop = keys.getHeight() * 0.11f;
-        static const bool blackAfter[7] = { true, true, false, true, true, true, false };
 
-        for (int w = 0; w < totalWhites; ++w)
+        // Pass 1: white keys, left to right.
+        int wc = 0;
+        for (int s = 0; s < keyCount; ++s)
         {
-            juce::Rectangle<float> col (keys.getX() + w * ww, keys.getY(), ww, keys.getHeight());
+            if (! keyIsWhite (lowNote + s)) continue;
+            juce::Rectangle<float> col (keys.getX() + wc * ww, keys.getY(), ww, keys.getHeight());
             auto k = col.withTrimmedTop (glideTop).withTrimmedBottom (glideTop).reduced (0.8f, 0.0f);
             juce::ColourGradient grad (whiteEdge, k.getX(), 0.0f, whiteEdge, k.getRight(), 0.0f, false);
             grad.addColour (0.5, whiteCrest);
@@ -428,23 +500,25 @@ private:
             g.fillRoundedRectangle (k, radius);
             g.setColour (juce::Colours::black.withAlpha (0.28f));
             g.fillRoundedRectangle (k.removeFromBottom (k.getHeight() * 0.14f), radius);
+            ++wc;
         }
-        for (int o = 0; o < octaveCount; ++o)
-            for (int i = 0; i < 7; ++i)
-                if (blackAfter[i])
-                {
-                    const float cx = keys.getX() + (float) (o * 7 + i + 1) * ww;
-                    const float bw = ww * 0.58f;
-                    juce::Rectangle<float> blk (cx - bw * 0.5f, keys.getY() + glideTop, bw, blackH);
-                    g.setColour (juce::Colours::black.withAlpha (0.45f));
-                    g.fillRoundedRectangle (blk.translated (0.0f, 3.0f).expanded (1.5f, 1.0f), radius + 1.0f);
-                    juce::ColourGradient bg (blackEdge, blk.getX(), 0.0f, blackEdge, blk.getRight(), 0.0f, false);
-                    bg.addColour (0.5, blackCrest);
-                    g.setGradientFill (bg);
-                    g.fillRoundedRectangle (blk, radius);
-                    g.setColour (juce::Colours::white.withAlpha (0.22f));
-                    g.fillRoundedRectangle (blk.getCentreX() - 0.7f, blk.getY() + 3.0f, 1.4f, blk.getHeight() - 7.0f, 0.7f);
-                }
+        // Pass 2: black keys on top, each on the boundary after its preceding white key.
+        wc = 0;
+        for (int s = 0; s < keyCount; ++s)
+        {
+            if (keyIsWhite (lowNote + s)) { ++wc; continue; }
+            const float cx = keys.getX() + (float) wc * ww;   // boundary after the last white
+            const float bw = ww * 0.58f;
+            juce::Rectangle<float> blk (cx - bw * 0.5f, keys.getY() + glideTop, bw, blackH);
+            g.setColour (juce::Colours::black.withAlpha (0.45f));
+            g.fillRoundedRectangle (blk.translated (0.0f, 3.0f).expanded (1.5f, 1.0f), radius + 1.0f);
+            juce::ColourGradient bg (blackEdge, blk.getX(), 0.0f, blackEdge, blk.getRight(), 0.0f, false);
+            bg.addColour (0.5, blackCrest);
+            g.setGradientFill (bg);
+            g.fillRoundedRectangle (blk, radius);
+            g.setColour (juce::Colours::white.withAlpha (0.22f));
+            g.fillRoundedRectangle (blk.getCentreX() - 0.7f, blk.getY() + 3.0f, 1.4f, blk.getHeight() - 7.0f, 0.7f);
+        }
     }
 
     // Lightpad: a square body with an NxN grid of dim LED dots (touch rings + ghosts draw over it).
@@ -491,6 +565,8 @@ private:
     static constexpr int kKeyInsetV  = 4;    // vertical inset of keys from the body edge
 
     int    octaves = 2;                      // legacy keybed size (RISE/GRAND + previews)
+    int    legacyLow  = 48;                  // exact-range keybed: leftmost MIDI note (a C)
+    int    legacyKeys = 0;                   // exact-range keybed: key count (0 = whole octaves)
     Family family  = Family::rise;
 
     std::vector<Tile> tiles;                 // the drawn arrangement (legacy keybed or real topology)

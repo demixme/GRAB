@@ -32,15 +32,27 @@ enum PresetMenuId
 };
 
 // Rough key-range (octaves) for the keyboard graphic, from the device's port/name.
-int keyboardOctavesForName (const juce::String& name)
+// {leftmost MIDI note, key count} for a RISE/GRAND port, so the keybed graphic draws the real board
+// (exact key count, incl. the top C of a C-to-C board) and the touch ring lands on the pressed key.
+std::pair<int, int> riseKeyRange (const juce::String& name)
 {
     if (name.containsIgnoreCase ("grand"))                                        // Seaboard GRAND
-        return name.contains ("88") ? 7 : name.contains ("61") ? 5 : 5;          // GRAND 88 / 61 / 62
-    if (name.contains ("25")) return 2;                                           // RISE 25
-    if (name.contains ("49")) return 4;                                           // RISE 49 / Piano 49
-    if (name.containsIgnoreCase ("RISE 2") || name.containsIgnoreCase ("RISE2"))  // RISE 2 (61 keys)
-        return 5;
-    return 2;                                                                     // Seaboard Block / original RISE / default
+        return name.contains ("88") ? std::pair<int, int> { 21, 88 }             // GRAND 88: A0..C8 (piano)
+             :                        std::pair<int, int> { 36, 61 };            // GRAND 61/62: C2..C7
+    if (name.contains ("25")) return { 48, 25 };                                  // RISE 25: C3..C5 (25 keys)
+    if (name.contains ("49")) return { 36, 49 };                                  // RISE 49: C2..C6 (49 keys)
+    if (name.containsIgnoreCase ("RISE 2") || name.containsIgnoreCase ("RISE2"))  // RISE 2: 49 keys, C2..C6
+        return { 36, 49 };
+    return { 48, 25 };                                                            // original RISE / default: 2 octaves
+}
+
+// A sensible leftmost C for a GRAND of `keyCount` keys (the device reports its exact count), keeping
+// middle C roughly centred; an 88-key board is a real piano, so it starts at A0.
+int lowNoteForKeyCount (int keyCount)
+{
+    if (keyCount >= 85) return 21;                                     // 88-key: A0
+    const int octs = juce::jlimit (1, 8, (keyCount + 6) / 12);
+    return 60 - 12 * (octs / 2);
 }
 }
 
@@ -498,7 +510,8 @@ void MainComponent::connect (seaprobe::Transport transport)
         addAndMakeVisible (*rise2Page);
         setBlocksControlsVisible (false);
 
-        keyboardView.setOctaves (keyboardOctavesForName (riseName));
+        const auto kr = riseKeyRange (riseName);
+        keyboardView.setKeyboardRange (kr.first, kr.second);   // exact board (e.g. RISE 2 = 49 keys, C2..C6)
         keyboardView.setFamily (isGrand ? KeyboardView::Family::grand : KeyboardView::Family::rise);
         keyboardView.setBlocks (1);   // a RISE/GRAND is a single keybed (no DNA chaining)
         keyboardView.setChord ({});   // RISE/GRAND have no Chord mode - clear any Seaboard ghosts
@@ -508,7 +521,7 @@ void MainComponent::connect (seaprobe::Transport transport)
         // name carries no size, so the name-based guess defaults to 5 octaves. keyCount is exact.
         rise2Page->onKeyCount = [this] (int keyCount)
         {
-            keyboardView.setOctaves (juce::roundToInt ((float) keyCount / 12.0f));
+            keyboardView.setKeyboardRange (lowNoteForKeyCount (keyCount), keyCount);   // exact GRAND size
             resized();
         };
 
@@ -516,11 +529,10 @@ void MainComponent::connect (seaprobe::Transport transport)
         keyboardView.startTouchDisplay();
         rise2Page->onTouch = [this] (int chan, int note, float pressure, float bend, float strike, bool end)
         {
-            const int   octs = juce::jmax (1, keyboardView.getOctaves());
-            const int   base = 60 - octs * 6;   // centre the drawn keyboard roughly on middle C
-            const float x = juce::jlimit (0.0f, 1.0f,
-                ((float) note - (float) base + bend * 2.0f) / (float) (octs * 12));   // bend nudges x (Glide)
-            // y stays centred: RISE/GRAND Slide (CC74) isn't parsed here, and the GRAND has none (4D).
+            // The keybed is C-rooted and may be a partial octave (49-key boards), so KeyboardView maps
+            // the note to the true key centre - rings land exactly on the pressed key (bend nudges x
+            // for Glide). y stays centred: RISE/GRAND Slide (CC74) isn't parsed here, GRAND has none.
+            const float x = keyboardView.legacyNoteToX (note, bend * 2.0f);
             // Tile 0 is the single RISE/GRAND keybed (not a DNA block).
             keyboardView.setTouch (0, chan, x, 0.5f, pressure, strike, end);   // setTouch is thread-safe
         };
@@ -2264,7 +2276,8 @@ void MainComponent::forceRisePreview()
         setBlocksControlsVisible (false);
     }
 
-    keyboardView.setOctaves (risePreviewVerified ? 5 : 2);   // RISE 2 = 5 octaves, original RISE = 2
+    if (risePreviewVerified) keyboardView.setKeyboardRange (36, 49);   // RISE 2: 49 keys, C2..C6
+    else                     keyboardView.setKeyboardRange (48, 25);   // original RISE: 25 keys, C3..C5
     keyboardView.setFamily (KeyboardView::Family::rise);
     keyboardView.setBlocks (1);
     keyboardView.setVisible (true);
