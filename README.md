@@ -13,10 +13,15 @@ instruments configurable and self-documents their protocol.
        alt="GRAB configuring a Seaboard Block: colour-coded 5D sensitivity curves with live touch rings on the keyboard graphic, and MIDI settings, pitch and play-mode cards below.">
 </p>
 
-## Where it's at — v0.1.79
+## Where it's at — v0.1.80
 **Live editing** (changes write as you make them, like Dashboard), a unified **Preset** menu
 (ROLI presets + your own saved presets, per device), and **factory reset** for Blocks — on
 **Windows, macOS and Linux**.
+
+**New in v0.1.80:**
+- **Call for Control Block testers.** In-app help and the docs now make the ask explicit: GRAB reads and
+  live-edits Live / Loop / Touch buttons, but the **write path isn't yet hardware-confirmed** and there's
+  **no Touch Block data** — see the "Most wanted" note below and [CONTROL-BLOCKS.md](CONTROL-BLOCKS.md).
 
 **New in v0.1.79:**
 - **Windows MIDI backend reverted to WinMM.** Per Microsoft's Pete Brown ([issue #7](../../issues/7)),
@@ -80,11 +85,20 @@ Recent additions:
   multi-client by default) GRAB runs **alongside your DAW** without quitting it (macOS and Linux
   already share).
 
-**Still needed — contributions very welcome:** **host→device Dashboard captures** for the
+**Most wanted right now — Control Block testers (Live / Loop / Touch).** GRAB reads and live-edits
+their buttons (CC, behaviour, default/min/max, on/off colours), decoded from ROLI's factory program and
+confirmed *reading* against a Live and a Loop block — but **the write path has never been confirmed on
+real hardware**, and we have **no Touch Block data at all**. If you own one:
+1. **Edit a button in GRAB** (change its CC, behaviour or a colour) and tell us whether the change
+   actually takes effect on the device — this is the one thing we can't test ourselves.
+2. **Touch Block owners especially:** run **Advanced ▸ Help add device** and press every button, so we
+   can confirm its layout and defaults.
+Connected on its own or chained to a Lightpad/Seaboard — either way, a quick report helps. See
+[CONTROL-BLOCKS.md](CONTROL-BLOCKS.md).
+
+**Also needed — contributions very welcome:** **host→device Dashboard captures** for the
 **Lightpad's Note-Grid / Fader / Drum apps** (the shared config is in; the per-app layouts aren't);
-a **Capture MIDI** from a **Touch Block** (Live / Loop / Touch buttons are now live-editable, but a
-Touch capture confirms its layout and defaults — **Advanced ▸ Help add device**); the capture that
-unlocks device-specific features (see **Advanced ▸ How you can help** and
+the capture that unlocks device-specific features (see **Advanced ▸ How you can help** and
 [tools/CAPTURE-DASHBOARD.md](tools/CAPTURE-DASHBOARD.md)); and testers for the **Linux** build. In
 GRAB, use **Contribute…**, **Advanced ▸ Capture MIDI**, **Advanced ▸ How you can help**, or
 **Diagnose…** — everything is anonymised and nothing is sent unless you click.
