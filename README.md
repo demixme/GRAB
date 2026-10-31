@@ -391,6 +391,8 @@ GRAB is built by the community. In particular:
   across Dashboard's presets.
 - **Roger** confirmed that **BLOCKS settings travel over USB-MIDI** (not only Bluetooth) — correcting
   a wrong assumption — and tested the experimental Lightpad app loader.
+- **moofly** contributed a **Lightpad Block app-load capture** (Dashboard streaming a Littlefoot app),
+  which added `sharedDataChange` program-upload decoding to GRAB's Capture MIDI and `seadecode`.
 - **[Pete Brown](https://github.com/Psychlist1972)** (Microsoft) confirmed the **Windows 11
   multi-client MIDI** behaviour that lets GRAB, Dashboard and a DAW share a device ([issue #7](../../issues/7)).
 - **Legitimate_Horror_72** (Reddit) contributed the **ROLI Piano scale names + note masks** (device
