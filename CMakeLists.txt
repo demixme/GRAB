@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(GRAB VERSION 0.1.78 LANGUAGES C CXX)  # bump with each release; tag vX.Y.Z to match
+project(GRAB VERSION 0.1.79 LANGUAGES C CXX)  # bump with each release; tag vX.Y.Z to match
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -98,9 +98,11 @@ target_compile_definitions(GRAB PRIVATE
     JUCE_MODAL_LOOPS_PERMITTED=0
     DONT_SET_USING_JUCE_NAMESPACE=1
     LOG_BLOCKS_CONNECTIVITY=1
-    # Multi-client MIDI on Windows (issue #7): use the WinRT Windows.Devices.Midi backend instead of
-    # exclusive WinMM, so GRAB can share the device with a DAW / ROLI Dashboard. Win 10 1809+.
-    $<$<PLATFORM_ID:Windows>:JUCE_USE_WINRT_MIDI=1>
+    # MIDI backend on Windows: plain WinMM (JUCE default). Issue #7 / Microsoft's Pete Brown:
+    # WinRT MIDI 1.0 is NOT multi-client without Windows MIDI Services (same limit as WinMM), and its
+    # BLE endpoints don't work with most ROLI devices - so it's the wrong choice here. Multi-client
+    # comes from Windows MIDI Services (Win 11 25H2+, default API mode), which reroutes WinMM itself
+    # and makes it multi-client with no app change. So we stay on WinMM and let WMS do the sharing.
     GRAB_VERSION="${PROJECT_VERSION}")
 
 # Treat source as UTF-8 and emit UTF-8 narrow literals (MSVC otherwise uses the system

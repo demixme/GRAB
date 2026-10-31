@@ -150,11 +150,11 @@ private:
         add (Click, "ROLI device");
         add (Body,  " dropdown (top row) lists them all - switch between a RISE, a Seaboard, a Lightpad and a "
                     "GRAND without restarting or power-cycling.\n");
-        add (Body,  "    Sharing the device (new): GRAB now uses multi-client MIDI on Windows (10 1809+), so "
-                    "GRAB, your DAW and ROLI Dashboard can all talk to the device at once - no need to quit "
-                    "anything. Mac/Linux already share. ");
-        add (Note,  "(Experimental on Windows - if GRAB suddenly sees no devices on an older build, please let "
-                    "us know via Report.)\n");
+        add (Body,  "    Sharing the device on Windows: on Windows 11 25H2+, Windows MIDI Services makes MIDI "
+                    "multi-client by default, so GRAB, your DAW and ROLI Dashboard can all use the device at "
+                    "once - no setup, no quitting. ");
+        add (Note,  "(On older Windows, or if a PC is set to Legacy API Mode, it's one app per port - quit the "
+                    "other app first. Mac/Linux already share.)\n");
         add (Body,  "    Bluetooth on Windows: ROLI BLE-MIDI needs Windows MIDI Services (built into Windows 11 "
                     "25H2+; not available on older builds) - without it, Bluetooth is unreliable or absent, so "
                     "use USB there. USB works on every Windows version.\n");
