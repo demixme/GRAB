@@ -66,11 +66,16 @@ private:
     // Control Block packed button-data (ids 66-75): CC in bits 3-9, mode in bits 0-2, with value/min/
     // max in the high bits (preserved on edit). Shared layout used by the row to split/rebuild it.
     bool buttonCfg = false;
-    static juce::int32 buttonCC   (juce::int32 packed) { return (packed >> 3) & 0x7F; }
-    static juce::int32 buttonMode (juce::int32 packed) { return packed & 0x7; }
-    static juce::int32 packButton (juce::int32 orig, juce::int32 cc, juce::int32 mode)
-    { return (orig & ~0x3FF) | ((cc & 0x7F) << 3) | (mode & 0x7); }   // keep value/min/max, set cc+mode
-    juce::ComboBox   modeCombo;  // control-block button mode (toggle/pulse/gate/...)
+    static juce::int32 buttonVal  (juce::int32 p) { return (p >> 24) & 0x7F; }   // Default Value
+    static juce::int32 buttonMax  (juce::int32 p) { return (p >> 17) & 0x7F; }
+    static juce::int32 buttonMin  (juce::int32 p) { return (p >> 10) & 0x7F; }
+    static juce::int32 buttonCC   (juce::int32 p) { return (p >>  3) & 0x7F; }
+    static juce::int32 buttonMode (juce::int32 p) { return p & 0x7; }
+    static juce::int32 packButton (juce::int32 val, juce::int32 mx, juce::int32 mn, juce::int32 cc, juce::int32 mode)
+    { return ((val & 0x7F) << 24) | ((mx & 0x7F) << 17) | ((mn & 0x7F) << 10) | ((cc & 0x7F) << 3) | (mode & 0x7); }
+    juce::ComboBox   modeCombo;                    // control-block button mode (toggle/pulse/gate/...)
+    juce::Slider     defSlider, minSlider, maxSlider;   // Default / Min / Max value steppers
+    juce::Label      ccCap, modeCap, defCap, minCap, maxCap;   // tiny captions under each field
 
     juce::Label      nameLabel;
     juce::Slider     slider;     // integer

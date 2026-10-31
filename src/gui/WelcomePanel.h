@@ -99,7 +99,13 @@ private:
                     "now PREVIEW inside GRAB, and can be LOADED onto a connected Lightpad - both experimental, in "
                     "Advanced.\n");
         add (Body,  "    App-specific settings live inside the app, not the device, so they're shown but not yet "
-                    "editable. Live / Loop / Touch: basic settings only.\n");
+                    "editable.\n");
+        add (Body,  "  Control Blocks - Live / Loop / Touch (DNA-connected, off a Lightpad or Seaboard Block). Their "
+                    "buttons now read + live-edit fully: per-button MIDI CC, behaviour, default / min / max and on/off "
+                    "colours.\n");
+        add (Note,  "    Decoded from ROLI's factory program, confirmed against Live + Loop. We'd still love a capture "
+                    "from a Touch Block, and from any of them connected on their own, to confirm the layout and defaults - "
+                    "please use Help add device (way 2) if you have one.\n");
         add (Body,  "    This area still grows from a Capture MIDI (way 2) and/or a Dashboard capture (way 3).\n\n");
 
         add (H2,    "Not recognised / out of scope:");

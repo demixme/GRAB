@@ -70,10 +70,11 @@ ConfigRow::ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value
 
     if (buttonCfg)
     {
-        // Composite: a CC slider + a mode dropdown that together are the packed button int.
+        // Composite: CC + mode + default/min/max, which together are the packed button int. Matches
+        // the fields in ROLI Dashboard's control-block editor (On/Off colour live in separate rows).
         static const char* const modes[] = { "Toggle", "Pulse", "Gate", "Trigger", "Cycle", "Inc/Dec", "Tri-state" };
         slider.setSliderStyle (juce::Slider::LinearHorizontal);
-        slider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 44, 22);
+        slider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 40, 20);
         slider.setRange (0.0, 127.0, 1.0);
         slider.setValue ((double) buttonCC (value), juce::dontSendNotification);
         slider.setTooltip ("MIDI CC this button sends");
@@ -82,6 +83,32 @@ ConfigRow::ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value
         modeCombo.setSelectedId (buttonMode (value) + 1, juce::dontSendNotification);
         modeCombo.setTooltip ("Button behaviour");
         modeCombo.onChange = [this] { fireChange(); };
+
+        auto stepper = [this] (juce::Slider& s, juce::int32 v, const char* tip)
+        {
+            s.setSliderStyle (juce::Slider::IncDecButtons);
+            s.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 40, 20);
+            s.setRange (0.0, 127.0, 1.0);
+            s.setValue ((double) v, juce::dontSendNotification);
+            s.setTooltip (tip);
+            s.onValueChange = [this] { fireChange(); };
+            addAndMakeVisible (s);
+            s.addMouseListener (this, true);
+        };
+        stepper (defSlider, buttonVal (value), "Default value");
+        stepper (minSlider, buttonMin (value), "Minimum value");
+        stepper (maxSlider, buttonMax (value), "Maximum value");
+
+        auto cap = [this] (juce::Label& l, const char* t)
+        {
+            l.setText (t, juce::dontSendNotification);
+            l.setFont (juce::Font (juce::FontOptions (10.5f)));
+            l.setColour (juce::Label::textColourId, grab::theme::textPrimary.withAlpha (0.5f));
+            l.setJustificationType (juce::Justification::centred);
+            addAndMakeVisible (l);
+        };
+        cap (ccCap, "CC"); cap (modeCap, "Behaviour"); cap (defCap, "Default"); cap (minCap, "Min"); cap (maxCap, "Max");
+
         addAndMakeVisible (slider);
         addAndMakeVisible (modeCombo);
         control = &slider;
@@ -173,7 +200,10 @@ void ConfigRow::fireChange()
 juce::int32 ConfigRow::getValue() const
 {
     if (buttonCfg)
-        return packButton (initialValue, (juce::int32) juce::roundToInt (slider.getValue()),
+        return packButton ((juce::int32) juce::roundToInt (defSlider.getValue()),
+                           (juce::int32) juce::roundToInt (maxSlider.getValue()),
+                           (juce::int32) juce::roundToInt (minSlider.getValue()),
+                           (juce::int32) juce::roundToInt (slider.getValue()),
                            modeCombo.getSelectedId() - 1);
     switch (type)
     {
@@ -189,8 +219,11 @@ void ConfigRow::setValue (juce::int32 v)
 {
     if (buttonCfg)
     {
-        slider.setValue ((double) buttonCC (v), juce::dontSendNotification);
+        slider.setValue    ((double) buttonCC   (v), juce::dontSendNotification);
         modeCombo.setSelectedId (buttonMode (v) + 1, juce::dontSendNotification);
+        defSlider.setValue ((double) buttonVal  (v), juce::dontSendNotification);
+        minSlider.setValue ((double) buttonMin  (v), juce::dontSendNotification);
+        maxSlider.setValue ((double) buttonMax  (v), juce::dontSendNotification);
         return;
     }
     switch (type)
@@ -215,9 +248,25 @@ void ConfigRow::resized()
     nameLabel.setBounds (r.removeFromLeft (labelW));
     if (buttonCfg)
     {
-        modeCombo.setBounds (r.removeFromRight (juce::jmin (110, r.getWidth() / 2)));
-        r.removeFromRight (6);
-        slider.setBounds (r);
+        const int capH = 11;
+        const int rowH = r.getHeight() / 2;
+        const int ctlH = rowH - capH;
+        const int modeW = juce::jmin (120, r.getWidth() / 2);
+        const int w3 = r.getWidth() / 3;
+        // Top: CC slider + behaviour dropdown, captions beneath.
+        juce::Rectangle<int> top (r.getX(), r.getY(), r.getWidth(), ctlH);
+        juce::Rectangle<int> topCap (r.getX(), r.getY() + ctlH, r.getWidth(), capH);
+        modeCombo.setBounds (top.removeFromRight (modeW)); top.removeFromRight (6); slider.setBounds (top);
+        modeCap.setBounds (topCap.removeFromRight (modeW)); topCap.removeFromRight (6); ccCap.setBounds (topCap);
+        // Bottom: default / min / max steppers, captions beneath.
+        juce::Rectangle<int> bot (r.getX(), r.getY() + rowH, r.getWidth(), ctlH);
+        juce::Rectangle<int> botCap (r.getX(), r.getY() + rowH + ctlH, r.getWidth(), capH);
+        defSlider.setBounds (bot.removeFromLeft (w3).reduced (3, 0));
+        minSlider.setBounds (bot.removeFromLeft (w3).reduced (3, 0));
+        maxSlider.setBounds (bot.reduced (3, 0));
+        defCap.setBounds (botCap.removeFromLeft (w3));
+        minCap.setBounds (botCap.removeFromLeft (w3));
+        maxCap.setBounds (botCap);
         return;
     }
     if (control != nullptr)
@@ -239,6 +288,7 @@ void ConfigRow::paint (juce::Graphics& g)
 
 //==============================================================================
 static constexpr int rowHeight = 30;
+static constexpr int buttonRowHeight = 62;   // Control-block button rows: CC+behaviour over default/min/max, two lines of captions
 static constexpr int sectionHeaderHeight = 30;
 
 // Order config sections roughly like ROLI Dashboard (Sensitivity / 5D first).
@@ -1692,7 +1742,7 @@ void MainComponent::rebuildRows()
             // Control Block packed button-data (ids 66-75) gets the split CC + mode editor.
             const bool buttonCfg = item.meta.item >= 66 && item.meta.item <= 75;
             auto row = std::make_unique<ConfigRow> (item.meta, item.value, onChange, buttonCfg);
-            card->addItem (*row, rowHeight);
+            card->addItem (*row, buttonCfg ? buttonRowHeight : rowHeight);
             rows.push_back (std::move (row));
         };
 
