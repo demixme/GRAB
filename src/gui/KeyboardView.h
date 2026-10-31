@@ -22,6 +22,9 @@ class KeyboardView  : public juce::Component,
 {
 public:
     enum class Family { block, rise, grand, lumi, lightpad, control };
+    // Control-block subtype - picks the LED colour + per-button icons (all are the same 10-button
+    // hardware; only the printed icons / default functions differ). generic = Developer Control.
+    enum class Control { generic, live, loop, touch };
 
     // One drawn block, positioned in the shared logical-unit grid (origin = master's top-left).
     struct Tile
@@ -37,6 +40,7 @@ public:
         int   lowNote = 48;          // MIDI note of the leftmost key (a C for the C-to-C boards)
         int   keyCount = 0;          // number of keys to draw; 0 = octaves * 12 whole octaves
         int   grid = 15;             // LED grid resolution (lightpad only)
+        Control control = Control::generic;   // control-block subtype (Live/Loop/Touch art)
     };
 
     KeyboardView() { buildLegacyLocked(); computeBoundsLocked(); }
@@ -348,7 +352,7 @@ private:
         const int lo = t.keyCount > 0 ? t.lowNote  : defaultLowC (t.octaves);
         if      (t.family == Family::lumi)     drawFlatKeybed (g, nat, t.octaves, border);
         else if (t.family == Family::lightpad) drawPad (g, nat, t.grid, border);
-        else if (t.family == Family::control)  drawControl (g, nat, border);
+        else if (t.family == Family::control)  drawControl (g, nat, t.control, border);
         else                                   drawKeybed (g, nat, t.family, lo, kc, border);
 
         // Touch markers for this tile.
@@ -543,7 +547,10 @@ private:
     }
 
     // Control block (Live / Loop / Touch): a short dark body with a row of button discs.
-    void drawControl (juce::Graphics& g, juce::Rectangle<float> r,
+    // A ROLI Control Block: Live / Loop / Touch (and Developer). All are the same 10-button hardware
+    // - 5 round buttons on top, 3 round + a wide -/+ on the bottom, with an LED dot strip above. The
+    // subtype picks the LED colour and the printed icons, drawn as our own stylised vector glyphs.
+    void drawControl (juce::Graphics& g, juce::Rectangle<float> r, Control sub,
                       juce::Colour border = grab::theme::accent.withAlpha (0.7f))
     {
         g.setColour (juce::Colour (0xff17181e));
@@ -551,13 +558,145 @@ private:
         g.setColour (border);
         g.drawRoundedRectangle (r.reduced (1.0f), 9.0f, 1.4f);
 
-        auto body = r.reduced (kBodyMargin + 2.0f);
-        const int n = 5;
-        const float d = juce::jmin (body.getHeight() * 0.7f, body.getWidth() / (float) (n + 1));
-        const float gap = (body.getWidth() - n * d) / (float) (n + 1);
-        g.setColour (juce::Colours::white.withAlpha (0.14f));
-        for (int i = 0; i < n; ++i)
-            g.fillEllipse (body.getX() + gap + i * (d + gap), body.getCentreY() - d * 0.5f, d, d);
+        const juce::Colour led = sub == Control::touch ? juce::Colour (0xffb39cff)   // purple
+                               : sub == Control::loop  ? juce::Colour (0xff35d0c6)   // teal
+                               : sub == Control::live  ? juce::Colour (0xffff9a3c)   // orange
+                                                       : juce::Colour (0xff6a6d7a);  // developer: dim
+        auto body = r.reduced (kBodyMargin + 4.0f);
+
+        // LED dot strip across the top (a few lit in the middle, like the hardware).
+        const int nLed = 13;
+        const float ledY  = body.getY() + body.getHeight() * 0.05f;
+        const float ledGap = body.getWidth() / (float) (nLed + 1);
+        for (int i = 0; i < nLed; ++i)
+        {
+            const bool lit = i >= 4 && i <= 7;
+            g.setColour (led.withAlpha (lit ? 0.95f : 0.30f));
+            g.fillEllipse (body.getX() + ledGap * (i + 1) - 1.5f, ledY - 1.5f, 3.0f, 3.0f);
+        }
+
+        // Two button rows below the strip.
+        auto btns = body.withTrimmedTop (body.getHeight() * 0.18f);
+        const float colGap = btns.getWidth() / 5.0f;
+        const float d = juce::jmin (btns.getHeight() * 0.42f, colGap * 0.82f);
+        const float topY = btns.getY() + btns.getHeight() * 0.27f;
+        const float botY = btns.getY() + btns.getHeight() * 0.74f;
+
+        auto disc = [&] (float cx, float cy, int idx)
+        {
+            juce::Rectangle<float> bb (cx - d * 0.5f, cy - d * 0.5f, d, d);
+            g.setColour (juce::Colour (0xff2a2c34));
+            g.fillEllipse (bb);
+            g.setColour (juce::Colours::black.withAlpha (0.35f));
+            g.drawEllipse (bb, 1.0f);
+            drawControlIcon (g, sub, idx, bb.reduced (d * 0.24f), led.brighter (0.2f));
+        };
+
+        for (int i = 0; i < 5; ++i) disc (btns.getX() + colGap * (i + 0.5f), topY, i);       // top row 0-4
+        for (int i = 0; i < 3; ++i) disc (btns.getX() + colGap * (i + 0.5f), botY, 5 + i);   // bottom 5-7
+
+        // Wide -/+ pill (buttons 8 & 9) filling the bottom-right two columns.
+        juce::Rectangle<float> pill (btns.getX() + colGap * 3.08f, botY - d * 0.55f, colGap * 1.84f, d * 1.1f);
+        g.setColour (juce::Colour (0xff2a2c34));
+        g.fillRoundedRectangle (pill, d * 0.5f);
+        g.setColour (juce::Colours::black.withAlpha (0.35f));
+        g.drawRoundedRectangle (pill, d * 0.5f, 1.0f);
+        const float pr = d * 0.16f, lw = juce::jmax (1.2f, d * 0.08f);
+        g.setColour (led.brighter (0.2f));
+        const float lx = pill.getX() + pill.getWidth() * 0.27f, rx = pill.getX() + pill.getWidth() * 0.73f, py = pill.getCentreY();
+        g.fillRoundedRectangle (lx - pr, py - lw * 0.5f, pr * 2.0f, lw, lw * 0.5f);                 // minus
+        g.fillRoundedRectangle (rx - pr, py - lw * 0.5f, pr * 2.0f, lw, lw * 0.5f);                 // plus -
+        g.fillRoundedRectangle (rx - lw * 0.5f, py - pr, lw, pr * 2.0f, lw * 0.5f);                 // plus |
+    }
+
+    // One control-block button glyph, drawn into box `b`. Simplified but recognisable per subtype.
+    void drawControlIcon (juce::Graphics& g, Control sub, int idx, juce::Rectangle<float> b, juce::Colour c)
+    {
+        const float cx = b.getCentreX(), cy = b.getCentreY(), s = b.getWidth() * 0.5f;
+        const float lw = juce::jmax (1.1f, b.getWidth() * 0.11f);
+        const juce::PathStrokeType stroke (lw, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
+        g.setColour (c);
+        auto chevron = [&] (float yc, float dir) { juce::Path p;                 // dir +1 down / -1 up
+            p.startNewSubPath (cx - s * 0.7f, yc - dir * s * 0.35f); p.lineTo (cx, yc + dir * s * 0.35f);
+            p.lineTo (cx + s * 0.7f, yc - dir * s * 0.35f); g.strokePath (p, stroke); };
+        auto tri = [&] (float ox, float dir) { juce::Path p;                     // play/tempo triangle
+            p.startNewSubPath (cx + ox - dir * s * 0.35f, cy - s * 0.55f);
+            p.lineTo (cx + ox + dir * s * 0.45f, cy); p.lineTo (cx + ox - dir * s * 0.35f, cy + s * 0.55f);
+            p.closeSubPath(); g.fillPath (p); };
+        auto grid = [&] { for (int ry = 0; ry < 3; ++ry) for (int cxi = 0; cxi < 3; ++cxi)
+            g.fillEllipse (cx - s * 0.6f + cxi * s * 0.6f - lw * 0.7f, cy - s * 0.6f + ry * s * 0.6f - lw * 0.7f, lw * 1.4f, lw * 1.4f); };
+        auto speaker = [&] { juce::Path p; p.addRectangle (cx - s * 0.7f, cy - s * 0.25f, s * 0.35f, s * 0.5f);
+            p.startNewSubPath (cx - s * 0.35f, cy - s * 0.25f); p.lineTo (cx, cy - s * 0.6f);
+            p.lineTo (cx, cy + s * 0.6f); p.lineTo (cx - s * 0.35f, cy + s * 0.25f); p.closeSubPath(); g.fillPath (p);
+            for (int w = 1; w <= 2; ++w) { juce::Path a; a.addCentredArc (cx, cy, s * (0.2f + 0.25f * w), s * (0.2f + 0.25f * w),
+                0.0f, -0.7f, 0.7f, true); g.strokePath (a, juce::PathStrokeType (lw * 0.8f)); } };
+        auto target = [&] { g.drawEllipse (cx - s * 0.6f, cy - s * 0.6f, s * 1.2f, s * 1.2f, lw * 0.9f);
+            g.fillEllipse (cx - s * 0.2f, cy - s * 0.2f, s * 0.4f, s * 0.4f); };
+        auto circle = [&] (float rr, bool fill) { juce::Rectangle<float> e (cx - s * rr, cy - s * rr, s * rr * 2.0f, s * rr * 2.0f);
+            if (fill) g.fillEllipse (e); else g.drawEllipse (e, lw * 0.9f); };
+        auto lock = [&] (float arrowDir) {                                        // padlock + small arrow
+            g.drawRoundedRectangle (cx - s * 0.45f, cy - s * 0.05f, s * 0.9f, s * 0.7f, lw * 0.6f, lw * 0.8f);
+            juce::Path a; a.addCentredArc (cx, cy - s * 0.05f, s * 0.28f, s * 0.3f, 0.0f, -1.6f, 1.6f, true);
+            g.strokePath (a, juce::PathStrokeType (lw * 0.8f));
+            if (arrowDir != 0.0f) chevron (cy + s * 0.28f, arrowDir); };
+
+        if (sub == Control::touch)
+        {
+            switch (idx) {
+                case 0: chevron (cy, +1); break;                                  // octave/nav down
+                case 1: { juce::Path p; p.startNewSubPath (cx - s * 0.1f, cy - s * 0.5f); p.lineTo (cx - s * 0.6f, cy);
+                          p.lineTo (cx - s * 0.1f, cy + s * 0.5f); p.startNewSubPath (cx + s * 0.1f, cy - s * 0.5f);
+                          p.lineTo (cx + s * 0.6f, cy); p.lineTo (cx + s * 0.1f, cy + s * 0.5f); g.strokePath (p, stroke); } break;
+                case 2: chevron (cy - s * 0.3f, -1); chevron (cy + s * 0.3f, +1); break;
+                case 3: target(); break;
+                case 4: chevron (cy, -1); break;                                  // up
+                case 5: lock (+1); break;
+                case 6: chevron (cy - s * 0.42f, -1); lock (+1); break;
+                case 7: { g.drawRoundedRectangle (cx - s * 0.65f, cy - s * 0.4f, s * 1.3f, s * 0.8f, 1.5f, lw * 0.7f);
+                          for (int k = 1; k < 4; ++k) g.drawLine (cx - s * 0.65f + k * s * 0.325f, cy - s * 0.4f,
+                                                                  cx - s * 0.65f + k * s * 0.325f, cy + s * 0.4f, lw * 0.6f); } break;
+                default: break;
+            }
+        }
+        else if (sub == Control::loop)
+        {
+            switch (idx) {
+                case 0: grid(); break;
+                case 1: speaker(); break;
+                case 2: { juce::Path p; p.startNewSubPath (cx - s * 0.5f, cy + s * 0.6f); p.lineTo (cx + s * 0.1f, cy - s * 0.6f);
+                          p.lineTo (cx + s * 0.5f, cy + s * 0.6f); g.strokePath (p, stroke);
+                          g.drawLine (cx - s * 0.35f, cy + s * 0.6f, cx + s * 0.1f, cy - s * 0.1f, lw * 0.8f); } break;  // metronome
+                case 3: tri (-s * 0.4f, +1); tri (0.0f, +1); tri (s * 0.4f, +1); break;                                  // tempo >>>
+                case 4: { juce::Path a; a.addCentredArc (cx, cy, s * 0.5f, s * 0.5f, 0.0f, -2.6f, 0.9f, true);
+                          g.strokePath (a, stroke); } break;                                                             // undo
+                case 5: tri (-s * 0.25f, +1); g.fillRoundedRectangle (cx + s * 0.15f, cy - s * 0.45f, lw, s * 0.9f, lw * 0.4f);
+                        g.fillRoundedRectangle (cx + s * 0.42f, cy - s * 0.45f, lw, s * 0.9f, lw * 0.4f); break;          // play/pause
+                case 6: g.setColour (juce::Colour (0xffff4d58)); circle (0.5f, true); break;                             // record
+                case 7: { juce::Path p; p.startNewSubPath (cx - s * 0.6f, cy); p.lineTo (cx, cy - s * 0.4f);             // mortarboard
+                          p.lineTo (cx + s * 0.6f, cy); p.lineTo (cx, cy + s * 0.4f); p.closeSubPath(); g.fillPath (p); } break;
+                default: break;
+            }
+        }
+        else if (sub == Control::live)
+        {
+            switch (idx) {
+                case 0: grid(); break;
+                case 1: speaker(); break;
+                case 2: case 3: case 4: { for (int k = 0; k < 2 + idx - 2; ++k) {}   // scene dots rows
+                          g.drawEllipse (cx - s * 0.6f, cy - s * 0.6f, s * 1.2f, s * 1.2f, lw * 0.7f);
+                          g.fillEllipse (cx - lw, cy - s * 0.35f - lw, lw * 2.0f, lw * 2.0f);
+                          g.fillEllipse (cx - lw, cy + s * 0.15f - lw, lw * 2.0f, lw * 2.0f); } break;
+                case 5: g.drawRoundedRectangle (cx - s * 0.45f, cy - s * 0.55f, s * 0.9f, s * 1.1f, 1.5f, lw * 0.8f); break; // clip
+                case 6: g.fillRoundedRectangle (cx - s * 0.5f, cy - s * 0.5f, s, s, s * 0.25f); break;                      // highlight
+                case 7: { juce::Path p; p.startNewSubPath (cx, cy + s * 0.55f);                                            // heart
+                          p.cubicTo (cx - s * 0.9f, cy - s * 0.1f, cx - s * 0.35f, cy - s * 0.7f, cx, cy - s * 0.2f);
+                          p.cubicTo (cx + s * 0.35f, cy - s * 0.7f, cx + s * 0.9f, cy - s * 0.1f, cx, cy + s * 0.55f);
+                          p.closeSubPath(); g.fillPath (p); } break;
+                default: break;
+            }
+        }
+        else   // generic / developer: a plain dot
+            g.fillEllipse (cx - lw, cy - lw, lw * 2.0f, lw * 2.0f);
     }
 
     // --- constants / state ----------------------------------------------------------------------

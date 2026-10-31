@@ -1017,9 +1017,9 @@ std::vector<KeyboardView::Tile> MainComponent::buildBlockTiles()
             case roli::Block::Type::roliPiano49:      t.family = KeyboardView::Family::lumi;      t.octaves = 4; dw = 14; dh = 4; break;
             case roli::Block::Type::lightPadBlock:    t.family = KeyboardView::Family::lightpad;  t.grid = 15;   dw = 2; dh = 2; break;
             case roli::Block::Type::lightpadProBlock: t.family = KeyboardView::Family::lightpad;  t.grid = 15;   dw = 4; dh = 4; break;
-            case roli::Block::Type::liveBlock:
-            case roli::Block::Type::loopBlock:
-            case roli::Block::Type::touchBlock:
+            case roli::Block::Type::liveBlock:  t.family = KeyboardView::Family::control; t.control = KeyboardView::Control::live;  dw = 2; dh = 1; break;
+            case roli::Block::Type::loopBlock:  t.family = KeyboardView::Family::control; t.control = KeyboardView::Control::loop;  dw = 2; dh = 1; break;
+            case roli::Block::Type::touchBlock: t.family = KeyboardView::Family::control; t.control = KeyboardView::Control::touch; dw = 2; dh = 1; break;
             case roli::Block::Type::developerControlBlock: t.family = KeyboardView::Family::control; dw = 2; dh = 1; break;
             default: continue;   // airwave / unknown: not drawn
         }
@@ -2573,8 +2573,13 @@ void MainComponent::forceLightpadPreview()
     tiles.push_back (tile (101, KeyboardView::Family::block,    0, 0, 6, 3, 2));
     tiles.push_back (tile (102, KeyboardView::Family::lightpad, 6, 0, 2, 2, 0));
     tiles.push_back (tile (103, KeyboardView::Family::control,  6, 2, 2, 1, 0));
+    tiles.back().control = KeyboardView::Control::touch;   // preview: show the per-type control art
     tiles.push_back (tile (104, KeyboardView::Family::lightpad, 8, 0, 2, 2, 0));
     tiles.push_back (tile (105, KeyboardView::Family::control,  8, 2, 2, 1, 0));
+    tiles.back().control = KeyboardView::Control::loop;
+    tiles.push_back (tile (106, KeyboardView::Family::lightpad, 10, 0, 2, 2, 0));
+    tiles.push_back (tile (107, KeyboardView::Family::control, 10, 2, 2, 1, 0));
+    tiles.back().control = KeyboardView::Control::live;
     keyboardView.setLayout (tiles);
     keyboardView.setSelected ({ 102 });   // highlight the Lightpad, dim the rest (demo the selection look)
     keyboardView.setVisible (true);
