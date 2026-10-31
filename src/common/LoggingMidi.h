@@ -422,6 +422,15 @@ private:
     // where identifiers encode vid/pid; elsewhere (macOS/BLE identifiers are an
     // opaque UID) fall back to family names. A loose "ble"-style substring is
     // avoided — these tokens are specific enough not to catch unrelated ports.
+    // JUCE's WinRT MIDI backend gives devices it can't assign a container to this placeholder GUID.
+    // On Windows these are the legacy WinMM-bridged endpoints (software synths, and duplicate
+    // representations of real devices that also appear with a proper GUID). They collide on a shared
+    // id and have no bus info, so GRAB ignores them and uses the real WinRT entries instead.
+    static bool isWinrtPlaceholder (const juce::MidiDeviceInfo& d)
+    {
+        return d.identifier.startsWithIgnoreCase ("{00000000-0000-0000-FFFF-FFFFFFFFFFFF}");
+    }
+
     static bool isBlocksDevice (const juce::MidiDeviceInfo& d)
     {
         // The RISE and the GRAND speak the 0x78 dialect, not BLOCKS 0x77 - they're handled by
@@ -452,14 +461,15 @@ private:
 
     static bool isUsb (const juce::MidiDeviceInfo& d)
     {
-       #if JUCE_WINDOWS
-        // Windows MIDI identifiers encode the bus: USB endpoints look like usb#/vid_.
+       #if JUCE_WINDOWS && ! JUCE_USE_WINRT_MIDI
+        // Legacy WinMM: identifiers encode the bus, so USB endpoints look like usb#/vid_.
         return d.identifier.containsIgnoreCase ("usb#")
             || d.identifier.containsIgnoreCase ("vid_");
        #else
-        // macOS CoreMIDI / Linux ALSA identifiers don't name the bus (they're a UID),
-        // so there's no positive "USB" marker to match. A Seaboard that isn't BLE is
-        // reached over USB. BLE is still detected positively by isBle().
+        // WinRT MIDI (Windows.Devices.Midi) exposes opaque GUID identifiers with no bus marker,
+        // exactly like macOS CoreMIDI / Linux ALSA (which use a UID). So there's no positive "USB"
+        // token to match - a BLOCKS device that isn't BLE is reached over USB. BLE is still detected
+        // positively by isBle(), so this stays correct for the Bluetooth endpoints.
         return ! isBle (d);
        #endif
     }
@@ -549,6 +559,8 @@ private:
                 continue;
             if (! wantBle && ! isUsb (in))   // USB must positively look like USB
                 continue;
+            if (isWinrtPlaceholder (in))     // skip JUCE's null-GUID legacy/duplicate endpoints (WinRT)
+                continue;
 
             // Pick this input's matching output: prefer an exact identifier, else the unclaimed
             // same-named output whose identifier shares the longest prefix (i.e. the same physical
@@ -560,6 +572,8 @@ private:
             for (auto& out : outputs)
             {
                 if (isBle (out) != wantBle || (! wantBle && ! isUsb (out)) || usedOut.contains (out.identifier))
+                    continue;
+                if (! isBlocksDevice (out) || isWinrtPlaceholder (out))   // output must be a real BLOCKS endpoint
                     continue;
                 const bool idEq = (out.identifier == in.identifier);
                 if (! idEq && out.name != in.name)

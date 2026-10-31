@@ -139,6 +139,12 @@ private:
         t.add ("WHICH CONNECTION ('Connection Type')");
         t.add ("  On 'Auto', GRAB uses USB if your device is on USB, otherwise Bluetooth (BLE).");
         t.add ("  You can force one with the Connection Type menu, then it re-scans.");
+        if (win)
+        {
+            t.add ("  Bluetooth (BLE) on Windows needs Windows MIDI Services (built into Windows 11 25H2+;");
+            t.add ("  not installable on older builds). Without it, ROLI BLE-MIDI is unreliable or doesn't");
+            t.add ("  appear at all - use USB on older Windows. USB works on every Windows version.");
+        }
         t.add ("");
 
         t.add ("LIKELY ISSUE & WHAT TO DO");
