@@ -75,6 +75,14 @@ public:
         graphic for the Studio (37) / Stage (61) / First Edition (88). Called on the message thread. */
     std::function<void (int)> onKeyCount;
 
+    /** Persistent device info for the shared DeviceInfoBar: name, firmware, battery (0..1, <0 if
+        unknown), transport ("USB"/"BLE"). Called on the message thread when the state is read. */
+    std::function<void (juce::String name, juce::String fw, float battery01, juce::String transport)> onDeviceInfo;
+
+    /** Transient status text (Reading / Saved / errors), routed to MainComponent's single status
+        line so the RISE page doesn't show a second one. Called on the message thread. */
+    std::function<void (juce::String)> onStatus;
+
 private:
     void handleIncomingMidiMessage (juce::MidiInput*, const juce::MidiMessage&) override;
     void timerCallback() override;

@@ -282,9 +282,9 @@ Rise2Component::Rise2Component (seaprobe::RawLogger& loggerToUse, juce::String p
 {
     liveCc.fill (-1);   // no CC data yet
     touchNote.fill (-1); touchZ.fill (0.0f); touchBend.fill (0.0f); touchStrike.fill (0.0f);
-    addAndMakeVisible (statusLabel);
-    addAndMakeVisible (infoLabel);
-    infoLabel.setColour (juce::Label::textColourId, juce::Colours::white.withAlpha (0.7f));
+    // statusLabel / infoLabel are no longer shown here - status + device info are routed up to
+    // MainComponent's shared top bar (onStatus / onDeviceInfo). The members stay as harmless
+    // fallbacks for the rare pre-wiring call.
     addAndMakeVisible (reloadButton);
     addAndMakeVisible (saveButton);
     addAndMakeVisible (autosaveToggle);
@@ -488,7 +488,7 @@ void Rise2Component::devicesChanged()
         expected.clear();
         saveButton.setEnabled (false);
         reloadButton.setEnabled (false);
-        infoLabel.setText ({}, juce::dontSendNotification);
+        if (onDeviceInfo) onDeviceInfo ({}, {}, -1.0f, {});   // blank the shared bar (device gone)
         setStatus ("RISE/GRAND disconnected. Waiting for it to come back...");
         return;
     }
@@ -638,14 +638,15 @@ void Rise2Component::onState (rise2::State s)
     grand = rawModel.startsWithIgnoreCase ("GRND");
     state.grand = grand;
 
+    // Transport for the shared info bar: macOS names the BLE endpoint "<device> Bluetooth".
+    const juce::String transport = portName.containsIgnoreCase ("bluetooth") ? "BLE" : "USB";
+
     if (grand)
     {
         firmware = state.text (goff::firmware, 8);   // stored for preset metadata
         const int keyCount = state.at (goff::keyCount);
-        infoLabel.setText (portName + "   fw " + firmware + "   " + juce::String (keyCount) + " keys"
-                               + "   " + grab::u8 ("-") + " GRAND: full settings + live touch "
-                                 "(octave & tracking are write-only - the GRAND doesn't report them back)",
-                           juce::dontSendNotification);
+        // The GRAND's reply carries no battery level, so the shared bar hides the icon for it (-1).
+        if (onDeviceInfo) onDeviceInfo (portName, firmware, -1.0f, transport);
         // Size the keyboard graphic from the GRAND's reported key count, so the three editions -
         // Studio (37), Stage (61) and the 88-key First Edition - each draw at the right width
         // (the port name is just "Seaboard GRAND" with no size).
@@ -655,12 +656,8 @@ void Rise2Component::onState (rise2::State s)
     else
     {
         firmware = state.text (off::firmware, 8);   // stored for preset metadata
-        const auto extra    = state.text (off::extraVersion, 8);
-        const auto ble      = state.text (off::bleFirmware, 8);
-        infoLabel.setText (portName + "   fw " + firmware + (extra.isNotEmpty() ? " (" + extra + ")" : juce::String())
-                               + (ble.isNotEmpty() ? "   Bluetooth " + ble : juce::String())
-                               + "   battery " + juce::String (state.at (off::battery)) + "/7",
-                           juce::dontSendNotification);
+        const float battery01 = juce::jlimit (0.0f, 1.0f, (float) state.at (off::battery) / 7.0f);
+        if (onDeviceInfo) onDeviceInfo (portName, firmware, battery01, transport);
     }
 
     // The write protocol is confirmed on both the RISE 2 (fw 2.x) and the original RISE
@@ -1239,17 +1236,16 @@ void Rise2Component::applyRisePreset (const juce::String& name)
 
 void Rise2Component::setStatus (const juce::String& s)
 {
-    statusLabel.setText (s, juce::dontSendNotification);
+    // Route to MainComponent's single shared status line (the RISE page no longer shows its own).
+    if (onStatus) onStatus (s);
+    else          statusLabel.setText (s, juce::dontSendNotification);
 }
 
 void Rise2Component::resized()
 {
     auto r = getLocalBounds();
-    auto top = r.removeFromTop (28);
-    infoLabel.setBounds (top.removeFromRight (330));
-    statusLabel.setBounds (top);
-    r.removeFromTop (4);
-
+    // Status + device info now live in MainComponent's shared top bar, so the RISE page starts
+    // straight at its controls (no local status/info row here any more).
     auto buttons = r.removeFromTop (30);
     reloadButton.setBounds (buttons.removeFromLeft (165).reduced (2, 0));
     saveButton  .setBounds (buttons.removeFromLeft (150).reduced (2, 0));

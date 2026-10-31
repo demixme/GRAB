@@ -215,6 +215,7 @@ MainComponent::MainComponent()
 {
     addAndMakeVisible (statusLabel);
     statusLabel.setJustificationType (juce::Justification::centredLeft);
+    addAndMakeVisible (deviceInfo);   // persistent device state (battery icon+%, name, fw, transport)
 
     addAndMakeVisible (diagnoseBtn);
     diagnoseBtn.onClick = [this] { openDialog (new DiagnosePanel(), "Diagnose connection"); };
@@ -459,6 +460,7 @@ void MainComponent::connect (seaprobe::Transport transport)
     selectedBlockUid = 0;
     currentRiseId = {};         // cleared here; set again if this connect shows a RISE/GRAND
     deviceEntries.clear();
+    deviceInfo.clear();         // blank the shared bar until a device reports in
     learnedForType = {};
     learnedNames.clear();
     blockOrder.clear();
@@ -505,10 +507,15 @@ void MainComponent::connect (seaprobe::Transport transport)
         currentRiseId = chosen.identifier;
         const bool isGrand = rise2::isGrandName (riseName);
 
-        setStatus (riseName + " found.");
+        setTransient (riseName + " found.", true);
         rise2Page = std::make_unique<Rise2Component> (*logger, chosen.identifier);
         addAndMakeVisible (*rise2Page);
         setBlocksControlsVisible (false);
+
+        // The RISE/GRAND page feeds the same shared bar + status line as the BLOCKS page.
+        rise2Page->onDeviceInfo = [this] (juce::String name, juce::String fw, float batt, juce::String transport)
+        { deviceInfo.setInfo (name, fw, batt, transport); };
+        rise2Page->onStatus = [this] (juce::String s) { setStatus (s); };
 
         const auto kr = riseKeyRange (riseName);
         keyboardView.setKeyboardRange (kr.first, kr.second);   // exact board (e.g. RISE 2 = 49 keys, C2..C6)
@@ -570,7 +577,39 @@ void MainComponent::setBlocksControlsVisible (bool visible)
 
 void MainComponent::setStatus (const juce::String& s)
 {
+    ++statusGen;   // cancel any pending auto-clear from a previous transient
     statusLabel.setText (s, juce::dontSendNotification);
+}
+
+// A status message that fades back to idle on its own (so "Reading..." / "Saved" never stick). The
+// generation guard means only the newest message's timer actually clears the label.
+void MainComponent::setTransient (const juce::String& s, bool autoClear)
+{
+    const int gen = ++statusGen;
+    statusLabel.setText (s, juce::dontSendNotification);
+    if (autoClear)
+        juce::Timer::callAfterDelay (2600, [this, gen, safe = juce::Component::SafePointer<MainComponent> (this)]
+        {
+            if (safe != nullptr && statusGen == gen)
+                statusLabel.setText ({}, juce::dontSendNotification);
+        });
+}
+
+// Fill the shared DeviceInfoBar from the connected BLOCKS device (battery icon + %, name, fw,
+// transport, and a faint item-count suffix). The RISE/GRAND page feeds the same bar via onDeviceInfo.
+void MainComponent::updateDeviceInfo()
+{
+    if (block == nullptr)
+    {
+        deviceInfo.clear();
+        return;
+    }
+    const int items = (int) rows.size();
+    deviceInfo.setInfo (block->serialNumber,
+                        block->versionNumber,
+                        juce::jlimit (0.0f, 1.0f, block->getBatteryLevel()),
+                        detector != nullptr ? detector->getActiveTransport() : juce::String(),
+                        items > 0 ? juce::String (items) + " settings" : juce::String());
 }
 
 void MainComponent::topologyChanged()
@@ -589,6 +628,7 @@ void MainComponent::topologyChanged()
         clusterMembers.clear();
         setTouchListening ({});   // device gone: stop the live rings
         deviceEntries.clear();
+        deviceInfo.clear();        // device gone: blank the shared info bar
         blockBox.clear (juce::dontSendNotification);
         blockLabel.setVisible (false);
         blockBox.setVisible (false);
@@ -716,14 +756,17 @@ void MainComponent::updateBlockList (const roli::BlockTopology& topo)
 
     const bool unseen = blockCount == 1 && detector != nullptr && detector->hasUnseenDnaNeighbour();
 
-    setStatus ("Connected (" + (detector != nullptr ? detector->getActiveTransport() : juce::String())
+    // Persistent device state (serial / fw / battery icon+% / transport) lives in the shared bar now.
+    updateDeviceInfo();
+    // The status line carries only the transient connect confirmation (block/DNA count + the
+    // actionable "unseen neighbour" hint), and fades out on its own. The "unseen" hint stays put.
+    const juce::String connected = "Connected (" + (detector != nullptr ? detector->getActiveTransport() : juce::String())
                + "): " + juce::String (blockCount) + " block(s)"
-               + (blockCount > 1 ? ", " + juce::String (dnaLinks) + " DNA link(s)" : juce::String())
-               + (block != nullptr ? "   -   " + block->serialNumber + " fw " + block->versionNumber
-                                       + " battery " + juce::String (juce::roundToInt (block->getBatteryLevel() * 100.0f)) + "%"
-                                     : juce::String())
-               + (unseen ? grab::u8 ("   -   DNA-linked block visible over Bluetooth - switch to Auto to see it")
-                         : juce::String()));
+               + (blockCount > 1 ? ", " + juce::String (dnaLinks) + " DNA link(s)" : juce::String());
+    if (unseen)
+        setStatus (connected + grab::u8 ("   -   DNA-linked block visible over Bluetooth - switch to Auto to see it"));
+    else
+        setTransient (connected, true);
 
     // Diagnostic: log what the SDK reports about the physical arrangement, so we can see whether DNA
     // join/separate is detectable (does connections[] change? do block positions become adjacent?).
@@ -1655,17 +1698,15 @@ void MainComponent::rebuildRows()
     saveButton.setEnabled (false);
     updateLumiKeyboardColours();   // (re)light the LUMI/Piano keyboard from the freshly-read config
 
-    // Append the item/section count to the connect status, first stripping any count we appended on
-    // an earlier rebuild (rebuildRows can fire several times per connect) so it doesn't accumulate.
-    juce::String base = statusLabel.getText();
-    const int itemsIdx = base.lastIndexOf (" items in ");
-    if (itemsIdx >= 0)
+    // The read is done: refresh the shared device bar (incl. the item count) and clear any lingering
+    // "Reading..." / "Reloading..." transient so it never sticks. (No dev preview has a real block.)
+    if (block != nullptr)
     {
-        const int sepIdx = base.substring (0, itemsIdx).lastIndexOf ("   -   ");
-        if (sepIdx >= 0) base = base.substring (0, sepIdx);
+        updateDeviceInfo();
+        const auto s = statusLabel.getText();
+        if (s.startsWith ("Reading") || s.startsWith ("Reloading"))
+            setTransient ("Up to date", true);
     }
-    setStatus (base + "   -   " + juce::String ((int) rows.size())
-               + " items in " + juce::String ((int) groupOrder.size()) + " sections");
 }
 
 void MainComponent::onItemChanged (juce::uint32 id, juce::int32 value)
@@ -2273,6 +2314,9 @@ void MainComponent::forceRisePreview()
     {
         rise2Page = std::make_unique<Rise2Component> (*logger);
         addAndMakeVisible (*rise2Page);
+        rise2Page->onDeviceInfo = [this] (juce::String name, juce::String fw, float batt, juce::String transport)
+        { deviceInfo.setInfo (name, fw, batt, transport); };
+        rise2Page->onStatus = [this] (juce::String s) { setStatus (s); };
         setBlocksControlsVisible (false);
     }
 
@@ -2447,6 +2491,9 @@ void MainComponent::forceGrandPreview()
     {
         rise2Page = std::make_unique<Rise2Component> (*logger);
         addAndMakeVisible (*rise2Page);
+        rise2Page->onDeviceInfo = [this] (juce::String name, juce::String fw, float batt, juce::String transport)
+        { deviceInfo.setInfo (name, fw, batt, transport); };
+        rise2Page->onStatus = [this] (juce::String s) { setStatus (s); };
     }
     setBlocksControlsVisible (false);
     grandPreview = true;
@@ -2539,7 +2586,12 @@ void MainComponent::resized()
 {
     footer.setBounds (getLocalBounds().removeFromBottom (26));   // full-width strip at the very bottom
     auto r = getLocalBounds().withTrimmedBottom (26).reduced (8);
-    statusLabel.setBounds (r.removeFromTop (28));
+    // Shared top strip (both pages): persistent device bar on the left, transient status filling the
+    // rest on the right. One home for device/battery info; no more per-page duplicates.
+    auto topRow = r.removeFromTop (28);
+    deviceInfo.setBounds (topRow.removeFromLeft (juce::jmin (600, topRow.getWidth() * 3 / 5)));
+    topRow.removeFromLeft (12);
+    statusLabel.setBounds (topRow);
     r.removeFromTop (4);
 
     // The keyboard graphic (keyboard devices only) sits above the config content.

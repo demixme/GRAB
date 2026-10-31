@@ -14,6 +14,7 @@
 #include "LearnedNames.h"
 #include "CurveComponent.h"
 #include "ColourWell.h"
+#include "DeviceInfoBar.h"
 #include "SectionCard.h"
 #include "FooterBar.h"
 #include "KeyboardView.h"
@@ -227,7 +228,11 @@ private:
     seaprobe::Transport requestedTransport = seaprobe::Transport::Auto; // for diagnostics
 
     // UI
-    juce::Label        statusLabel;
+    juce::Label        statusLabel;      // transient messages only (Scanning / Reading / Saved); auto-clears
+    DeviceInfoBar      deviceInfo;       // persistent device state (battery icon+% / name / fw / transport)
+    int                statusGen = 0;    // generation guard so only the latest auto-clear fires
+    void setTransient (const juce::String& s, bool autoClear = false);  // status that can self-clear
+    void updateDeviceInfo();             // (re)fill the shared bar from the connected BLOCKS device
     juce::Label        transportLabel;
     juce::ComboBox     transportBox;
     juce::Label        blockLabel;
