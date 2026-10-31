@@ -166,7 +166,14 @@ private:
         add (Body,  "       lluisgerard - Piano M / LUMI Keys (incl. a chained pair)\n");
         add (Body,  "       gofer723 - Seaboard RISE 2 Multi / Single Channel\n");
         add (Body,  "       LucidCZ - Seaboard RISE 2 settings confirmation (octave, transpose, tracking, 5D)\n");
-        add (Body,  "       Legitimate_Horror_72 - ROLI Piano scale names & firmware scale lighting\n\n");
+        add (Body,  "       Harry Triendl - Seaboard RISE 25 captures\n");
+        add (Body,  "       WillEarlDE - Seaboard RISE 49 testing\n");
+        add (Body,  "       Roger - confirmed BLOCKS settings travel over USB-MIDI; app-loader testing\n");
+        add (Body,  "       Pete Brown (Microsoft) - Windows 11 multi-client MIDI\n");
+        add (Body,  "       Legitimate_Horror_72 - ROLI Piano scale names & firmware scale lighting\n");
+        add (Body,  "    ...and everyone who sent an anonymous profile or capture - GRAB's device support "
+                    "grows from your data.\n");
+        add (Note,  "    Missed from this list? Let us know and we'll add you.\n\n");
 
         add (Note,  "Thanks for helping!  Reopen any time from Advanced > How you can help.");
 

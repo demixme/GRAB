@@ -385,12 +385,21 @@ GRAB is built by the community. In particular:
   (macOS, fw 2.0.2) with a labelled capture loop — octave, transpose, pitch-bend, both tracking
   selectors and all five 5D sensitivities — verifying the read offsets and the live `0x78 3D`
   glide/slide write messages on real hardware ([RISE-GRAND.md](RISE-GRAND.md)).
+- **Harry Triendl** contributed **Seaboard RISE 25** captures, confirming the original RISE 25
+  answers the `0x78` identify with the same state dump GRAB already decodes.
+- **WillEarlDE** tested GRAB on a **Seaboard RISE 49** and helped verify the RISE settings model
+  across Dashboard's presets.
+- **Roger** confirmed that **BLOCKS settings travel over USB-MIDI** (not only Bluetooth) — correcting
+  a wrong assumption — and tested the experimental Lightpad app loader.
+- **[Pete Brown](https://github.com/Psychlist1972)** (Microsoft) confirmed the **Windows 11
+  multi-client MIDI** behaviour that lets GRAB, Dashboard and a DAW share a device ([issue #7](../../issues/7)).
 - **Legitimate_Horror_72** (Reddit) contributed the **ROLI Piano scale names + note masks** (device
   order 0–18) and the discovery that **scale lighting is built into the firmware** (User colour scheme),
   which drives GRAB's Scale dropdown and the colour-aware keyboard graphic.
 
-Thanks also to everyone who's submitted a device profile, capture, or report — the supported-device
-list grows from those. Contributions welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
+And thank you to everyone who's sent an **anonymous device profile, capture, or report** — GRAB's
+supported-device list grows directly from that data. If we've missed you by name, let us know and
+we'll add you. Contributions welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 MIT — see [LICENSE](LICENSE). Vendored `roli_blocks_basics` is ISC (ROLI Ltd); JUCE
