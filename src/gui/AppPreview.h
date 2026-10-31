@@ -71,7 +71,7 @@ public:
     }
 
 private:
-    void timerCallback() override { app.repaint(); repaint(); }
+    void timerCallback() override { app.repaint(); if (! app.isLoaded()) stopTimer(); repaint(); }
 
     LittleFootApp& app;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LEDGridComponent)

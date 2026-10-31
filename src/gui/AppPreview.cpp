@@ -15,6 +15,10 @@ using namespace juce;                         // required by the vendored Runner
 #include <cstring>
 #include <vector>
 
+#if defined (_MSC_VER)
+ #include <excpt.h>      // __try/__except + EXCEPTION_EXECUTE_HANDLER (SEH guard around the VM)
+#endif
+
 namespace lf = roli::littlefoot;
 
 //==============================================================================
@@ -152,6 +156,7 @@ struct LittleFootApp::Impl
     juce::Random rng;
     juce::uint32 startMs = 0;
     bool loaded = false;
+    bool faulted = false;        // set if a VM call hard-faulted (SEH) - the app disables itself
     std::vector<lf::NativeFunction> natives;
 
     Impl()
@@ -176,14 +181,25 @@ struct LittleFootApp::Impl
         if ((int) code.size() > (int) runner.getMaximumProgramSize())
             return juce::Result::fail ("Program too large for the preview VM");
 
+        // The heap can push total space past the program region even when the bytecode fits; refuse
+        // rather than let the VM overflow at runtime.
+        if (compiler.getCompiledProgram().getTotalSpaceNeeded() > RunnerT::getMaximumProgramSize())
+            return juce::Result::fail ("Program needs more memory than the preview VM provides");
+
         runner.reset();
         std::memcpy (runner.getProgramAndDataStart(), code.begin(), (size_t) code.size());
+
         loaded = true;
+        faulted = false;
         startMs = juce::Time::getMillisecondCounter();
 
         seedDefaultConfig();                        // so config-driven apps (e.g. Note Grid) aren't all-black
         if (hasSeed) callFn ("__grabSeed/v");       // seed the generated metadata globals before initialise()
         callFn ("initialise/v");
+
+        if (faulted)                                // a hard fault during seeding/initialise -> unsupported
+        { loaded = false; return juce::Result::fail ("This app isn't supported by the preview (it faulted on load)"); }
+
         return juce::Result::ok();
     }
 
@@ -215,10 +231,23 @@ private:
 
     // The vendored callFunction() overloads can't instantiate (they call run() with no timeout), so run
     // via FunctionExecutionContext with a wall-clock budget - also guards the UI against a runaway app.
+    static void runOnce (RunnerT& r, const char* sig, juce::uint32 deadline)
+    {
+        RunnerT::FunctionExecutionContext (r, sig).run ([deadline] { return juce::Time::getMillisecondCounter() > deadline; });
+    }
+
+    // These are untrusted programs. The deadline above guards infinite loops; on MSVC we additionally
+    // wrap the call in SEH so a hard fault (bad memory access, runaway recursion) disables the preview
+    // instead of taking GRAB down. runOnce holds the C++ objects so this frame needs no unwinding.
     void callFn (const char* sig)
     {
         const auto deadline = juce::Time::getMillisecondCounter() + 50;
-        RunnerT::FunctionExecutionContext (runner, sig).run ([deadline] { return juce::Time::getMillisecondCounter() > deadline; });
+       #if defined (_MSC_VER)
+        __try                                   { runOnce (runner, sig, deadline); }
+        __except (EXCEPTION_EXECUTE_HANDLER)    { loaded = false; faulted = true; }
+       #else
+        runOnce (runner, sig, deadline);
+       #endif
     }
 
     static juce::uint32 blend (juce::uint32 base, juce::uint32 over)
@@ -236,7 +265,12 @@ private:
     void setPix   (int x, int y, juce::uint32 c) { if (x >= 0 && x < W && y >= 0 && y < H) grid[(size_t) (y * W + x)] = 0xff000000 | (c & 0xffffff); }
     void blendPix (int x, int y, juce::uint32 c) { if (x >= 0 && x < W && y >= 0 && y < H) { auto& g = grid[(size_t) (y * W + x)]; g = blend (g, c); } }
     void fillRect (juce::uint32 c, int x, int y, int w, int h, bool b)
-    { for (int j = y; j < y + h; ++j) for (int k = x; k < x + w; ++k) b ? blendPix (k, j, c) : setPix (k, j, c); }
+    {
+        // Clamp the iteration to the grid so an app passing huge/negative w/h can't spin a giant loop.
+        const int x0 = juce::jmax (0, x), y0 = juce::jmax (0, y);
+        const int x1 = juce::jmin (W, x + w), y1 = juce::jmin (H, y + h);
+        for (int j = y0; j < y1; ++j) for (int k = x0; k < x1; ++k) b ? blendPix (k, j, c) : setPix (k, j, c);
+    }
     void clearAll (juce::uint32 c) { for (auto& g : grid) g = 0xff000000 | (c & 0xffffff); }
 
     static Impl* self (void* c) { return static_cast<Impl*> (c); }
