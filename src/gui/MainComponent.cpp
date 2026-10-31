@@ -319,7 +319,13 @@ MainComponent::MainComponent()
                 else if (r == 8) openDialog (new ExplorePanel(), "Help add this device");
                 else if (r == 9) openDialog (new AirwavePanel(), "Airwave & gesture control (experimental)");
                 else if (r == 10) openDialog (new AirwaveTesterPanel(), "Airwave CC tester (experimental)");
-                else if (r == 11) openDialog (new AppInspectorPanel(), "BLOCKS app inspector (experimental)");
+                else if (r == 11)
+                {
+                    auto* p = new AppInspectorPanel();
+                    p->setDeviceLoader ([this] { return appLoadTargetName(); },
+                                        [this] (const juce::String& s, const juce::Array<juce::File>& sp) { return loadAppToDevice (s, sp); });
+                    openDialog (p, "BLOCKS app inspector (experimental)");
+                }
             });
     };
 
@@ -1770,6 +1776,57 @@ void MainComponent::factoryReset()
     });
 }
 
+//==============================================================================
+// Experimental BLOCKS app loader (Advanced ▸ app inspector). Apps are Littlefoot programs that run
+// on Lightpad Blocks, so loading targets a connected Lightpad only. We upload with
+// ProgramPersistency::setAsTemp - the app runs now but is NOT flashed, so a power-cycle restores the
+// device's previous app. GRAB never uploads firmware or bootloader images (hard rule).
+namespace
+{
+    struct DeviceAppProgram : public roli::Block::Program
+    {
+        DeviceAppProgram (roli::Block& b, juce::String src, juce::Array<juce::File> paths)
+            : roli::Block::Program (b), source (std::move (src)), searchPaths (std::move (paths)) {}
+
+        juce::String            getLittleFootProgram() override { return source; }
+        juce::Array<juce::File> getSearchPaths()       override { return searchPaths; }
+
+        juce::String            source;
+        juce::Array<juce::File> searchPaths;
+    };
+}
+
+juce::String MainComponent::appLoadTargetName() const
+{
+    if (block != nullptr && block->getType() == roli::Block::Type::lightPadBlock)
+    {
+        auto name = blockBox.getText();
+        return name.isNotEmpty() ? name : juce::String (grab::blockTypeName (block->getType()));
+    }
+    return {};   // apps run on Lightpad Blocks; "" tells the UI to disable loading
+}
+
+juce::Result MainComponent::loadAppToDevice (const juce::String& appSource, const juce::Array<juce::File>& searchPaths)
+{
+    if (block == nullptr)
+        return juce::Result::fail ("No device connected.");
+    if (block->getType() != roli::Block::Type::lightPadBlock)
+        return juce::Result::fail ("The connected device is not a Lightpad Block. BLOCKS apps run on Lightpad Blocks.");
+
+    // Prepend the generated <metadata> code so metadata-driven apps compile - the same bytes the
+    // preview compiles. setProgram() compiles first and only transfers on success, so a bad app is
+    // rejected before anything reaches the device.
+    const auto full = grab::generateMetadataPreamble (appSource) + appSource;
+
+    const auto r = block->setProgram (std::make_unique<DeviceAppProgram> (*block, full, searchPaths),
+                                      roli::Block::ProgramPersistency::setAsTemp);
+
+    if (logger != nullptr)
+        logger->line (r.wasOk() ? "APP LOAD (temp) sent to Lightpad (user-confirmed)."
+                                : "APP LOAD failed: " + r.getErrorMessage());
+    return r;
+}
+
 void MainComponent::savePreset()   // Export to file...
 {
     if (rows.empty())
@@ -2025,7 +2082,7 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
     // Secret dev shortcut: Ctrl+Alt+Shift+R forces a local RISE preview (synthetic data,
     // no hardware). Each press toggles the verified (RISE 2) / unverified (old RISE) view.
     // Sibling shortcuts: +P previews a synthetic ROLI Piano page, +L a Piano M / LUMI Keys,
-    // +G a GRAND.
+    // +G a GRAND, +B a Lightpad, +A the BLOCKS app LED preview (runs the built-in demo, no device).
     const auto mods = key.getModifiers();
     if (mods.isCtrlDown() && mods.isAltDown() && mods.isShiftDown())
     {
@@ -2036,6 +2093,11 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
             case 'L': forceLumiPreview();  return true;
             case 'G': forceGrandPreview(); return true;
             case 'B': forceLightpadPreview(); return true;
+            case 'A': { auto* p = new AppInspectorPanel();
+                        p->setDeviceLoader ([this] { return appLoadTargetName(); },
+                                            [this] (const juce::String& s, const juce::Array<juce::File>& sp) { return loadAppToDevice (s, sp); });
+                        p->previewDemo();
+                        openDialog (p, "BLOCKS app inspector (experimental)"); return true; }
             default:  break;
         }
     }

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(GRAB VERSION 0.1.66 LANGUAGES C CXX)  # bump with each release; tag vX.Y.Z to match
+project(GRAB VERSION 0.1.67 LANGUAGES C CXX)  # bump with each release; tag vX.Y.Z to match
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -87,7 +87,8 @@ juce_add_gui_app(GRAB
 target_sources(GRAB PRIVATE
     src/gui/Main.cpp
     src/gui/MainComponent.cpp
-    src/gui/Rise2Component.cpp)
+    src/gui/Rise2Component.cpp
+    src/gui/AppPreview.cpp)
 
 target_include_directories(GRAB PRIVATE src/common src/gui)
 

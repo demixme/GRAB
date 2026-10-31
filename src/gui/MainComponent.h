@@ -131,6 +131,12 @@ private:
     void saveToDevice();
     void reloadFromDevice();
     void factoryReset();   // Blocks only: library block->factoryReset(), behind a confirm dialog
+    // Experimental BLOCKS app loader (Advanced, gated). appLoadTargetName() returns the selected
+    // Lightpad's name if one is connected (apps target Lightpads), else "" so the UI disables loading.
+    // loadAppToDevice() uploads a Littlefoot app TEMPORARILY (ProgramPersistency::setAsTemp - a
+    // power-cycle restores the device). Apps only; GRAB never uploads firmware/bootloader images.
+    juce::String appLoadTargetName() const;
+    juce::Result loadAppToDevice (const juce::String& appSource, const juce::Array<juce::File>& searchPaths);
     juce::String roliProductName() const;  // ROLI download product name for the connected device, or empty
     void downloadFirmware();               // open ROLI's firmware download page in the browser (archival; never flashes)
     void populatePresetBox();                 // (re)fill the unified Preset menu for the current device

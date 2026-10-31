@@ -95,13 +95,17 @@ private:
         add (Body,  "    They read + live-edit fully - just send a profile (way 1) to confirm names & ranges.\n\n");
 
         add (H2,    "Work in progress:");
-        add (Body,  "  Lightpad Block / Pad - its settings work, but its apps (Note Grid, Fader, Drum...) don't.\n");
-        add (Body,  "    Live / Loop / Touch - basic settings only.\n");
-        add (Body,  "    These grow from a Capture MIDI (way 2) and/or a Dashboard capture (way 3).\n\n");
+        add (Body,  "  Lightpad Block / Pad - its settings read + live-edit. Its apps (Note Grid, Fader, Drum...) "
+                    "now PREVIEW inside GRAB, and can be LOADED onto a connected Lightpad - both experimental, in "
+                    "Advanced.\n");
+        add (Body,  "    App-specific settings live inside the app, not the device, so they're shown but not yet "
+                    "editable. Live / Loop / Touch: basic settings only.\n");
+        add (Body,  "    This area still grows from a Capture MIDI (way 2) and/or a Dashboard capture (way 3).\n\n");
 
         add (H2,    "Not recognised / out of scope:");
-        add (Body,  "  an unknown device - use Help add device (way 2). Airwave - host-side, nothing to "
-                    "configure.\n\n");
+        add (Body,  "  an unknown device - use Help add device (way 2).\n");
+        add (Body,  "    Airwave - a camera gesture controller that only sends MIDI CCs, so there's nothing on the "
+                    "device to configure. GRAB includes Airwave notes + a CC tester under Advanced (experimental).\n\n");
 
         // --- the three ways, easiest first ------------------------------------------------------
         add (H1,    "Three ways to help (easiest first)\n");
@@ -143,8 +147,14 @@ private:
         add (Body,  "(top row) lists the MIDI ports GRAB sees and flags a port held by another app.\n");
         add (Body,  "    Archive firmware: Advanced > Download firmware for archiving saves your Block / RISE "
                     "firmware while ROLI's servers are up.\n");
-        add (Body,  "    Private & safe: serials are hashed, serial & MAC stripped from captures, nothing sent until "
-                    "you click, and GRAB never flashes firmware.\n\n");
+        add (Body,  "    Lightpad apps can WRITE to the device (experimental): from ");
+        add (Click, "Advanced > app inspector");
+        add (Body,  " you can preview an app and load it onto a connected Lightpad. Loading writes a program to the "
+                    "Block - held in memory only, not saved to flash, so switching it off and on restores its "
+                    "previous app. It's always behind a confirmation, Lightpad-only, and apps only - GRAB never "
+                    "writes firmware.\n");
+        add (Body,  "    Private & safe: serials are hashed, serial & MAC stripped from captures, nothing is sent or "
+                    "written until you click, and GRAB never flashes firmware.\n\n");
 
         add (Note,  "Thanks for helping!  Reopen any time from Advanced > How you can help.");
 

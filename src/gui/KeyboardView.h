@@ -293,13 +293,19 @@ private:
         {
             const float mx = inset.getX() + juce::jlimit (0.0f, 1.0f, nx) * inset.getWidth();
             const float my = inset.getY() + juce::jlimit (0.0f, 1.0f, ny) * inset.getHeight();
-            const float inner = 3.0f + juce::jlimit (0.0f, 1.0f, strike) * 11.0f;
-            const float outer = juce::jmax (inner + 2.0f, 6.0f + juce::jlimit (0.0f, 1.0f, press) * 16.0f);
+
+            // Pressure ring (5D "Press" teal) tracks live pressure; strike disc (5D "Strike" blue) is the
+            // initial hit. The ring is drawn at true pressure, and the disc is clamped to stay inside it:
+            // when pressure falls below the strike size the disc shrinks to match, so the pressure ring is
+            // always visible outside the disc instead of being hidden under it.
+            const float strikeR = 3.0f + juce::jlimit (0.0f, 1.0f, strike) * 11.0f;
+            const float outer   = 6.0f + juce::jlimit (0.0f, 1.0f, press)  * 16.0f;
+            const float inner   = juce::jmin (strikeR, outer - 2.0f);
             juce::Rectangle<float> discC (mx - inner, my - inner, inner * 2.0f, inner * 2.0f);
             juce::Rectangle<float> ringC (mx - outer, my - outer, outer * 2.0f, outer * 2.0f);
-            g.setColour (juce::Colours::white.withAlpha (0.10f * a)); g.fillEllipse (ringC);
-            g.setColour (juce::Colours::white.withAlpha (0.85f * a)); g.drawEllipse (ringC, 1.4f);
-            g.setColour (juce::Colours::white.withAlpha (0.80f * a)); g.fillEllipse (discC);
+            g.setColour (grab::theme::press.withAlpha  (0.12f * a)); g.fillEllipse (ringC);   // faint fill inside ring
+            g.setColour (grab::theme::strike.withAlpha (0.85f * a)); g.fillEllipse (discC);   // strike disc (blue)
+            g.setColour (grab::theme::press.withAlpha  (0.95f * a)); g.drawEllipse (ringC, 1.6f); // pressure ring (teal)
         };
 
         // Chord ghosts only on keybeds, where x is linear in semitones (a +k-semitone note sits
