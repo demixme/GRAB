@@ -129,8 +129,25 @@ std::string annotate (const std::uint8_t* data, std::size_t size)
         }
 
         if (f.ns == Namespace::packedProtocol)
+        {
+            // Give the noisy program-upload packets a readable label (Dashboard streams a Littlefoot
+            // app as many sharedDataChange messages). Host->device only; device msgs lead with a 32-bit
+            // timestamp so their first field isn't the message type.
+            const bool fromDevice = (data[5] & 0x40) != 0;
+            if (! fromDevice && size >= 8)
+            {
+                BitReader r (data + 6, size - 8);
+                if (r.read (7) == 0x02)   // MessageFromHost::sharedDataChange
+                {
+                    const auto pkt = r.read (16);
+                    std::snprintf (buf, sizeof (buf), "ROLI 0x77 sharedDataChange pkt=%u idx=%d (program/data upload)",
+                                   pkt, f.topologyIndex);
+                    return buf;
+                }
+            }
             std::snprintf (buf, sizeof (buf), "ROLI sysex ns=0x77 %s idx=%d body=%zuB",
                            namespaceName (f.ns), f.topologyIndex, f.bodySize);
+        }
         else
             std::snprintf (buf, sizeof (buf), "ROLI sysex ns=0x%02X %s body=%zuB",
                            (f.ns == Namespace::serialDump) ? 0x78
@@ -263,6 +280,35 @@ namespace
             else if (cc == 0x02) { line (out, "config requestFactorySync"); }
             else if (cc == 0x03) { line (out, "config requestUserSync"); }
             else { line (out, "config %s (0x%X) [remaining %d bits]", configCommandName (cc), cc, r.remaining()); return false; }
+            return true;
+        }
+        if (mt == 0x02) // sharedDataChange - how Dashboard uploads a Littlefoot program / shared data,
+        {               // as a packet of byte edits to a shared data block (see roli DataChangeCommands).
+            const auto packetIndex = r.read (16);
+            int ops = 0, bytesSet = 0, bytesSkipped = 0;
+            bool truncated = false;
+            for (;;)
+            {
+                if (r.remaining() < 3) { truncated = true; break; }
+                const auto cmd = r.read (3);
+                if (cmd == 0 || cmd == 1)            // endOfPacket / endOfChanges
+                    break;
+                ++ops;
+                if      (cmd == 2) { bytesSkipped += (int) r.read (4); }                 // skipBytesFew
+                else if (cmd == 3) { bytesSkipped += (int) r.read (8); }                 // skipBytesMany
+                else if (cmd == 4)                                                       // setSequenceOfBytes
+                {
+                    for (;;) { if (r.remaining() < 9) { truncated = true; break; }
+                               r.read (8); ++bytesSet; if (r.read (1) == 0) break; }
+                    if (truncated) break;
+                }
+                else if (cmd == 5) { bytesSet += (int) r.read (4); r.read (8); }         // setFewBytesWithValue
+                else if (cmd == 6) { bytesSet += (int) r.read (4); }                     // setFewBytesWithLastValue
+                else if (cmd == 7) { bytesSet += (int) r.read (8); r.read (8); }         // setManyBytesWithValue
+                else { truncated = true; break; }
+            }
+            line (out, "sharedDataChange packetIndex=%u: %d op(s), %d byte(s) set, %d skipped%s (program/data upload)",
+                  packetIndex, ops, bytesSet, bytesSkipped, truncated ? " [truncated]" : "");
             return true;
         }
         line (out, "host message type 0x%02X [remaining %d bits]", mt, r.remaining());
