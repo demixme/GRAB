@@ -73,7 +73,9 @@ const std::vector<Field>& fields()
         { kBend,     "Pitch Bend Range", "MIDI Settings", CT::integer, 1, 96, {}, gbyte (off::bendRange, goff::bendRange), {} },
         // Tracking is NRPN 0 (glide) / NRPN 4 (press): 1 Last Played, 2 Highest, 3 Lowest, 4 Disabled
         // (confirmed from BabeleDunnit's sweep captures, issue #6). Disabled (4) was missing before -
-        // this also closes the long-standing RISE 25/49 gap (same 0x78 enum).
+        // this also closes the long-standing RISE 25/49 gap (same 0x78 enum). The RISE 2 side of this
+        // table (octave, transpose, bend, both tracking enums, all 5D sensitivities) was independently
+        // re-confirmed on a second RISE 2 by LucidCZ's labelled capture loop (see RISE-GRAND.md).
         { kGlideTracking, "Glide & Slide Tracking", "MIDI Settings", CT::options, 1, 4, { "Last Played", "Highest", "Lowest", "Disabled" },
           [] (const rise2::State& s) { return s.at (s.grand ? goff::glideTracking : off::glideTracking); }, rise2::glideSlideTracking },
         // Press is one NRPN-4 enum that Dashboard splits into "Press Mode" (Poly vs Channel Pressure)

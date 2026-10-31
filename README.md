@@ -381,6 +381,10 @@ GRAB is built by the community. In particular:
 - **[gofer723](https://github.com/gofer723)** reverse-engineered and reported the **RISE 2 Multi/Single
   Channel** protocol (start channel + channel count via RPN), which fixed GRAB's Multi Channel mode
   ([issue #9](../../issues/9)).
+- **LucidCZ** independently confirmed the full **Seaboard RISE 2** settings map on a second device
+  (macOS, fw 2.0.2) with a labelled capture loop — octave, transpose, pitch-bend, both tracking
+  selectors and all five 5D sensitivities — verifying the read offsets and the live `0x78 3D`
+  glide/slide write messages on real hardware ([RISE-GRAND.md](RISE-GRAND.md)).
 - **Legitimate_Horror_72** (Reddit) contributed the **ROLI Piano scale names + note masks** (device
   order 0–18) and the discovery that **scale lighting is built into the firmware** (User colour scheme),
   which drives GRAB's Scale dropdown and the colour-aware keyboard graphic.

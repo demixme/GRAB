@@ -156,6 +156,18 @@ private:
         add (Body,  "    Private & safe: serials are hashed, serial & MAC stripped from captures, nothing is sent or "
                     "written until you click, and GRAB never flashes firmware.\n\n");
 
+        // --- credits ----------------------------------------------------------------------------
+        add (H1,    "With thanks to our contributors\n");
+        add (Body,  "    GRAB's device support is built from captures and testing that people with real "
+                    "hardware sent in:\n");
+        add (Body,  "       sbialy - Seaboard RISE 2 protocol, 5D sensitivity curves, anonymisation\n");
+        add (Body,  "       fictionfred - original RISE 25 write protocol\n");
+        add (Body,  "       BabeleDunnit - Seaboard GRAND configuration\n");
+        add (Body,  "       lluisgerard - Piano M / LUMI Keys (incl. a chained pair)\n");
+        add (Body,  "       gofer723 - Seaboard RISE 2 Multi / Single Channel\n");
+        add (Body,  "       LucidCZ - Seaboard RISE 2 settings confirmation (octave, transpose, tracking, 5D)\n");
+        add (Body,  "       Legitimate_Horror_72 - ROLI Piano scale names & firmware scale lighting\n\n");
+
         add (Note,  "Thanks for helping!  Reopen any time from Advanced > How you can help.");
 
         body.setReadOnly (true);
