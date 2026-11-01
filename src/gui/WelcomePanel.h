@@ -101,20 +101,16 @@ private:
         add (Body,  "    App-specific settings live inside the app, not the device, so they're shown but not yet "
                     "editable.\n");
         add (Body,  "  Control Blocks - Live / Loop / Touch (DNA-connected, off a Lightpad or Seaboard Block). Their "
-                    "buttons now read + live-edit fully: per-button MIDI CC, behaviour, default / min / max and on/off "
-                    "colours.\n");
-        add (H2,    "  >> Most wanted right now: Control Block testers <<\n");
-        add (Body,  "    We decoded these from ROLI's factory program and confirmed reading against a Live and a Loop "
-                    "block, but we have ");
-        add (Click, "never confirmed the WRITE path on real hardware");
-        add (Body,  " and have no Touch Block data at all. If you own a Live, Loop or Touch block, please:\n");
-        add (Body,  "       1. Edit a button in GRAB (change its CC, behaviour or colour) and tell us whether the change "
-                    "actually takes effect on the device.\n");
-        add (Body,  "       2. Touch Block owners especially - run ");
+                    "buttons read + live-edit fully: per-button MIDI CC, behaviour, default / min / max and on/off "
+                    "colours. Read AND write are now confirmed on real hardware (Live + Loop) - editing a button's CC, "
+                    "behaviour or colour takes effect on the device.\n");
+        add (H2,    "  >> Most wanted right now: a Touch Block <<\n");
+        add (Body,  "    Live and Loop are covered; the one gap is a Touch Block, which no one has sent yet. If you "
+                    "have one, run ");
         add (Click, "Advanced... > Help add device");
-        add (Body,  " (and press every button) so we can confirm its layout and defaults.\n");
-        add (Body,  "    Either way, connected on its own or chained, a report helps. This area also grows from a "
-                    "Capture MIDI (way 2) and/or a Dashboard capture (way 3).\n\n");
+        add (Body,  " (and press every button) so we can confirm its layout and defaults - connected on its own or "
+                    "chained, either works. This area also grows from a Capture MIDI (way 2) and/or a Dashboard capture "
+                    "(way 3).\n\n");
 
         add (H2,    "Not recognised / out of scope:");
         add (Body,  "  an unknown device - use Help add device (way 2).\n");

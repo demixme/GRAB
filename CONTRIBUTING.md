@@ -4,11 +4,10 @@ GRAB only knows what people with real ROLI hardware send in. **You don't need to
 code** — the most valuable things are a one-click **profile** or a short **capture**, done
 from inside GRAB. Thanks for helping keep these instruments alive.
 
-> **⭐ Most wanted right now: Control Block testers (Live / Loop / Touch).** GRAB can read and
-> live-edit their buttons (CC, behaviour, default/min/max, on/off colours), but the **write path has
-> never been confirmed on real hardware** and we have **no Touch Block data at all**. If you own one:
-> (1) edit a button in GRAB and tell us whether the change takes effect on the device; (2) Touch Block
-> owners especially — run **Advanced ▸ Help add device** and press every button. See
+> **⭐ Most wanted right now: a Touch Block.** GRAB reads and live-edits control-block buttons (CC,
+> behaviour, default/min/max, on/off colours) — **read and write are now confirmed on real hardware for
+> Live and Loop** (thanks to *moofy*). The only gap left is a **Touch Block**, which no one has: if you
+> have one, run **Advanced ▸ Help add device** and press every button. See
 > [CONTROL-BLOCKS.md](CONTROL-BLOCKS.md).
 
 ---

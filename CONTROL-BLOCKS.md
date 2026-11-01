@@ -69,20 +69,18 @@ gate, matching the button-press capture `B0 66 7F` (CC 102, momentary 127 press 
 - **Editor** — per-button rows (ids 66–75) expose a two-line editor matching ROLI Dashboard: **MIDI CC**
   slider + **behaviour** dropdown on top, **Default / Min / Max** steppers beneath. The on/off colours
   (ids 76–95) are colour wells in their own rows. Edits repack `packButtonConfig` and write live.
-- **Still math-verified only:** the per-button **write** path is confirmed by decode and unpacking, but
-  has not been round-tripped on hardware (no control block on hand).
+- **Read + write confirmed on real hardware** (2026-11-01, contributor *moofy*, Live + Loop via a Lightpad
+  master): editing a button's **MIDI CC / behaviour / on-off colour** in GRAB takes effect on the device —
+  the LED colour changes and the button sends the new CC. So the full round-trip (decode → `packButtonConfig`
+  → live write) is proven, not just math-checked.
 
-## ⭐ Help wanted — we most need Control Block testers
+## ⭐ Help wanted — one gap left: a Touch Block
 
-We have **profiles** from a Live block and a Loop block (so *reading* is confirmed), but:
-- **The write path has never been confirmed on real hardware.** If you own a Live, Loop or Touch block,
-  **edit a button in GRAB** (change its CC, behaviour, default/min/max or a colour) and tell us whether
-  the change actually takes effect on the device. That's the one thing we can't test ourselves.
+Reading and writing are both confirmed on **Live** and **Loop** blocks. The only remaining gap:
 - **We have no Touch Block data at all.** If you have a Touch Block, run **Advanced ▸ Help add device**
   and press every button so we can confirm its layout and defaults. (The config *names* already cover it;
-  this is confirmation.)
-
-Connected on its own or chained to a Lightpad/Seaboard, either helps. See [CONTRIBUTING.md](CONTRIBUTING.md).
+  this is confirmation.) Connected on its own or chained to a Lightpad/Seaboard, either works.
+  See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 See also: [PROTOCOL.md](PROTOCOL.md) (0x77 BLOCKS framing, firmware catalogue),
 [CONTRIBUTING.md](CONTRIBUTING.md) and [tools/CAPTURE-DASHBOARD.md](tools/CAPTURE-DASHBOARD.md)

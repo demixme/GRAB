@@ -13,10 +13,16 @@ instruments configurable and self-documents their protocol.
        alt="GRAB configuring a Seaboard Block: colour-coded 5D sensitivity curves with live touch rings on the keyboard graphic, and MIDI settings, pitch and play-mode cards below.">
 </p>
 
-## Where it's at — v0.1.83
+## Where it's at — v0.1.84
 **Live editing** (changes write as you make them, like Dashboard), a unified **Preset** menu
 (ROLI presets + your own saved presets, per device), and **factory reset** for Blocks — on
 **Windows, macOS and Linux**.
+
+**New in v0.1.84:**
+- **Control Block read + write confirmed on hardware.** Contributor *moofy* verified it on a Live and a
+  Loop block: editing a button's **MIDI CC, behaviour or on/off colour** in GRAB actually takes effect on
+  the device. The per-button editor was decoded and math-checked before; it's now proven end-to-end. The
+  only control-block gap left is a **Touch Block** (no one has one yet).
 
 **New in v0.1.83:**
 - **Soundpacks in *Archive my ROLI downloads*.** GRAB now reads ROLI Connect's owned-soundpack catalog
@@ -38,9 +44,10 @@ instruments configurable and self-documents their protocol.
   hand-off offered as the tokenless path. See the expanded [preservation notes](PRESERVATION.md).
 
 **New in v0.1.80:**
-- **Call for Control Block testers.** In-app help and the docs now make the ask explicit: GRAB reads and
-  live-edits Live / Loop / Touch buttons, but the **write path isn't yet hardware-confirmed** and there's
-  **no Touch Block data** — see the "Most wanted" note below and [CONTROL-BLOCKS.md](CONTROL-BLOCKS.md).
+- **Call for Control Block testers.** GRAB reads and live-edits Live / Loop / Touch buttons. **Read + write
+  are now hardware-confirmed on Live and Loop** (thanks to contributor *moofy*: editing a button's CC,
+  behaviour or colour takes effect on the device). The only gap left is a **Touch Block** — see
+  [CONTROL-BLOCKS.md](CONTROL-BLOCKS.md).
 
 **New in v0.1.79:**
 - **Windows MIDI backend reverted to WinMM.** Per Microsoft's Pete Brown ([issue #7](../../issues/7)),
@@ -104,14 +111,11 @@ Recent additions:
   multi-client by default) GRAB runs **alongside your DAW** without quitting it (macOS and Linux
   already share).
 
-**Most wanted right now — Control Block testers (Live / Loop / Touch).** GRAB reads and live-edits
-their buttons (CC, behaviour, default/min/max, on/off colours), decoded from ROLI's factory program and
-confirmed *reading* against a Live and a Loop block — but **the write path has never been confirmed on
-real hardware**, and we have **no Touch Block data at all**. If you own one:
-1. **Edit a button in GRAB** (change its CC, behaviour or a colour) and tell us whether the change
-   actually takes effect on the device — this is the one thing we can't test ourselves.
-2. **Touch Block owners especially:** run **Advanced ▸ Help add device** and press every button, so we
-   can confirm its layout and defaults.
+**Most wanted right now — a Touch Block.** GRAB reads and live-edits control-block buttons (CC, behaviour,
+default/min/max, on/off colours), decoded from ROLI's factory program. **Read *and* write are now confirmed
+on real hardware for Live and Loop** (thanks to contributor *moofy* — editing a button's CC, behaviour or
+colour takes effect on the device). The one gap left is a **Touch Block**, which no one has yet: if you have
+one, run **Advanced ▸ Help add device** and press every button so we can confirm its layout and defaults.
 Connected on its own or chained to a Lightpad/Seaboard — either way, a quick report helps. See
 [CONTROL-BLOCKS.md](CONTROL-BLOCKS.md).
 
