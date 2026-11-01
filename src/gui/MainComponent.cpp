@@ -2050,7 +2050,9 @@ void MainComponent::reloadFromDevice()
 //   Live/Loop/Touch/Developer control    -> all four return "BLOCKS control 1.1.0.syx.zip"
 //     (the control blocks share one byte-identical 'control' firmware, so any of the names
 //      resolves to the same build; we send the type-appropriate name).
-// Still unmapped: Piano/LUMI/Lightpad/GRAND (names not confirmed).
+//   Lightpad Block M (the 2x2 Pad BLOCK = apiType lightPadBlock) -> "Lightpad Block M" resolves.
+//     (The original "Lightpad Block" name 404s; the rare 4x4 lightpadProBlock has no confirmed name.)
+// Still unmapped: Piano/LUMI/GRAND, and the 4x4 Lightpad Pro (names not confirmed).
 juce::String MainComponent::roliProductName() const
 {
     if (block != nullptr)
@@ -2058,6 +2060,7 @@ juce::String MainComponent::roliProductName() const
         switch (block->getType())
         {
             case roli::Block::Type::seaboardBlock:         return "Seaboard Block";
+            case roli::Block::Type::lightPadBlock:         return "Lightpad Block M";   // 2x2 Pad BLOCK, confirmed
             case roli::Block::Type::liveBlock:             return "Live Block";
             case roli::Block::Type::loopBlock:             return "Loop Block";
             case roli::Block::Type::touchBlock:            return "Touch Block";
@@ -2085,10 +2088,10 @@ void MainComponent::downloadFirmware()
                 .withTitle ("Download firmware for archiving")
                 .withMessage (grab::u8 ("GRAB doesn't have a confirmed firmware download for this device yet.\n\n"
                               "Confirmed: Seaboard Block, every Seaboard RISE (original 25 & 49, and RISE 2), "
-                              "and the Control Blocks (Live / Loop / Touch / Developer - all share the BLOCKS "
-                              "'control' firmware).\n\n"
+                              "Lightpad Block M, and the Control Blocks (Live / Loop / Touch / Developer - all "
+                              "share the BLOCKS 'control' firmware).\n\n"
                               "The Seaboard GRAND is registered with ROLI but has no downloadable firmware build. "
-                              "LUMI Keys, Lightpad and ROLI Piano aren't mapped yet.\n\n"
+                              "LUMI Keys, ROLI Piano and the 4x4 Lightpad Pro aren't mapped yet.\n\n"
                               "You can still check my.roli.com in a browser, or use Advanced -> Help add device to help."))
                 .withButton ("OK"),
             nullptr);

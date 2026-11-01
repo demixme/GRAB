@@ -345,12 +345,22 @@ ROLI login does the auth, and nothing is ever sent to the device.
   `Seaboard RISE 2` *with* a space → **404**; only the no-space name resolves.
 - `Seaboard GRAND` → **204 No Content** — **registered but no downloadable build** (so GRAND
   firmware isn't fetchable, and it is *not* the RISE build — a distinct product id).
-- `Seaboard RISE 49`, `Seaboard Block M`, `LUMI Keys`, `ROLI Piano`, `Lightpad Block[ M]`,
+- `Seaboard RISE 49`, `Seaboard Block M`, `LUMI Keys`, `ROLI Piano`,
   `BLOCKS`, `Seaboard 2/M/Grand/Grand Stage`, `Piano M` → **404** (names unknown).
 
-So GRAB maps **Seaboard Block** and **every Seaboard RISE** — RISE 2 (fw 2.x → `Seaboard
+**Follow-up probe (2026-11-01, authed browser session) — more names resolve than the
+curl probe above found** (the earlier 404s for these were likely an auth/escaping artefact
+of the programmatic probe; in a signed-in browser they download):
+- `Live Block`, `Loop Block`, `Touch Block`, `Control Block` → **all** download the same
+  **`BLOCKS control 1.1.0.syx.zip`** (the control blocks share one `control` firmware).
+- `Lightpad Block M` → downloads (the 2×2 Pad BLOCK = apiType `lightPadBlock`). Plain
+  `Lightpad Block` (no M) still **404s**; the 4×4 `lightpadProBlock` has no confirmed name.
+
+So GRAB maps **Seaboard Block**, **every Seaboard RISE** — RISE 2 (fw 2.x → `Seaboard
 RISE2`), RISE 25 (port name has "25" → `Seaboard RISE 25`), original RISE 49 (fw 1.x →
-`Seaboard RISE`). Anything else shows an explanatory alert instead of a silent no-op.
+`Seaboard RISE`) — **Lightpad Block M**, and the **four control blocks**
+(Live/Loop/Touch/Developer→`Control Block`). Anything else shows an explanatory alert
+instead of a silent no-op.
 
 ## 13. Still open (not needed for the config tool)
 - The `updateUserConfig` (0x05) layout (user-config metadata) — not yet seen.
