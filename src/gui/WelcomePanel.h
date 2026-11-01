@@ -193,7 +193,7 @@ private:
         add (Body,  "       Harry Triendl - Seaboard RISE 25 captures\n");
         add (Body,  "       WillEarlDE - Seaboard RISE 49 testing\n");
         add (Body,  "       Roger - confirmed BLOCKS settings travel over USB-MIDI; app-loader testing\n");
-        add (Body,  "       moofly - Lightpad Block app-load capture\n");
+        add (Body,  "       moofy - Lightpad Block app-load capture; Control Block read+write confirmation (Live/Loop)\n");
         add (Body,  "       Pete Brown (Microsoft) - Windows 11 multi-client MIDI\n");
         add (Body,  "       Legitimate_Horror_72 - ROLI Piano scale names & firmware scale lighting\n");
         add (Body,  "    ...and everyone who sent an anonymous profile or capture - GRAB's device support "
