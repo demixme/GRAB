@@ -66,6 +66,7 @@ public:
         buildItems (firmwareProduct);
         layoutList();
         updateInfo();
+        fetchProducts();     // async: app installers from /user/products live (disk cache is usually absent)
         fetchSoundpacks();   // async: adds owned soundpacks (direct download) when the catalog returns
         setSize (640, 560);
     }
@@ -129,20 +130,31 @@ private:
         return candidates[0];   // observed layout, so callers still have a sensible default
     }
 
-    // The account subfolder is the one holding the cached /user/products response.
+    // Cached endpoint subfolder names (URL-encoded) under the account dir.
     static constexpr const char* kProductsDir = "%2Fapi%2Fv1%2Fuser%2Fproducts%2F";
+    static constexpr const char* kUserDir     = "%2Fapi%2Fv1%2Fuser%2F";
 
-    static juce::File findProductsDir()
+    // The account subfolder holds the cached /user, /user/entitlements and (sometimes) /user/products
+    // responses. Connect only caches /user/products transiently - it's usually absent - so we key off
+    // /user (present whenever Connect is signed in) and fetch products live instead of needing it on disk.
+    static juce::File findAccountDir()
     {
         const auto root = connectCacheRoot();
         if (! root.isDirectory()) return {};
+        juce::File first;
         for (const auto& acc : root.findChildFiles (juce::File::findDirectories, false))
         {
-            auto pd = acc.getChildFile (kProductsDir);
-            if (pd.isDirectory() && pd.getChildFile ("current").existsAsFile())
-                return pd;
+            if (first == juce::File()) first = acc;
+            if (acc.getChildFile (kUserDir).isDirectory() || acc.getChildFile (kProductsDir).isDirectory())
+                return acc;
         }
-        return {};
+        return first;   // some account dir, even if we didn't recognise its endpoints
+    }
+
+    static juce::File findProductsDir()
+    {
+        auto pd = findAccountDir().getChildFile (kProductsDir);
+        return (pd.isDirectory() && pd.getChildFile ("current").existsAsFile()) ? pd : juce::File();
     }
 
     static juce::var readCurrentBody (const juce::File& dir)
@@ -153,13 +165,17 @@ private:
         return body.existsAsFile() ? juce::JSON::parse (body.loadFileAsString()) : juce::var();
     }
 
-    // The signed-in account's bearer token, read from any cached response's headers.
-    static juce::String readToken (const juce::File& productsDir)
+    // The signed-in account's bearer token, read from ANY cached endpoint's response headers
+    // (/user is cached whenever Connect is signed in; /user/products often isn't - keying off products
+    // alone was why mac/newly-signed-in users got "no token" even though Connect was logged in).
+    static juce::String readToken (const juce::File& accountDir)
     {
-        for (const auto& h : productsDir.findChildFiles (juce::File::findFiles, false, "*.headers"))
-            for (auto& line : juce::StringArray::fromLines (h.loadFileAsString()))
-                if (line.startsWithIgnoreCase ("x-auth-token:"))
-                    return line.fromFirstOccurrenceOf (":", false, false).trim();
+        if (! accountDir.isDirectory()) return {};
+        for (const auto& endpoint : accountDir.findChildFiles (juce::File::findDirectories, false))
+            for (const auto& h : endpoint.findChildFiles (juce::File::findFiles, false, "*.headers"))
+                for (auto& line : juce::StringArray::fromLines (h.loadFileAsString()))
+                    if (line.startsWithIgnoreCase ("x-auth-token:"))
+                        return line.fromFirstOccurrenceOf (":", false, false).trim();
         return {};
     }
 
@@ -171,6 +187,20 @@ private:
         return "osx";
        #else
         return "linux";
+       #endif
+    }
+
+    // The key ROLI uses for this OS's build inside a product's "builds" object can vary (mac has been
+    // seen as osx/macos/darwin), so try the candidates and use whichever the product actually carries;
+    // the same key is the build_redirect platform segment.
+    static juce::StringArray platformBuildKeys()
+    {
+       #if JUCE_WINDOWS
+        return { "windows64", "windows32", "win64", "win" };
+       #elif JUCE_MAC
+        return { "osx", "macos", "darwin", "osx64", "mac" };
+       #else
+        return { "linux", "linux64" };
        #endif
     }
 
@@ -192,49 +222,16 @@ private:
     //==============================================================================
     void buildItems (const juce::String& firmwareProduct)
     {
-        const auto productsDir = findProductsDir();
-        token = readToken (productsDir);
-        const auto products = readCurrentBody (productsDir);
-        haveConnectCache = products.isArray() || (products.isObject());
+        const auto accountDir = findAccountDir();
+        token = readToken (accountDir);
+        haveConnectCache = accountDir.isDirectory();
+
+        // Apps: parse the on-disk /user/products cache if Connect happens to have left one (fast first
+        // paint). It's usually absent (Connect caches it only transiently), so fetchProducts() fetches
+        // it live from the API - that's the real source, and works wherever Connect is just signed in.
+        addProductsFromJson (readCurrentBody (accountDir.getChildFile (kProductsDir)));
 
         const auto plat = platformTag();
-        auto* arr = products.getArray();
-        if (arr == nullptr)
-            if (auto* o = products.getDynamicObject())   // some shapes wrap it
-                if (auto p = o->getProperty ("products"); p.isArray()) arr = p.getArray();
-
-        if (arr != nullptr)
-        {
-            for (auto& pv : *arr)
-            {
-                if (! (bool) pv.getProperty ("user_owns_product", false)) continue;
-                if (! (bool) pv.getProperty ("user_downloadable", false)) continue;
-                const auto name = pv.getProperty ("name", {}).toString();
-                const auto pid  = pv.getProperty ("id", {}).toString();
-                auto builds = pv.getProperty ("builds", {});
-                auto* bo = builds.getDynamicObject();
-                if (name.isEmpty() || pid.isEmpty() || bo == nullptr) continue;
-
-                auto build = bo->getProperty (plat);
-                if (! build.isObject()) continue;
-                const auto vid = build.getProperty ("_id", {}).toString();
-                if (vid.isEmpty()) continue;
-
-                // Suggested filename from the build's s3_path if present, else product+platform.
-                juce::String fname;
-                if (auto inner = build.getProperty ("build", {}); inner.isObject())
-                    fname = inner.getProperty ("s3_path", {}).toString().fromLastOccurrenceOf ("/", false, false);
-                if (fname.isEmpty())
-                    fname = name.replaceCharacters (" /", "__") + "-" + plat;
-
-                auto it = std::make_unique<Item>();
-                it->name = name + "  (" + plat + ")";
-                it->url  = "https://api.roli.com/api/legacy/build_redirect/product/" + pid
-                         + "/version/" + vid + "/build/" + plat;
-                it->filename = fname;
-                items.push_back (std::move (it));
-            }
-        }
 
         // ROLI Connect itself — distributed via its electron-updater feed (com.roli.hub), not /products.
         // Two-step: read latest.yml for the installer name, then fetch it (the feed re-signs per file).
@@ -254,7 +251,7 @@ private:
         {
             auto dl = connectCacheRoot().getParentDirectory().getChildFile ("downloads");  // …\ROLI Connect\downloads
             juce::StringArray seen;
-            for (const auto& f : dl.findChildFiles (juce::File::findFiles, true, "*.rpkg;*.exe;*.msi"))
+            for (const auto& f : dl.findChildFiles (juce::File::findFiles, true, "*.rpkg;*.exe;*.msi;*.dmg;*.pkg"))
             {
                 const auto nm = f.getFileName();
                 if (nm.startsWithChar ('.') || f.getFullPathName().containsIgnoreCase ("__MACOSX")) continue; // in-progress / junk
@@ -265,7 +262,8 @@ private:
                 // Equator / Connect) - this drops ROLI's own duplicates, incl. their misspelled
                 // "Dashbaoard..." copy. Keep .rpkg content and the Strobe2/Cypher2 synths (not direct-downloadable).
                 const auto low = nm.toLowerCase();
-                const bool installer = low.endsWith (".exe") || low.endsWith (".msi");
+                const bool installer = low.endsWith (".exe") || low.endsWith (".msi")
+                                    || low.endsWith (".dmg") || low.endsWith (".pkg");
                 if (installer && (low.contains ("dashb") || low.contains ("equatorinstall") || low.contains ("connect"))
                               && ! low.contains ("strobe") && ! low.contains ("cypher"))
                     continue;
@@ -289,16 +287,96 @@ private:
             items.push_back (std::move (it));
         }
 
-        // Make the toggles.
+        // Make the toggles for any items that don't have one yet (apps/soundpacks added inline
+        // already have theirs).
         for (auto& it : items)
+            if (it->toggle == nullptr)
+                makeToggle (*it);
+    }
+
+    // Give an item its toggle + note and show them in the list.
+    void makeToggle (Item& it)
+    {
+        it.toggle = std::make_unique<juce::ToggleButton> (it.name);
+        it.toggle->setToggleState (true, juce::dontSendNotification);
+        listBox.addAndMakeVisible (*it.toggle);
+        it.note.setFont (juce::Font (juce::FontOptions (12.0f)));
+        it.note.setColour (juce::Label::textColourId, grab::theme::textPrimary.withAlpha (0.55f));
+        listBox.addAndMakeVisible (it.note);
+    }
+
+    // Parse a /user/products JSON (from disk cache OR a live fetch) into downloadable app items.
+    // De-dupes by product name so the live fetch can safely re-add over a disk-cache first paint.
+    void addProductsFromJson (const juce::var& products)
+    {
+        auto* arr = products.getArray();
+        if (arr == nullptr)
+            if (auto* o = products.getDynamicObject())   // some shapes wrap it in { products: [...] }
+                if (auto p = o->getProperty ("products"); p.isArray()) arr = p.getArray();
+        if (arr == nullptr) return;
+
+        const auto keys = platformBuildKeys();
+        int added = 0;
+        for (auto& pv : *arr)
         {
-            it->toggle = std::make_unique<juce::ToggleButton> (it->name);
-            it->toggle->setToggleState (true, juce::dontSendNotification);
-            listBox.addAndMakeVisible (*it->toggle);
-            it->note.setFont (juce::Font (juce::FontOptions (12.0f)));
-            it->note.setColour (juce::Label::textColourId, grab::theme::textPrimary.withAlpha (0.55f));
-            listBox.addAndMakeVisible (it->note);
+            if (! (bool) pv.getProperty ("user_owns_product", false)) continue;
+            if (! (bool) pv.getProperty ("user_downloadable", false)) continue;
+            const auto name = pv.getProperty ("name", {}).toString();
+            const auto pid  = pv.getProperty ("id", {}).toString();
+            auto builds = pv.getProperty ("builds", {});
+            auto* bo = builds.getDynamicObject();
+            if (name.isEmpty() || pid.isEmpty() || bo == nullptr) continue;
+
+            // Pick whichever platform key this product actually carries for this OS.
+            juce::String plat; juce::var build;
+            for (const auto& k : keys)
+                if (auto b = bo->getProperty (k); b.isObject()) { plat = k; build = b; break; }
+            if (plat.isEmpty()) continue;
+            const auto vid = build.getProperty ("_id", {}).toString();
+            if (vid.isEmpty()) continue;
+
+            bool dup = false;
+            for (auto& ex : items) if (ex->name.startsWith (name + "  (")) { dup = true; break; }
+            if (dup) continue;
+
+            // Suggested filename from the build's s3_path if present, else product+platform.
+            juce::String fname;
+            if (auto inner = build.getProperty ("build", {}); inner.isObject())
+                fname = inner.getProperty ("s3_path", {}).toString().fromLastOccurrenceOf ("/", false, false);
+            if (fname.isEmpty())
+                fname = name.replaceCharacters (" /", "__") + "-" + plat;
+
+            auto it = std::make_unique<Item>();
+            it->name = name + "  (" + plat + ")";
+            it->url  = "https://api.roli.com/api/legacy/build_redirect/product/" + pid
+                     + "/version/" + vid + "/build/" + plat;
+            it->filename = fname;
+            if (it->toggle == nullptr) makeToggle (*it);   // inline (live path); harmless on the disk path
+            items.push_back (std::move (it));
+            ++added;
         }
+        if (added > 0) { layoutList(); updateInfo(); }
+    }
+
+    // Fetch /user/products live (Connect caches it only transiently, so the disk copy is usually
+    // missing). Uses the signed-in token; background thread so the panel never blocks.
+    void fetchProducts()
+    {
+        if (token.isEmpty()) return;
+        const auto tok = token;
+        juce::Component::SafePointer<RoliArchivePanel> safe (this);
+        std::thread ([safe, tok]
+        {
+            juce::WebInputStream web (juce::URL ("https://api.roli.com/api/v1/user/products"), false);
+            web.withExtraHeaders ("User-Agent: GRAB\r\nAccept: application/json\r\nx-access-token: " + tok + "\r\nCookie: token=" + tok);
+            web.withConnectionTimeout (15000);
+            web.withNumRedirectsToFollow (6);
+            auto body = std::make_shared<juce::var>();
+            if (web.connect (nullptr) && web.getStatusCode() == 200)
+                *body = juce::JSON::parse (web.readEntireStreamAsString());
+            juce::MessageManager::callAsync ([safe, body]
+                { if (auto* p = safe.getComponent()) p->addProductsFromJson (*body); });
+        }).detach();
     }
 
     void layoutList()
@@ -427,12 +505,35 @@ private:
         archiveBtn.setEnabled (false);
         browserBtn.setEnabled (false);
 
-        // Collect selected items on the message thread; the worker resolves each (copy / yml / download).
+        // Firmware lives on my.roli.com, which authenticates with the browser's web-session cookie -
+        // NOT the ROLI Connect API token GRAB reads (a direct fetch gets "API Key Required"). So open
+        // any selected firmware in the browser (user is signed in to my.roli.com there) instead of
+        // trying to download it, and leave it out of the worker's download jobs.
+        int firmwareOpened = 0;
+        for (auto& it : items)
+            if (it->toggle->getToggleState() && it->isFirmware && it->url.isNotEmpty())
+            {
+                juce::URL (it->url).launchInDefaultBrowser();
+                it->note.setText ("opened in browser", juce::dontSendNotification);
+                ++firmwareOpened;
+            }
+
+        // Collect the remaining selected items on the message thread; the worker resolves each
+        // (copy / yml / download).
         struct Job { juce::String name; Item* item; };
         auto jobs = std::make_shared<std::vector<Job>>();
         for (auto& it : items)
-            if (it->toggle->getToggleState())
+            if (it->toggle->getToggleState() && ! it->isFirmware)
                 jobs->push_back ({ it->name, it.get() });
+
+        if (jobs->empty() && firmwareOpened > 0)
+        {
+            setStatusText ("Firmware opened in your browser (my.roli.com) - save the .syx.zip into your "
+                           "archive folder. Nothing else was selected to download.");
+            archiveBtn.setEnabled (true);
+            browserBtn.setEnabled (true);
+            return;
+        }
 
         const auto tok = token;
         const auto outDir = dir;
