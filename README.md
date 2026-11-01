@@ -13,10 +13,17 @@ instruments configurable and self-documents their protocol.
        alt="GRAB configuring a Seaboard Block: colour-coded 5D sensitivity curves with live touch rings on the keyboard graphic, and MIDI settings, pitch and play-mode cards below.">
 </p>
 
-## Where it's at — v0.1.80
+## Where it's at — v0.1.81
 **Live editing** (changes write as you make them, like Dashboard), a unified **Preset** menu
 (ROLI presets + your own saved presets, per device), and **factory reset** for Blocks — on
 **Windows, macOS and Linux**.
+
+**New in v0.1.81:**
+- **Archive my ROLI downloads** (*Advanced ▸*). A preservation grab for the whole account while ROLI's
+  servers last: reads your signed-in **ROLI Connect** session (no password) and **downloads the installers
+  you own** — Dashboard, Equator, Connect — plus your **device firmware**, and **copies the Studio /
+  Equator 2 `.rpkg` packages Connect already fetched**. Download-only; never flashes or uploads. Browser
+  hand-off offered as the tokenless path. See the expanded [preservation notes](PRESERVATION.md).
 
 **New in v0.1.80:**
 - **Call for Control Block testers.** In-app help and the docs now make the ask explicit: GRAB reads and

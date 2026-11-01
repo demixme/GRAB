@@ -6,6 +6,7 @@
 #include "WelcomePanel.h"
 #include "DiagnosePanel.h"
 #include "AirwavePanel.h"
+#include "RoliArchivePanel.h"
 #include "AirwaveTesterPanel.h"
 #include "AppInspectorPanel.h"
 #include "Help.h"
@@ -403,6 +404,7 @@ MainComponent::MainComponent()
         m.addItem (8, "Help add device (auto-explore)...");  // one-click device->host probe + submit
         m.addItem (2, "Active probe...");
         m.addItem (5, "Download firmware for archiving...");   // always enabled; explains if unmapped
+        m.addItem (12, "Archive my ROLI downloads (apps + firmware)...");  // reads Connect's cache; download-only
         m.addSeparator();
         m.addItem (3, "Factory reset (presets only)...", block != nullptr);  // Blocks only; confirm dialog follows
         m.addSeparator();
@@ -420,6 +422,7 @@ MainComponent::MainComponent()
                 else if (r == 3) factoryReset();
                 else if (r == 4) showHelpWanted();
                 else if (r == 5) downloadFirmware();
+                else if (r == 12) openDialog (new RoliArchivePanel (roliProductName()), "Archive my ROLI downloads");
                 else if (r == 6) openDialog (new DiagnosePanel(), "Diagnose connection");
                 else if (r == 8) openDialog (new ExplorePanel(), "Help add this device");
                 else if (r == 9) openDialog (new AirwavePanel(), "Airwave & gesture control (experimental)");
@@ -2518,12 +2521,25 @@ void MainComponent::forcePianoPreview()
     rebuildRows();
 }
 
-// Secret dev shortcut (Ctrl+Alt+Shift+C): a synthetic Control Block (Loop) config page - the decoded
+// Secret dev shortcut (Ctrl+Alt+Shift+C): a synthetic Control Block config page - the decoded
 // ids 0/64/66-75/76-95 at firmware defaults, so you can eyeball the per-button CC + mode editors and
-// the On/Off colour wells (and the Loop graphic) without a control block to hand.
+// the On/Off colour wells without a control block to hand. Repeated presses CYCLE the graphic/type
+// Loop -> Live -> Touch (the config is identical - one firmware - so only the drawn block art and the
+// status line change), then a 4th press exits. Lets you see all three button layouts.
 void MainComponent::forceControlPreview()
 {
-    if (! simConfig.empty()) { connect (seaprobe::Transport::Auto); return; }   // toggle off
+    controlPreviewStep = (controlPreviewStep + 1) % 4;   // 0 Loop, 1 Live, 2 Touch, 3 -> exit
+    if (controlPreviewStep == 3)
+    {
+        controlPreviewStep = -1;
+        connect (seaprobe::Transport::Auto);             // toggle off, back to live device scan
+        return;
+    }
+
+    const auto sub = controlPreviewStep == 1 ? KeyboardView::Control::live
+                   : controlPreviewStep == 2 ? KeyboardView::Control::touch
+                                             : KeyboardView::Control::loop;
+    const char* subName = controlPreviewStep == 1 ? "Live" : controlPreviewStep == 2 ? "Touch" : "Loop";
 
     if (source != nullptr) { source->setActive (false); source.reset(); }
     block = nullptr;
@@ -2555,12 +2571,13 @@ void MainComponent::forceControlPreview()
     for (int i = 0; i < 10; ++i) add (mk (86 + i, (juce::int32) 0xFFFFFFFF, "Off", CT::colour, 0, 0, "Buttons"), (juce::int32) 0xFFFFFFFF);
 
     std::vector<KeyboardView::Tile> tiles;
-    KeyboardView::Tile t; t.uid = 1; t.family = KeyboardView::Family::control; t.control = KeyboardView::Control::loop;
+    KeyboardView::Tile t; t.uid = 1; t.family = KeyboardView::Family::control; t.control = sub;
     t.ux = 0; t.uy = 0; t.uw = 2; t.uh = 1;
     tiles.push_back (t);
     keyboardView.setLayout (tiles);
     keyboardView.setVisible (true);
-    setStatus ("Control Block preview (Loop, simulated, no hardware).  Ctrl+Alt+Shift+C to exit.");
+    setStatus (juce::String ("Control Block preview (") + subName
+               + ", simulated, no hardware).  Ctrl+Alt+Shift+C cycles Loop/Live/Touch, then exits.");
     if (logger != nullptr) logger->line ("DEV: Control Block preview (" + juce::String ((int) simConfig.size()) + " synthetic items)");
     rebuildRows();
 }

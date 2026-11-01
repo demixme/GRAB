@@ -114,7 +114,8 @@ private:
     void forceLumiPreview();   // secret dev shortcut: synthetic Piano M / LUMI Keys page (no hardware)
     void forceGrandPreview();  // secret dev shortcut: synthetic GRAND page (4D, 3 pedals) — no hardware
     void forceLightpadPreview(); // secret dev shortcut: Lightpad config + synthetic DNA arrangement (no hardware)
-    void forceControlPreview();  // secret dev shortcut: Control Block config page (Loop) - button editors + colours
+    void forceControlPreview();  // secret dev shortcut: Control Block config page - cycles Loop/Live/Touch, then off
+    int  controlPreviewStep = -1; // -1 = not showing; 0 Loop, 1 Live, 2 Touch (Ctrl+Alt+Shift+C cycles)
 
     // Live config updates from the device (delivered on the message thread).
     void handleConfigItemChanged (roli::Block&, const roli::Block::ConfigMetaData&, juce::uint32 index) override;
