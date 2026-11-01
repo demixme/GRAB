@@ -2073,9 +2073,10 @@ juce::String MainComponent::roliProductName() const
     return {};
 }
 
-// Download-only, never flashes. Opens ROLI's version-robust "update_to" URL in the user's
-// browser; their my.roli.com login authenticates it and the latest firmware (.syx.zip) downloads.
-// GRAB holds no credentials — the browser session does the auth.
+// Download-only, never flashes. Fetches ROLI's version-robust "update_to" firmware directly, reusing
+// ROLI Connect's signed-in session token (my.roli.com accepts it and 303-redirects to the signed
+// builds.roli.com .syx.zip). GRAB holds no credentials — the token comes from Connect's on-disk cache
+// or Local Storage. No web browser involved.
 void MainComponent::downloadFirmware()
 {
     const auto product = roliProductName();
@@ -2092,7 +2093,22 @@ void MainComponent::downloadFirmware()
                               "share the BLOCKS 'control' firmware).\n\n"
                               "The Seaboard GRAND is registered with ROLI but has no downloadable firmware build. "
                               "LUMI Keys, ROLI Piano and the 4x4 Lightpad Pro aren't mapped yet.\n\n"
-                              "You can still check my.roli.com in a browser, or use Advanced -> Help add device to help."))
+                              "Use Advanced -> Help add device to help map this one."))
+                .withButton ("OK"),
+            nullptr);
+        return;
+    }
+
+    const auto candidates = RoliArchivePanel::connectTokenCandidates();
+    if (candidates.isEmpty())
+    {
+        juce::AlertWindow::showAsync (
+            juce::MessageBoxOptions()
+                .withIconType (juce::MessageBoxIconType::InfoIcon)
+                .withTitle ("Download firmware for archiving")
+                .withMessage ("GRAB reuses your ROLI Connect session to download firmware (no browser, no "
+                              "password). No signed-in Connect was found — open ROLI Connect, sign in, then "
+                              "try again.")
                 .withButton ("OK"),
             nullptr);
         return;
@@ -2100,22 +2116,32 @@ void MainComponent::downloadFirmware()
 
     // Name-based + any version -> ROLI resolves to the latest build (no hard-coded versionId).
     const auto url = "https://my.roli.com/firmware_versions/update_to/"
-                   + juce::URL::addEscapeChars (product, false) + "/1.0.0";  // any version -> ROLI returns latest
+                   + juce::URL::addEscapeChars (product, false) + "/1.0.0";
 
-    auto opts = juce::MessageBoxOptions()
-        .withIconType (juce::MessageBoxIconType::InfoIcon)
-        .withTitle ("Download firmware for archiving")
-        .withMessage ("This opens ROLI's download page for your " + product + " in your web browser.\n\n"
-                      "You must be signed in to your ROLI account (my.roli.com). It downloads the latest "
-                      "firmware as a .syx.zip so you can archive it while ROLI's servers are still up.\n\n"
-                      + grab::u8 ("GRAB does NOT flash firmware - this is download-only."))
-        .withButton ("Open in browser")   // button 1: Enter / returns 1
-        .withButton ("Cancel");           // button 2: Escape / returns 0
-    juce::AlertWindow::showAsync (opts, [url] (int result)
-    {
-        if (result == 1)
-            juce::URL (url).launchInDefaultBrowser();
-    });
+    chooser = std::make_unique<juce::FileChooser> ("Save " + product + " firmware to a folder",
+                                                   juce::File::getSpecialLocation (juce::File::userDesktopDirectory));
+    chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
+        [this, url, product, candidates] (const juce::FileChooser& fc)
+        {
+            const auto dir = fc.getResult();
+            if (! dir.isDirectory()) return;
+            const auto dest = dir.getChildFile (product.replaceCharacter (' ', '_') + "-firmware.syx.zip");
+            setStatus ("Downloading " + product + " firmware...");
+            juce::Component::SafePointer<MainComponent> safe (this);
+            std::thread ([safe, url, dest, product, candidates]
+            {
+                bool ok = false;
+                for (const auto& tok : candidates)
+                    if (RoliArchivePanel::fetchToFile (url, dest, tok)) { ok = true; break; }
+                juce::MessageManager::callAsync ([safe, ok, dest, product]
+                {
+                    if (auto* self = safe.getComponent())
+                        self->setStatus (ok ? "Saved " + product + " firmware to " + dest.getFullPathName()
+                                            : "Firmware download failed - open ROLI Connect, sign in, and try again.");
+                    if (ok) dest.revealToUser();
+                });
+            }).detach();
+        });
 }
 
 void MainComponent::factoryReset()

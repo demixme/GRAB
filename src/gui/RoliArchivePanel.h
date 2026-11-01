@@ -2,17 +2,15 @@
 // firmware archiver: while ROLI's servers are up, pull the installers the signed-in account is
 // entitled to (apps) plus the connected device's firmware, into a folder the user chooses.
 //
-// Auth, by the user's choice (issue: archive retrieval):
-//   • Reuse Connect's session (default) — GRAB reads the token + product list ROLI Connect already
-//     cached on disk (…/ROLI Connect/API Proxy Cache/…), so it never sees a password. Needs Connect
-//     installed and signed in.
-//   • Browser hand-off — GRAB opens the same ROLI download URLs; the user's logged-in browser
-//     authenticates and downloads. GRAB holds no credential.
+// Auth: GRAB reuses ROLI Connect's signed-in session — it reads the session token from Connect's
+// on-disk cache (…/ROLI Connect/API Proxy Cache/… headers) or, if that's absent, from Connect's
+// Electron Local Storage (leveldb) — so it never sees a password and holds no credential. Needs ROLI
+// Connect installed and signed in. Everything downloads directly with that token (apps via
+// build_redirect, firmware via my.roli.com's 303 to a signed builds.roli.com .syx.zip, soundpacks via
+// their pre-signed URLs); no web browser is involved.
 //
 // This only DOWNLOADS (never flashes firmware, never uploads). Everything it fetches is what the
-// running account already owns. It can't recreate ROLI Connect's content pipeline, so the big
-// Equator 2 / soundpack .rpkg libraries are out of scope (get those via Studio Player); this covers
-// the app installers + device firmware.
+// running account already owns.
 
 #pragma once
 
@@ -44,11 +42,6 @@ public:
         addAndMakeVisible (archiveBtn);
         archiveBtn.setButtonText ("Archive selected to folder...");
         archiveBtn.onClick = [this] { chooseFolderAndArchive(); };
-
-        addAndMakeVisible (browserBtn);
-        browserBtn.setButtonText ("Open selected in browser");
-        browserBtn.setTooltip ("Opens each selected download in your web browser; your ROLI login there authenticates it.");
-        browserBtn.onClick = [this] { openSelectedInBrowser(); };
 
         addAndMakeVisible (status);
         status.setJustificationType (juce::Justification::centredLeft);
@@ -84,14 +77,50 @@ public:
         auto bottom = r.removeFromBottom (34);
         closeBtn.setBounds (bottom.removeFromRight (90));
         bottom.removeFromRight (8);
-        browserBtn.setBounds (bottom.removeFromRight (170));
-        bottom.removeFromRight (8);
         archiveBtn.setBounds (bottom.removeFromRight (210));
         r.removeFromBottom (6);
         status.setBounds (r.removeFromBottom (24));
         r.removeFromBottom (6);
         listView.setBounds (r);
         layoutList();
+    }
+
+    // Shared with MainComponent's "Download firmware for archiving" so it downloads directly too.
+    // Candidate Connect session tokens (the cache token, then any JWTs in Connect's Local Storage).
+    static juce::StringArray connectTokenCandidates()
+    {
+        juce::StringArray c;
+        const auto t = readToken (findAccountDir());
+        if (t.isNotEmpty()) c.add (t);
+        for (const auto& j : collectLocalStorageJwts()) c.addIfNotAlreadyThere (j);
+        return c;
+    }
+
+    // Download a URL to a file with a Connect token (follows ROLI's 303/302 redirects). No progress UI.
+    static bool fetchToFile (const juce::String& url, const juce::File& dest, const juce::String& token)
+    {
+        juce::WebInputStream web (juce::URL (url), false);
+        web.withExtraHeaders (authHeaders (token));
+        web.withConnectionTimeout (20000);
+        web.withNumRedirectsToFollow (6);
+        if (! web.connect (nullptr)) return false;
+        const int code = web.getStatusCode();
+        if (code != 200 && code != 0) return false;
+        dest.deleteFile();
+        juce::FileOutputStream out (dest);
+        if (! out.openedOk()) return false;
+        juce::HeapBlock<char> buf (1 << 16);
+        juce::int64 done = 0;
+        while (! web.isExhausted())
+        {
+            const int n = web.read (buf, 1 << 16);
+            if (n <= 0) break;
+            out.write (buf, (size_t) n);
+            done += n;
+        }
+        out.flush();
+        if (done <= 0) { dest.deleteFile(); return false; }
+        return true;
     }
 
 private:
@@ -470,8 +499,8 @@ private:
             info.setText (juce::String ("Nothing to archive was found.\n\n")
                 + (haveConnectCache
                    ? "Your ROLI Connect cache was read, but it lists no downloadable installers for this platform."
-                   : "GRAB couldn't find a ROLI Connect cache. Install ROLI Connect and sign in (so it stores "
-                     "your product list), then reopen this. You can still archive device firmware via the browser."),
+                   : "GRAB couldn't find a signed-in ROLI Connect. Install ROLI Connect and sign in (so it stores "
+                     "your session), then reopen this."),
                 juce::dontSendNotification);
             archiveBtn.setEnabled (false);
             return;
@@ -480,9 +509,9 @@ private:
             + "archiving while ROLI's servers are up - it never flashes firmware or uploads anything.\n\n"
             + (token.isNotEmpty()
                ? "Reusing your ROLI Connect session (no password needed). If a download fails with an auth error, "
-                 "open Connect to refresh your session, or use \"Open selected in browser\"."
-               : "No Connect session token was found: app/firmware downloads need \"Open selected in browser\", "
-                 "but already-downloaded packages can still be copied to the archive."),
+                 "open ROLI Connect to refresh your session, then reopen this."
+               : "No ROLI Connect session was found - sign in to ROLI Connect, then reopen this. "
+                 "Already-downloaded packages can still be copied to the archive."),
             juce::dontSendNotification);
         archiveBtn.setEnabled (true);   // local copies work tokenless; direct downloads just report "failed" without one
     }
@@ -574,37 +603,15 @@ private:
         if (worker.joinable()) { cancel = true; worker.join(); }
         cancel = false;
         archiveBtn.setEnabled (false);
-        browserBtn.setEnabled (false);
 
-        // Firmware lives on my.roli.com, which authenticates with the browser's web-session cookie -
-        // NOT the ROLI Connect API token GRAB reads (a direct fetch gets "API Key Required"). So open
-        // any selected firmware in the browser (user is signed in to my.roli.com there) instead of
-        // trying to download it, and leave it out of the worker's download jobs.
-        int firmwareOpened = 0;
-        for (auto& it : items)
-            if (it->toggle->getToggleState() && it->isFirmware && it->url.isNotEmpty())
-            {
-                juce::URL (it->url).launchInDefaultBrowser();
-                it->note.setText ("opened in browser", juce::dontSendNotification);
-                ++firmwareOpened;
-            }
-
-        // Collect the remaining selected items on the message thread; the worker resolves each
-        // (copy / yml / download).
+        // Collect selected items on the message thread; the worker resolves each (copy / yml / download).
+        // Firmware downloads directly too now - my.roli.com accepts the Connect token (x-access-token) and
+        // 303-redirects to the signed builds.roli.com .syx.zip - so no browser/web login is needed.
         struct Job { juce::String name; Item* item; };
         auto jobs = std::make_shared<std::vector<Job>>();
         for (auto& it : items)
-            if (it->toggle->getToggleState() && ! it->isFirmware)
+            if (it->toggle->getToggleState())
                 jobs->push_back ({ it->name, it.get() });
-
-        if (jobs->empty() && firmwareOpened > 0)
-        {
-            setStatusText ("Firmware opened in your browser (my.roli.com) - save the .syx.zip into your "
-                           "archive folder. Nothing else was selected to download.");
-            archiveBtn.setEnabled (true);
-            browserBtn.setEnabled (true);
-            return;
-        }
 
         const auto tok = token;
         const auto outDir = dir;
@@ -631,7 +638,6 @@ private:
                 {
                     s->setStatusText ("Done - archived " + juce::String (ok) + " of " + juce::String (total) + ".");
                     s->archiveBtn.setEnabled (true);
-                    s->browserBtn.setEnabled (true);
                 }
             });
         });
@@ -640,7 +646,13 @@ private:
     static juce::String authHeaders (const juce::String& token)
     {
         juce::String h = "User-Agent: GRAB";
-        if (token.isNotEmpty()) h += "\r\nx-auth-token: " + token + "\r\nCookie: token=" + token;
+        if (token.isNotEmpty())
+            // The firmware endpoint (my.roli.com) and api.roli.com both authenticate the Connect session
+            // via x-access-token; send x-auth-token and the cookie too so every endpoint is covered. With
+            // this, firmware downloads directly (303 -> signed builds.roli.com .syx.zip) - no browser.
+            h += "\r\nx-access-token: " + token
+               + "\r\nx-auth-token: "  + token
+               + "\r\nCookie: token="  + token;
         return h;
     }
 
@@ -727,16 +739,6 @@ private:
         return done > 0;
     }
 
-    void openSelectedInBrowser()
-    {
-        int n = 0;
-        for (auto& it : items)
-            if (it->toggle->getToggleState() && it->url.isNotEmpty())  // local copies / Connect have no direct browser URL
-                { juce::URL (it->url).launchInDefaultBrowser(); it->note.setText ("browser", juce::dontSendNotification); ++n; }
-        setStatusText (n > 0 ? "Opened " + juce::String (n) + " download(s) in your browser."
-                             : "Those items have no direct browser link (use Archive to copy/fetch them).");
-    }
-
     //==============================================================================
     void setStatusText (const juce::String& s) { status.setText (s, juce::dontSendNotification); }
 
@@ -753,7 +755,7 @@ private:
     juce::Label      title, info, status;
     juce::Viewport   listView;
     juce::Component   listBox;
-    juce::TextButton archiveBtn, browserBtn, closeBtn;
+    juce::TextButton archiveBtn, closeBtn;
     std::vector<std::unique_ptr<Item>> items;
     juce::String     token;
     bool             haveConnectCache = false;
