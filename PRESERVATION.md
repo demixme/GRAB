@@ -120,11 +120,14 @@ Equator / Strobe2 / Cypher2. So **log into Connect and Install All while the ser
   your owned downloads. Do the owned-pack install from **Connect's Sounds tab**, not Studio Player.
 - Not bundled in the Equator app or Extended Library/Content installers (verified by reading those MSIs).
 
-GRAB's "Archive my ROLI downloads" preserves them via the copy-from-cache path: once Connect's **Install All**
-has pulled the `.rpkg` into its downloads cache, GRAB lists them under "already downloaded via Connect" and
-copies them to the archive. (GRAB can't yet drive Connect's Sounds-catalog endpoint directly - that would
-need mapping it - so the flow is Connect Install All → GRAB archive.) The community **"ROLI Vault"** archive
-remains a useful cross-check / fallback for anyone whose account or Connect can't reach the catalog.
+GRAB's "Archive my ROLI downloads" now **downloads owned soundpacks directly**: it reads Connect's
+owned-soundpack catalog — **`GET api.roli.com/api/v1/user/products/soundpacks?variant=rpkg`** (auth via the
+`x-access-token` / `token` cookie), which returns every owned pack with a pre-signed `download_url` to the
+`.rpkg` on `builds.roli.com` (the signature authorises the file; no further auth). Works **free or paid** —
+ownership is all that matters; there's no free/paid field. Packs already installed (their `.rpkg` in Connect's
+downloads cache) are copied instead of re-fetched. The signed URLs are time-limited (~1 h), so GRAB fetches
+the catalog when the panel opens and downloads in the same session. The community **"ROLI Vault"** archive
+remains a useful cross-check / fallback for anyone whose account can't reach the catalog.
 
 ## Lightpad / BLOCKS apps — bundled, and loadable offline with open tooling
 

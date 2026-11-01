@@ -66,6 +66,7 @@ public:
         buildItems (firmwareProduct);
         layoutList();
         updateInfo();
+        fetchSoundpacks();   // async: adds owned soundpacks (direct download) when the catalog returns
         setSize (640, 560);
     }
 
@@ -329,6 +330,75 @@ private:
                  "but already-downloaded packages can still be copied to the archive."),
             juce::dontSendNotification);
         archiveBtn.setEnabled (true);   // local copies work tokenless; direct downloads just report "failed" without one
+    }
+
+    //==============================================================================
+    struct SPInfo { juce::String name, url, filename; juce::File local; };
+
+    // Owned soundpacks aren't in /user/products; Connect's Sounds tab uses this endpoint, and each
+    // entry carries a ready-signed download_url straight to the .rpkg (works free *or* paid - ownership
+    // is all that matters; no auth needed on the signed URL itself). Confirmed by inspecting Connect's
+    // own traffic. Fetched on a background thread so opening the panel never blocks.
+    void fetchSoundpacks()
+    {
+        if (token.isEmpty()) return;   // need the Connect session to list what the account owns
+        setStatusText ("Checking your soundpacks...");
+        const auto tok = token;
+        const auto dlDir = connectCacheRoot().getParentDirectory().getChildFile ("downloads");
+        juce::Component::SafePointer<RoliArchivePanel> safe (this);
+        std::thread ([safe, tok, dlDir]
+        {
+            juce::WebInputStream web (juce::URL ("https://api.roli.com/api/v1/user/products/soundpacks?variant=rpkg"), false);
+            web.withExtraHeaders ("User-Agent: GRAB\r\nAccept: application/json\r\nx-access-token: " + tok + "\r\nCookie: token=" + tok);
+            web.withConnectionTimeout (15000);
+            web.withNumRedirectsToFollow (6);
+            auto list = std::make_shared<std::vector<SPInfo>>();
+            if (web.connect (nullptr) && web.getStatusCode() == 200)
+            {
+                const auto json = juce::JSON::parse (web.readEntireStreamAsString());
+                if (auto* arr = json.getArray())
+                    for (auto& v : *arr)
+                    {
+                        if (! (bool) v.getProperty ("rpkg_available", false)) continue;
+                        const auto nm  = v.getProperty ("name", {}).toString();
+                        const auto url = v.getProperty ("download_url", {}).toString();
+                        if (nm.isEmpty() || url.isEmpty()) continue;
+                        auto fn = url.upToFirstOccurrenceOf ("?", false, false).fromLastOccurrenceOf ("/", false, false);
+                        if (fn.isEmpty() || ! fn.endsWithIgnoreCase (".rpkg")) fn = nm.replaceCharacters (" /", "__") + ".rpkg";
+                        SPInfo sp { nm, url, fn, {} };
+                        for (auto& f : dlDir.findChildFiles (juce::File::findFiles, true, fn))   // already installed?
+                            { sp.local = f; break; }
+                        list->push_back (sp);
+                    }
+            }
+            juce::MessageManager::callAsync ([safe, list] { if (auto* p = safe.getComponent()) p->addSoundpacks (*list); });
+        }).detach();
+    }
+
+    void addSoundpacks (const std::vector<SPInfo>& list)
+    {
+        int added = 0;
+        for (auto& sp : list)
+        {
+            if (sp.local.existsAsFile()) continue;   // already on disk -> the copy-from-cache scan already lists it
+            auto it = std::make_unique<Item>();
+            it->name = sp.name + "  (soundpack)";
+            it->url = sp.url;
+            it->filename = sp.filename;
+            it->toggle = std::make_unique<juce::ToggleButton> (it->name);
+            it->toggle->setToggleState (true, juce::dontSendNotification);
+            listBox.addAndMakeVisible (*it->toggle);
+            it->note.setFont (juce::Font (juce::FontOptions (12.0f)));
+            it->note.setColour (juce::Label::textColourId, grab::theme::textPrimary.withAlpha (0.55f));
+            listBox.addAndMakeVisible (it->note);
+            items.push_back (std::move (it));
+            ++added;
+        }
+        layoutList();
+        archiveBtn.setEnabled (true);
+        if (! list.empty())
+            setStatusText ("Added " + juce::String (added) + " soundpack(s) to download"
+                           + (added < (int) list.size() ? " (" + juce::String ((int) list.size() - added) + " already on disk)." : "."));
     }
 
     //==============================================================================

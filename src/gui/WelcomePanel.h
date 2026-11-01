@@ -171,10 +171,10 @@ private:
         add (Body,  "    Archive firmware: Advanced > Download firmware for archiving saves your Block / RISE "
                     "firmware while ROLI's servers are up.\n");
         add (Body,  "    Archive your ROLI software: Advanced > Archive my ROLI downloads reads your signed-in "
-                    "ROLI Connect session and fetches the installers your account owns (Dashboard, Equator, "
-                    "Connect) plus your device firmware, and copies the Studio / Equator 2 packages Connect "
-                    "already downloaded - a one-stop preservation grab while the servers last. Download-only, "
-                    "never flashes or uploads.\n");
+                    "ROLI Connect session and fetches what your account owns - the app installers (Dashboard, "
+                    "Equator, Connect), your device firmware, every owned soundpack (free or paid, downloaded "
+                    "directly), and the Studio / Equator 2 packages Connect already has - a one-stop "
+                    "preservation grab while the servers last. Download-only, never flashes or uploads.\n");
         add (Body,  "    Lightpad apps can WRITE to the device (experimental): from ");
         add (Click, "Advanced > app inspector");
         add (Body,  " you can preview an app and load it onto a connected Lightpad. Loading writes a program to the "

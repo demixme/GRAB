@@ -13,10 +13,17 @@ instruments configurable and self-documents their protocol.
        alt="GRAB configuring a Seaboard Block: colour-coded 5D sensitivity curves with live touch rings on the keyboard graphic, and MIDI settings, pitch and play-mode cards below.">
 </p>
 
-## Where it's at — v0.1.82
+## Where it's at — v0.1.83
 **Live editing** (changes write as you make them, like Dashboard), a unified **Preset** menu
 (ROLI presets + your own saved presets, per device), and **factory reset** for Blocks — on
 **Windows, macOS and Linux**.
+
+**New in v0.1.83:**
+- **Soundpacks in *Archive my ROLI downloads*.** GRAB now reads ROLI Connect's owned-soundpack catalog
+  (`/user/products/soundpacks`) and **downloads every soundpack your account owns — free or paid —
+  directly** (each entry carries a pre-signed `.rpkg` link), on top of the apps, firmware and installed
+  packages. Still download-only; already-installed packs are copied from Connect's cache rather than
+  re-fetched.
 
 **New in v0.1.82:**
 - **macOS fix** for *Archive my ROLI downloads*: ROLI Connect's installer uses the `latest-mac.yml`
