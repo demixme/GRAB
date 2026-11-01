@@ -105,6 +105,18 @@ installers in the Connect downloads cache (`Strobe2_v2.6.1.7.exe`, `Cypher2_v2.6
 the licence model above**, so the samples alone won't play offline once a licence lapses — same reason
 the only durable fix is a licence-free build. Keep the content *and* the licence-state backup.
 
+**Already gone — legacy Equator 1 online library (confirmed 2026-11-01).** Equator **1**'s in-app
+**Playlist Library / Preset Library** (the cloud service that downloaded the old genre soundpacks —
+5D EDM, Giant Dubstep, Hybrid Acoustic, World Colours, Session Keys, … ~30 packs) is **already
+unreachable**: Equator shows *"Unable to connect to Playlist Library"* while `api.roli.com` and the rest
+of the internet answer fine, so it's that specific legacy backend that's retired, not a connectivity
+problem. Those packs **cannot be re-downloaded** even though the account still lists the entitlements —
+the entitlement is a leftover record, the content service is gone. (They are **not** bundled in the
+Equator app or Extended Library/Content installers — verified by reading those MSIs.) The current
+**Equator 2 Factory + Legacy libraries** (archivable via Studio Player, above) are ROLI's newer curated
+content and the practical replacement; the base Equator installers still hold the factory + sample
+libraries. So archive those while you can; the old Equator-1 genre packs are a lost cause.
+
 ## Lightpad / BLOCKS apps — bundled, and loadable offline with open tooling
 
 An "app" (Note Grid, Fader Block, Drum Block, …) is a **Littlefoot program** the device runs.
