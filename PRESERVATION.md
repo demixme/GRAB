@@ -76,8 +76,13 @@ big download below.
 
 How the content flows (observed on Windows): Connect downloads each library as a self-contained
 **`.rpkg`** package into `%APPDATA%\ROLI\ROLI Connect\downloads\` (staged as `.<hash>.<name>.rpkg`
-while in progress, prefix dropped when complete), then unpacks it to `C:\Users\Public\Documents\ROLI\`.
-(macOS: `~/Library/Application Support` + `/Users/Shared/ROLI` / `~/Music/ROLI`.)
+while in progress, prefix dropped when complete), then hands it to **ROLI Package Manager** —
+a helper bundled inside Connect (`…\ROLI Connect\resources\app\resources\win32\bin\ROLI Package
+Manager.exe`) — which unpacks it to `C:\Users\Public\Documents\ROLI\`.
+(macOS: `~/Library/Application Support` + `/Users/Shared/ROLI` / `~/Music/ROLI`.) Because the Package
+Manager ships *with* Connect, archiving the Connect installer preserves the unpack tool too; a kept
+`.rpkg` should therefore be re-installable offline (worth confirming — playback still needs licence
+auth regardless).
 
 | Library | Size | Package (`.rpkg`) | Unpacks to |
 |---|---|---|---|
