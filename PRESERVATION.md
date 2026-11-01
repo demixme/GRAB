@@ -105,27 +105,26 @@ installers in the Connect downloads cache (`Strobe2_v2.6.1.7.exe`, `Cypher2_v2.6
 the licence model above**, so the samples alone won't play offline once a licence lapses — same reason
 the only durable fix is a licence-free build. Keep the content *and* the licence-state backup.
 
-**Owned soundpacks — no working re-download path (confirmed 2026-11-01).** The old genre soundpacks
-(5D EDM, Giant Dubstep, Hybrid Acoustic, World Colours, Session Keys, … ~30 packs) can't be re-fetched by
-an owner through any current ROLI path, even though the account still lists the entitlements:
-- **Equator 1's in-app Playlist/Preset Library is dead** — it shows *"Unable to connect to Playlist
-  Library"* while `api.roli.com` and the rest of the internet answer fine, so that specific legacy backend
-  is retired.
-- **ROLI Connect** doesn't list them, and **Studio Player** only *tag-filters installed presets*
-  (`ROLI Studio` / `Equator2` / `MPE` / `Standard`) - its "Get more Sounds" opens the web **store**.
-- The **web store** (`roli.com/.../collection/create/sounds`) is live but lists these as **paid
-  purchases** (Add to cart) with no "you own this → download" flow; the "Free" many carry is because they
-  were historically *bundled free with hardware*, not a standing free download.
-- They are **not** bundled in the Equator app or Extended Library/Content installers (verified by reading
-  those MSIs).
+**Owned soundpacks — download from ROLI Connect's "Sounds" tab (confirmed 2026-11-01).** The owned genre
+soundpacks (5D EDM, Giant Dubstep, Hybrid Acoustic, World Colours, Session Keys, … ~30) *are* re-downloadable
+— through the **canonical path**: **ROLI Connect ▸ Sounds ▸ Your Sounds**, which lists every owned pack with
+an **Install** button and an **"Install All"**. They install as Equator 2 `.rpkg` into Studio Player / full
+Equator / Strobe2 / Cypher2. So **log into Connect and Install All while the servers are up**, then archive.
+- They are **deliberately absent from the My ROLI account page and the `/user/products` API** — ROLI's own
+  docs say soundpacks aren't shown in My ROLI because *Connect* is what downloads/authorises them. (That's
+  why probing `/user/products`, `/user/rpkgs` etc. finds nothing — the Sounds catalog is a separate
+  Connect-only endpoint.)
+- **Equator 1's** in-app Playlist/Preset Library *is* dead (*"Unable to connect to Playlist Library"*), but
+  that's the old Equator-1 `.preset` delivery, not these Equator-2 `.rpkg` packs — don't confuse the two.
+- **Studio Player** only tag-filters installed presets; its "Get more Sounds" opens the paid web store, not
+  your owned downloads. Do the owned-pack install from **Connect's Sounds tab**, not Studio Player.
+- Not bundled in the Equator app or Extended Library/Content installers (verified by reading those MSIs).
 
-So the *content* still exists as Equator 2 `.rpkg` (people archived it while the flow worked), but an owner
-has no way to re-pull it. The realistic source is the community **"ROLI Vault"** archive. GRAB's "Archive my
-ROLI downloads" is correctly scoped around this — there's no entitlement-based download URL that resolves for
-these packs, so it fetches the apps/firmware it *can* and copies the `.rpkg` already on disk. The current
-**Equator 2 Factory + Legacy libraries** (archivable via Studio Player) are ROLI's newer curated content and
-the practical replacement; the base Equator installers hold the factory + sample libraries - archive those
-while you can.
+GRAB's "Archive my ROLI downloads" preserves them via the copy-from-cache path: once Connect's **Install All**
+has pulled the `.rpkg` into its downloads cache, GRAB lists them under "already downloaded via Connect" and
+copies them to the archive. (GRAB can't yet drive Connect's Sounds-catalog endpoint directly - that would
+need mapping it - so the flow is Connect Install All → GRAB archive.) The community **"ROLI Vault"** archive
+remains a useful cross-check / fallback for anyone whose account or Connect can't reach the catalog.
 
 ## Lightpad / BLOCKS apps — bundled, and loadable offline with open tooling
 
