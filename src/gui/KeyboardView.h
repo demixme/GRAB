@@ -24,7 +24,7 @@ public:
     enum class Family { block, rise, grand, lumi, lightpad, control };
     // Control-block subtype - picks the LED colour + per-button icons (all are the same 10-button
     // hardware; only the printed icons / default functions differ). generic = Developer Control.
-    enum class Control { generic, live, loop, touch };
+    enum class Control { generic, live, loop, touch, developer };
 
     // One drawn block, positioned in the shared logical-unit grid (origin = master's top-left).
     struct Tile
@@ -558,10 +558,11 @@ private:
         g.setColour (border);
         g.drawRoundedRectangle (r.reduced (1.0f), 9.0f, 1.4f);
 
-        const juce::Colour led = sub == Control::touch ? juce::Colour (0xffb39cff)   // purple
-                               : sub == Control::loop  ? juce::Colour (0xff35d0c6)   // teal
-                               : sub == Control::live  ? juce::Colour (0xffff9a3c)   // orange
-                                                       : juce::Colour (0xff6a6d7a);  // developer: dim
+        const juce::Colour led = sub == Control::touch     ? juce::Colour (0xffb39cff)   // purple
+                               : sub == Control::loop      ? juce::Colour (0xff35d0c6)   // teal
+                               : sub == Control::live      ? juce::Colour (0xffff9a3c)   // orange
+                               : sub == Control::developer ? juce::Colour (0xffe6e6ee)   // developer: neutral white (blank caps)
+                                                           : juce::Colour (0xff6a6d7a);  // generic: dim
         auto body = r.reduced (kBodyMargin + 4.0f);
 
         // LED dot strip across the top (a few lit in the middle, like the hardware).
@@ -695,7 +696,13 @@ private:
                 default: break;
             }
         }
-        else   // generic / developer: a plain dot
+        else if (sub == Control::developer)   // blank dev caps are printed 0-7
+        {
+            g.setColour (c);
+            g.setFont (juce::Font (juce::FontOptions (s * 1.5f)).boldened());
+            g.drawText (juce::String (idx), b.expanded (s * 0.5f), juce::Justification::centred, false);
+        }
+        else   // generic: a plain dot
             g.fillEllipse (cx - lw, cy - lw, lw * 2.0f, lw * 2.0f);
     }
 

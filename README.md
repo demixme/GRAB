@@ -13,10 +13,17 @@ instruments configurable and self-documents their protocol.
        alt="GRAB configuring a Seaboard Block: colour-coded 5D sensitivity curves with live touch rings on the keyboard graphic, and MIDI settings, pitch and play-mode cards below.">
 </p>
 
-## Where it's at — v0.1.84
+## Where it's at — v0.1.85
 **Live editing** (changes write as you make them, like Dashboard), a unified **Preset** menu
 (ROLI presets + your own saved presets, per device), and **factory reset** for Blocks — on
 **Windows, macOS and Linux**.
+
+**New in v0.1.85:**
+- **Developer Control Block + Control Block presets.** GRAB now draws the **Developer** block (numbered
+  caps 0–7 + −/+) — confirmed from ROLI's factory program to be a plain configurable 10-button block (every
+  button defaults to MIDI CC 102–111). And the Preset menu gains two control-block layouts: **"Blank — buttons
+  send CC 102–111"** (repurpose any control block as a generic MIDI controller) and **"Reset to factory
+  default"** (the block re-applies its own type's layout). Save/apply your own layouts via the preset Export/Import.
 
 **New in v0.1.84:**
 - **Control Block read + write confirmed on hardware.** Contributor *moofy* verified it on a Live and a

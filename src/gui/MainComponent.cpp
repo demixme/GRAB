@@ -1117,7 +1117,7 @@ std::vector<KeyboardView::Tile> MainComponent::buildBlockTiles()
             case roli::Block::Type::liveBlock:  t.family = KeyboardView::Family::control; t.control = KeyboardView::Control::live;  dw = 2; dh = 1; break;
             case roli::Block::Type::loopBlock:  t.family = KeyboardView::Family::control; t.control = KeyboardView::Control::loop;  dw = 2; dh = 1; break;
             case roli::Block::Type::touchBlock: t.family = KeyboardView::Family::control; t.control = KeyboardView::Control::touch; dw = 2; dh = 1; break;
-            case roli::Block::Type::developerControlBlock: t.family = KeyboardView::Family::control; dw = 2; dh = 1; break;
+            case roli::Block::Type::developerControlBlock: t.family = KeyboardView::Family::control; t.control = KeyboardView::Control::developer; dw = 2; dh = 1; break;
             default: continue;   // airwave / unknown: not drawn
         }
 
@@ -2232,6 +2232,43 @@ namespace
         };
         return presets;
     }
+
+    static bool isControlBlockType (roli::Block::Type t)
+    {
+        return t == roli::Block::Type::liveBlock || t == roli::Block::Type::loopBlock
+            || t == roli::Block::Type::touchBlock || t == roli::Block::Type::developerControlBlock;
+    }
+
+    // Control-block button-config presets (ids 64/66-95). Only portable layouts: in MIDI-CC mode every
+    // control block behaves identically (buttons send their configured CCs), so these apply to any of them.
+    static const std::vector<BlockPreset>& controlBlockPresets()
+    {
+        static const std::vector<BlockPreset> presets = []
+        {
+            auto pack = [] (int val, int mx, int mn, int cc, int mode)
+            { return (juce::int32) (((val & 0x7F) << 24) | ((mx & 0x7F) << 17) | ((mn & 0x7F) << 10)
+                                    | ((cc & 0x7F) << 3) | (mode & 0x7)); };
+            std::vector<BlockPreset> v;
+            // Blank: every button a plain MIDI CC (102-111, gate), cyan/white - turns any control block into
+            // a generic 10-button MIDI controller (this IS the Developer block's factory layout). Fully portable.
+            {
+                BlockPreset p; p.name = "Blank - buttons send CC 102-111";
+                p.values.push_back ({ 64, 1 });   // Button Mode = MIDI CC
+                for (int i = 0; i < 10; ++i)
+                {
+                    p.values.push_back ({ (juce::uint32) (66 + i), pack (0, 127, 0, 102 + i, 2 /*gate*/) });
+                    p.values.push_back ({ (juce::uint32) (76 + i), (juce::int32) 0xFF00FFFF });   // on  = cyan
+                    p.values.push_back ({ (juce::uint32) (86 + i), (juce::int32) 0xFFFFFFFF });   // off = white
+                }
+                v.push_back (std::move (p));
+            }
+            // Reset: write 0 to the reset id; the block re-applies ITS OWN type default (Loop gets Loop
+            // defaults, Live gets Live, etc.) - the faithful way to restore factory behaviour.
+            { BlockPreset p; p.name = "Reset to factory default"; p.values.push_back ({ 65, 0 }); v.push_back (std::move (p)); }
+            return v;
+        }();
+        return presets;
+    }
 }
 
 juce::File MainComponent::presetDir() const
@@ -2254,6 +2291,16 @@ void MainComponent::populatePresetBox()
         presetBox.addSectionHeading ("ROLI presets");
         int id = 1;
         for (auto& p : seaboardPresets())
+            presetBox.addItem (p.name, id++);
+    }
+
+    // Control-block layout presets (Blank / Reset-to-factory).
+    const bool controlBlk = block != nullptr && isControlBlockType (block->getType());
+    if (controlBlk)
+    {
+        presetBox.addSectionHeading ("Control Block");
+        int id = 1;
+        for (auto& p : controlBlockPresets())
             presetBox.addItem (p.name, id++);
     }
 
@@ -2323,6 +2370,9 @@ void MainComponent::applyBlockPreset (const juce::String& name)
     const BlockPreset* preset = nullptr;
     for (auto& p : seaboardPresets())
         if (name == p.name) { preset = &p; break; }
+    if (preset == nullptr)
+        for (auto& p : controlBlockPresets())
+            if (name == p.name) { preset = &p; break; }
     if (preset == nullptr)
         return;
 
@@ -2528,8 +2578,8 @@ void MainComponent::forcePianoPreview()
 // status line change), then a 4th press exits. Lets you see all three button layouts.
 void MainComponent::forceControlPreview()
 {
-    controlPreviewStep = (controlPreviewStep + 1) % 4;   // 0 Loop, 1 Live, 2 Touch, 3 -> exit
-    if (controlPreviewStep == 3)
+    controlPreviewStep = (controlPreviewStep + 1) % 5;   // 0 Loop, 1 Live, 2 Touch, 3 Developer, 4 -> exit
+    if (controlPreviewStep == 4)
     {
         controlPreviewStep = -1;
         connect (seaprobe::Transport::Auto);             // toggle off, back to live device scan
@@ -2538,8 +2588,10 @@ void MainComponent::forceControlPreview()
 
     const auto sub = controlPreviewStep == 1 ? KeyboardView::Control::live
                    : controlPreviewStep == 2 ? KeyboardView::Control::touch
+                   : controlPreviewStep == 3 ? KeyboardView::Control::developer
                                              : KeyboardView::Control::loop;
-    const char* subName = controlPreviewStep == 1 ? "Live" : controlPreviewStep == 2 ? "Touch" : "Loop";
+    const char* subName = controlPreviewStep == 1 ? "Live" : controlPreviewStep == 2 ? "Touch"
+                        : controlPreviewStep == 3 ? "Developer" : "Loop";
 
     if (source != nullptr) { source->setActive (false); source.reset(); }
     block = nullptr;
