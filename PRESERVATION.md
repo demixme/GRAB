@@ -27,6 +27,42 @@ they refuse to load — fully-paid software bricked, unless ROLI ships a licence
 Mitigations while servers are up: keep the installers; keep each machine authorised; lobby ROLI /
 administrators for an unlocked farewell build (the only thing that makes owned copies survive).
 
+### How the licensing actually works (observed 2026-11-01)
+
+Reconstructed from **ROLI Connect's own on-disk cache** on an authorised Windows machine — no
+interception, no modification of ROLI's software. This is documented so owners understand what they
+have, what will break, and when. **It is not a circumvention guide:** the entitlements are signed by
+ROLI's private key, which we do not have and cannot reproduce, and GRAB will not patch the apps to
+skip their licence check.
+
+- **Login → JWT.** Connect signs in to `api.roli.com` (email/password) and receives a **JWT**
+  (HS256), carried as an `x-auth-token` header and a `token` cookie scoped to `.roli.com`, valid
+  **30 days** (`iat`/`exp` claims 2,592,000 s apart).
+- **Signed entitlements.** Connect GETs `/api/v1/user/entitlements`, returning
+  `{ uid, expiration, entitlements { "<public_id>": { id, name, enabled } … } }` — the owned products
+  (Dashboard, each Equator sound pack, …). The response is **cryptographically signed** via the
+  headers `x-signer-certificate`, `x-signer-certificate-signature`, `x-message-signature` (Ed25519 /
+  signify-minisign `RW…` blobs). The apps verify this against ROLI's **embedded public key** — that is
+  the licence proof.
+- **28-day built-in expiry.** The signed blob's `expiration` is set **exactly 28 days** after issue,
+  and the cache carries `cache-control: private, max-age=0, max-stale=2419200` (2,419,200 s = 28 days).
+  So a machine runs **offline for up to ~28 days** on the last signed entitlement; after that an app
+  must fetch a fresh one from `api.roli.com`.
+- **Offline store the apps read:** Connect mirrors the signed response — **headers *and* body, so the
+  signatures are included** — to `%APPDATA%\ROLI\Shared\…user…entitlements….json`
+  (macOS: `~/Library/Application Support/ROLI/Shared/`). Dashboard / ROLI Studio / Equator validate
+  against this when offline.
+- **Node-lock:** a per-machine GUID in `C:\ProgramData\ROLI\Shared\machine.id` ties activation to the
+  computer.
+
+**What it means for longevity.** As of 2026-11-01 the licence API is **still up** — `api.roli.com`,
+`my.roli.com`, `content.roli.com` all answer; only the *support portal* is suspended. So authorisation
+still works today: **log in on each machine while you can** to reset its 28-day clock. The hard limit is
+that, once the API goes dark, a machine keeps authorising only ~28 days past its last successful refresh,
+and the signed-and-expiring design means a lapsed licence **cannot legitimately be re-issued without
+ROLI's signing key**. The durable fixes are all external and worth lobbying the administrator for:
+**offline / perpetual licences, a minimal licence endpoint kept alive, or a licence-free farewell build.**
+
 ## Lightpad / BLOCKS apps — bundled, and loadable offline with open tooling
 
 An "app" (Note Grid, Fader Block, Drum Block, …) is a **Littlefoot program** the device runs.
@@ -64,5 +100,11 @@ cross. The point above is that a *separate* tool could, using entirely open comp
 - **ROLI Dashboard** installer (offline-safe config + the bundled apps + the open library is public).
 - **Equator2 / Studio / Airwave Player** installers (even though they're licence-leased).
 - **Ultraleap SDK** from ultraleap.com (the durable path for Airwave's camera).
+- **Your licence state** (per machine, while the API is up) — your current authorised snapshot:
+  - `%APPDATA%\ROLI\Shared\` — the signed offline entitlement store (macOS: `~/Library/Application Support/ROLI/Shared/`)
+  - `%APPDATA%\ROLI\ROLI Connect\API Proxy Cache\` — Connect's cached API responses
+  - `C:\ProgramData\ROLI\Shared\machine.id` — the node-lock identity
+  These contain your **personal account token and licence data** — keep them **private** (never commit
+  or share them), and note they stay valid only until the entitlement's embedded 28-day `expiration`.
 
 Keep copies for yourself; don't publicly re-host ROLI's installers, firmware or manuals.
