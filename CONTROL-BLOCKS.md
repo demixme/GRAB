@@ -33,6 +33,29 @@ capture is still welcome to confirm its per-type button layout and defaults.
 IDs `66`–`95` carry raw int32 values (range `0x80000000`..`0x7FFFFFFF`). GRAB previously listed 64–95 as
 `unknownConfigIds`; they are now named in `src/common/ConfigOverrides.h` and edited in `MainComponent`.
 
+### Per-type button names
+
+The ten button rows are the same config ids on every control block, but the physical caps are labelled
+differently per type. GRAB names them by their real function (from the ROLI Control Blocks Creator Manual,
+§4.2–4.5); `controlButtonName()` in `MainComponent.cpp` maps the block's hardware type → these labels.
+idx `0`–`7` are the eight round caps (top row `0`–`4`, lower row `5`–`7`); idx `8`/`9` are the `−`/`+` pill.
+
+| idx | Live | Loop | Touch | Developer |
+|-----|------|------|-------|-----------|
+| 0 | Mode | Mode | Strike | 0 |
+| 1 | Volume | Volume | Glide | 1 |
+| 2 | Scale | Click | Slide | 2 |
+| 3 | Chord | Snap | Press | 3 |
+| 4 | Arp | Undo | Lift | 4 |
+| 5 | Sustain | Play/Pause | Strike Lock | 5 |
+| 6 | Octave | Record | Glide Lock | 6 |
+| 7 | Love | Learn | Piano Mode | 7 |
+| 8 | − | − | − | − |
+| 9 | + | + | + | + |
+
+An unknown/generic block falls back to the generic "Button 1–10" labels. A user-learned name (renamed in
+GRAB) still wins over the function name.
+
 ## Packed button data (ids 66–75)
 
 Each button's settings are packed into one int32:

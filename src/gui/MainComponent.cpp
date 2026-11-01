@@ -309,6 +309,26 @@ static int groupRank (const juce::String& g)
     return g.isEmpty() ? 100 : 50; // unknown groups after, empty/"Other" last
 }
 
+// Control Block per-type button names, from the ROLI Control Blocks Creator Manual (sections 4.2-4.5).
+// idx 0-7 = the eight round caps (top row 0-4, lower row 5-7); idx 8/9 = the - / + pill. Returns
+// empty for an unknown/generic type so the caller keeps the generic "Button N" label.
+static juce::String controlButtonName (KeyboardView::Control type, int idx)
+{
+    static const char* live[10]  = { "Mode", "Volume", "Scale", "Chord", "Arp", "Sustain", "Octave", "Love", "-", "+" };
+    static const char* loop[10]  = { "Mode", "Volume", "Click", "Snap", "Undo", "Play/Pause", "Record", "Learn", "-", "+" };
+    static const char* touch[10] = { "Strike", "Glide", "Slide", "Press", "Lift", "Strike Lock", "Glide Lock", "Piano Mode", "-", "+" };
+    static const char* dev[10]   = { "0", "1", "2", "3", "4", "5", "6", "7", "-", "+" };
+
+    const char* const* tbl = type == KeyboardView::Control::live      ? live
+                           : type == KeyboardView::Control::loop      ? loop
+                           : type == KeyboardView::Control::touch     ? touch
+                           : type == KeyboardView::Control::developer ? dev
+                                                                      : nullptr;
+    if (tbl != nullptr && idx >= 0 && idx < 10)
+        return juce::String (tbl[idx]);
+    return {};
+}
+
 MainComponent::MainComponent()
 {
     addAndMakeVisible (statusLabel);
@@ -1692,6 +1712,29 @@ void MainComponent::rebuildRows()
     if (block == nullptr && simConfig.empty())
         return;
 
+    // Which control-block type (if any) we're showing: real device -> its hardware type;
+    // dev preview -> the cycled type. Drives the per-type button names on ids 66-75.
+    KeyboardView::Control ctrlSub = KeyboardView::Control::generic;
+    if (block != nullptr)
+    {
+        switch (block->getType())
+        {
+            case roli::Block::Type::liveBlock:             ctrlSub = KeyboardView::Control::live;      break;
+            case roli::Block::Type::loopBlock:             ctrlSub = KeyboardView::Control::loop;      break;
+            case roli::Block::Type::touchBlock:            ctrlSub = KeyboardView::Control::touch;     break;
+            case roli::Block::Type::developerControlBlock: ctrlSub = KeyboardView::Control::developer; break;
+            default: break;
+        }
+    }
+    else   // dev preview (Ctrl+Alt+Shift+C): 0 Loop, 1 Live, 2 Touch, 3 Developer
+    {
+        ctrlSub = controlPreviewStep == 1 ? KeyboardView::Control::live
+                : controlPreviewStep == 2 ? KeyboardView::Control::touch
+                : controlPreviewStep == 3 ? KeyboardView::Control::developer
+                : controlPreviewStep == 0 ? KeyboardView::Control::loop
+                                          : KeyboardView::Control::generic;
+    }
+
     const auto onChange = [this] (juce::uint32 id, juce::int32 v) { onItemChanged (id, v); };
 
     // Collect active items grouped by their device-reported group, preserving id
@@ -1706,7 +1749,17 @@ void MainComponent::rebuildRows()
         if (! meta.isActive)            // only items the device actually reports
             return;
         seaprobe::applyConfigOverrides (meta);        // built-in overrides (e.g. Chord, Scale)
-        grab::applyLearnedNames (meta, learnedNames);  // names pulled from the store
+
+        // Control-block button data (ids 66-75): replace the generic "Button N" with the real
+        // per-type function name from the manual (Mode/Volume/Scale..., Strike/Glide..., 0-7, etc).
+        if (ctrlSub != KeyboardView::Control::generic && meta.item >= 66 && meta.item <= 75)
+        {
+            const auto fn = controlButtonName (ctrlSub, (int) meta.item - 66);
+            if (fn.isNotEmpty())
+                meta.name = fn;
+        }
+
+        grab::applyLearnedNames (meta, learnedNames);  // names pulled from the store (user renames win)
 
         deviceValues[meta.item] = value;
         pendingValues[meta.item] = value;
