@@ -66,8 +66,7 @@ public:
         buildItems (firmwareProduct);
         layoutList();
         updateInfo();
-        fetchProducts();     // async: app installers from /user/products live (disk cache is usually absent)
-        fetchSoundpacks();   // async: adds owned soundpacks (direct download) when the catalog returns
+        fetchProductsAndSounds();   // async: resolve a working token (cache or leveldb), then apps + soundpacks
         setSize (640, 560);
     }
 
@@ -108,18 +107,30 @@ private:
     };
 
     //==============================================================================
-    // Locate ROLI Connect's on-disk API cache.
+    // Per-user app-data root. JUCE's userApplicationDataDirectory returns %APPDATA% on Windows and
+    // ~/.config on Linux (both correct), but just ~/Library on macOS - NOT ~/Library/Application Support -
+    // so on mac we append "Application Support" ourselves.
+    static juce::File appSupportRoot()
+    {
+        auto d = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory);
+       #if JUCE_MAC
+        d = d.getChildFile ("Application Support");
+       #endif
+        return d;
+    }
+
+    // ROLI Connect's Electron userData dir (holds Local Storage/leveldb, Cookies, Cache):
+    //   <appSupport>/ROLI Connect
+    static juce::File connectElectronDir() { return appSupportRoot().getChildFile ("ROLI Connect"); }
+
+    // Locate ROLI Connect's on-disk API proxy cache:
     //   Windows: %APPDATA%\ROLI\ROLI Connect\API Proxy Cache
     //   macOS:   ~/Library/Application Support/ROLI/ROLI Connect/API Proxy Cache  (verified on a Mac Studio)
-    // JUCE's userApplicationDataDirectory returns %APPDATA% on Windows but just ~/Library on macOS (NOT
-    // ~/Library/Application Support), so on mac we append "Application Support" ourselves - without it GRAB
-    // looked in ~/Library/ROLI/... and found no token/products, falling back to browser-only downloads.
+    // Some (newer/fresh) Connect installs don't write this at all - then the token comes from leveldb
+    // (collectLocalStorageJwts) instead.
     static juce::File connectCacheRoot()
     {
-        auto appData = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory);
-       #if JUCE_MAC
-        appData = appData.getChildFile ("Application Support");
-       #endif
+        const auto appData = appSupportRoot();
         const juce::File candidates[] = {
             appData.getChildFile ("ROLI").getChildFile ("ROLI Connect").getChildFile ("API Proxy Cache"),
             appData.getChildFile ("ROLI Connect").getChildFile ("API Proxy Cache")
@@ -177,6 +188,48 @@ private:
                     if (line.startsWithIgnoreCase ("x-auth-token:"))
                         return line.fromFirstOccurrenceOf (":", false, false).trim();
         return {};
+    }
+
+    // Fallback token source for Connect installs that write no API Proxy Cache (e.g. fresh installs):
+    // the session JWT is stored in readable form in Connect's Local Storage (Chromium leveldb). The real
+    // auth token's header segment begins "eyJhbGci" (verified against a working cache), so collect every
+    // full 3-part JWT with that header. Several may appear (the API caller tries each until one is accepted).
+    static juce::StringArray collectLocalStorageJwts()
+    {
+        juce::StringArray out;
+        auto ldb = connectElectronDir().getChildFile ("Local Storage").getChildFile ("leveldb");
+        if (! ldb.isDirectory()) return out;
+
+        const auto isTok = [] (char c)
+        {
+            return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')
+                || c == '-' || c == '_' || c == '.';
+        };
+        for (const auto& f : ldb.findChildFiles (juce::File::findFiles, false, "*.ldb;*.log"))
+        {
+            juce::MemoryBlock mb;
+            if (! f.loadFileAsData (mb)) continue;
+            const auto* p = static_cast<const char*> (mb.getData());
+            const int n = (int) mb.getSize();
+            for (int i = 0; i + 3 <= n; )
+            {
+                if (p[i] == 'e' && p[i + 1] == 'y' && p[i + 2] == 'J')
+                {
+                    int j = i, dots = 0;
+                    while (j < n && isTok (p[j])) { if (p[j] == '.') ++dots; ++j; }
+                    if (dots >= 2 && j - i > 40)   // a full header.payload.signature JWT
+                    {
+                        juce::String jwt (p + i, (size_t) (j - i));
+                        while (jwt.endsWithChar ('.')) jwt = jwt.dropLastCharacters (1);
+                        if (jwt.startsWith ("eyJhbGci"))   // header-first (the auth token), not a bare payload
+                            out.addIfNotAlreadyThere (jwt);
+                    }
+                    i = j + 1;
+                }
+                else ++i;
+            }
+        }
+        return out;
     }
 
     static juce::String platformTag()
@@ -359,23 +412,41 @@ private:
     }
 
     // Fetch /user/products live (Connect caches it only transiently, so the disk copy is usually
-    // missing). Uses the signed-in token; background thread so the panel never blocks.
-    void fetchProducts()
+    // missing) and, once a token is confirmed working, the soundpack catalog too. Tries the cache token
+    // first, then any JWTs recovered from Connect's Local Storage (for installs with no API Proxy Cache),
+    // and keeps whichever the API accepts (200). Background thread so the panel never blocks.
+    void fetchProductsAndSounds()
     {
-        if (token.isEmpty()) return;
-        const auto tok = token;
+        juce::StringArray candidates;
+        if (token.isNotEmpty()) candidates.add (token);
+        for (const auto& j : collectLocalStorageJwts()) candidates.addIfNotAlreadyThere (j);
+        if (candidates.isEmpty()) return;
+
         juce::Component::SafePointer<RoliArchivePanel> safe (this);
-        std::thread ([safe, tok]
+        std::thread ([safe, candidates]
         {
-            juce::WebInputStream web (juce::URL ("https://api.roli.com/api/v1/user/products"), false);
-            web.withExtraHeaders ("User-Agent: GRAB\r\nAccept: application/json\r\nx-access-token: " + tok + "\r\nCookie: token=" + tok);
-            web.withConnectionTimeout (15000);
-            web.withNumRedirectsToFollow (6);
-            auto body = std::make_shared<juce::var>();
-            if (web.connect (nullptr) && web.getStatusCode() == 200)
-                *body = juce::JSON::parse (web.readEntireStreamAsString());
-            juce::MessageManager::callAsync ([safe, body]
-                { if (auto* p = safe.getComponent()) p->addProductsFromJson (*body); });
+            for (const auto& tok : candidates)
+            {
+                juce::WebInputStream web (juce::URL ("https://api.roli.com/api/v1/user/products"), false);
+                web.withExtraHeaders ("User-Agent: GRAB\r\nAccept: application/json\r\nx-access-token: " + tok + "\r\nCookie: token=" + tok);
+                web.withConnectionTimeout (15000);
+                web.withNumRedirectsToFollow (6);
+                if (web.connect (nullptr) && web.getStatusCode() == 200)
+                {
+                    auto body = std::make_shared<juce::var> (juce::JSON::parse (web.readEntireStreamAsString()));
+                    juce::MessageManager::callAsync ([safe, body, tok]
+                    {
+                        if (auto* p = safe.getComponent())
+                        {
+                            p->token = tok;              // this one works - reuse it for soundpacks + downloads
+                            p->addProductsFromJson (*body);
+                            p->updateInfo();
+                            p->fetchSoundpacks();
+                        }
+                    });
+                    return;
+                }
+            }
         }).detach();
     }
 
