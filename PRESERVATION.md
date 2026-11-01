@@ -168,7 +168,9 @@ cross. The point above is that a *separate* tool could, using entirely open comp
 - **Ultraleap SDK** from ultraleap.com (the durable path for Airwave's camera).
 - **Your licence state** (per machine, while the API is up) — your current authorised snapshot:
   - `%APPDATA%\ROLI\Shared\` — the signed offline entitlement store (macOS: `~/Library/Application Support/ROLI/Shared/`)
-  - `%APPDATA%\ROLI\ROLI Connect\API Proxy Cache\` — Connect's cached API responses
+  - `%APPDATA%\ROLI\ROLI Connect\API Proxy Cache\` — Connect's cached API responses (macOS:
+    `~/Library/Application Support/ROLI/ROLI Connect/API Proxy Cache/<account>/…products…`; same
+    per-account/URL-encoded layout as Windows — verified on a Mac Studio)
   - `C:\ProgramData\ROLI\Shared\machine.id` — the node-lock identity
   These contain your **personal account token and licence data** — keep them **private** (never commit
   or share them), and note they stay valid only until the entitlement's embedded 28-day `expiration`.

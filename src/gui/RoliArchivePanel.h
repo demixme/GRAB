@@ -107,12 +107,18 @@ private:
     };
 
     //==============================================================================
-    // Locate ROLI Connect's on-disk API cache. Windows: %APPDATA%\ROLI\ROLI Connect\API Proxy Cache.
-    // macOS: ~/Library/Application Support/... - but whether Connect nests under "ROLI/ROLI Connect" or
-    // just "ROLI Connect" there is unverified from Windows, so try both and return whichever exists.
+    // Locate ROLI Connect's on-disk API cache.
+    //   Windows: %APPDATA%\ROLI\ROLI Connect\API Proxy Cache
+    //   macOS:   ~/Library/Application Support/ROLI/ROLI Connect/API Proxy Cache  (verified on a Mac Studio)
+    // JUCE's userApplicationDataDirectory returns %APPDATA% on Windows but just ~/Library on macOS (NOT
+    // ~/Library/Application Support), so on mac we append "Application Support" ourselves - without it GRAB
+    // looked in ~/Library/ROLI/... and found no token/products, falling back to browser-only downloads.
     static juce::File connectCacheRoot()
     {
-        const auto appData = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory);
+        auto appData = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory);
+       #if JUCE_MAC
+        appData = appData.getChildFile ("Application Support");
+       #endif
         const juce::File candidates[] = {
             appData.getChildFile ("ROLI").getChildFile ("ROLI Connect").getChildFile ("API Proxy Cache"),
             appData.getChildFile ("ROLI Connect").getChildFile ("API Proxy Cache")
@@ -120,7 +126,7 @@ private:
         for (const auto& c : candidates)
             if (c.isDirectory())
                 return c;
-        return candidates[0];   // Windows-observed layout, so callers still have a sensible default
+        return candidates[0];   // observed layout, so callers still have a sensible default
     }
 
     // The account subfolder is the one holding the cached /user/products response.

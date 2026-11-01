@@ -300,7 +300,7 @@ static constexpr int sectionHeaderHeight = 30;
 static int groupRank (const juce::String& g)
 {
     static const char* order[] = {
-        "Sensitivity", "MIDI Settings", "Pitch", "Play mode",
+        "Sensitivity", "MIDI Settings", "Pitch", "Keybed State", "Play mode",
         "Pedal", "Colors", "Rhythm", "Mode 1", "Mode 2", "Mode 3", "Mode 4"
     };
     for (int i = 0; i < (int) (sizeof (order) / sizeof (order[0])); ++i)
