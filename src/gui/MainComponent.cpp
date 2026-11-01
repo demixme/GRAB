@@ -2044,12 +2044,27 @@ void MainComponent::reloadFromDevice()
 }
 
 // ROLI's firmware download URLs are keyed by a product *name*. We only map names we've
-// confirmed resolve on my.roli.com (Seaboard Block). Others (Piano/LUMI/Lightpad/GRAND/RISE 2)
-// aren't confirmed yet — notably "Lightpad Block" 404s — so they stay unmapped for now.
+// confirmed resolve on my.roli.com. The endpoint validates the name ("Lightpad Block" 404s),
+// so every mapping here has been tested to return a .syx.zip:
+//   Seaboard Block                       -> "Seaboard Block ... .syx.zip"
+//   Live/Loop/Touch/Developer control    -> all four return "BLOCKS control 1.1.0.syx.zip"
+//     (the control blocks share one byte-identical 'control' firmware, so any of the names
+//      resolves to the same build; we send the type-appropriate name).
+// Still unmapped: Piano/LUMI/Lightpad/GRAND (names not confirmed).
 juce::String MainComponent::roliProductName() const
 {
-    if (block != nullptr && block->getType() == roli::Block::Type::seaboardBlock)
-        return "Seaboard Block";
+    if (block != nullptr)
+    {
+        switch (block->getType())
+        {
+            case roli::Block::Type::seaboardBlock:         return "Seaboard Block";
+            case roli::Block::Type::liveBlock:             return "Live Block";
+            case roli::Block::Type::loopBlock:             return "Loop Block";
+            case roli::Block::Type::touchBlock:            return "Touch Block";
+            case roli::Block::Type::developerControlBlock: return "Control Block";   // confirmed name
+            default: break;
+        }
+    }
     if (rise2Page != nullptr)
         return rise2Page->firmwareDownloadProduct();   // "Seaboard RISE" for an original RISE
     return {};
@@ -2069,7 +2084,9 @@ void MainComponent::downloadFirmware()
                 .withIconType (juce::MessageBoxIconType::InfoIcon)
                 .withTitle ("Download firmware for archiving")
                 .withMessage (grab::u8 ("GRAB doesn't have a confirmed firmware download for this device yet.\n\n"
-                              "Confirmed: Seaboard Block, and every Seaboard RISE (original 25 & 49, and RISE 2).\n\n"
+                              "Confirmed: Seaboard Block, every Seaboard RISE (original 25 & 49, and RISE 2), "
+                              "and the Control Blocks (Live / Loop / Touch / Developer - all share the BLOCKS "
+                              "'control' firmware).\n\n"
                               "The Seaboard GRAND is registered with ROLI but has no downloadable firmware build. "
                               "LUMI Keys, Lightpad and ROLI Piano aren't mapped yet.\n\n"
                               "You can still check my.roli.com in a browser, or use Advanced -> Help add device to help."))

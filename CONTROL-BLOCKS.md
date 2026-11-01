@@ -96,6 +96,10 @@ gate, matching the button-press capture `B0 66 7F` (CC 102, momentary 127 press 
   master): editing a button's **MIDI CC / behaviour / on-off colour** in GRAB takes effect on the device —
   the LED colour changes and the button sends the new CC. So the full round-trip (decode → `packButtonConfig`
   → live write) is proven, not just math-checked.
+- **Firmware archiving** — **Advanced ▸ Download firmware for archiving** now resolves for control blocks.
+  `my.roli.com/firmware_versions/update_to/{Live,Loop,Touch,Control} Block/1.0.0` all download the same
+  **`BLOCKS control 1.1.0.syx.zip`** (one shared `control` firmware), confirming the names resolve.
+  Download-only; GRAB never flashes.
 
 ## ⭐ Help wanted — one gap left: a Touch Block
 
