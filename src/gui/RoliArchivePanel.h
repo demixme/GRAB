@@ -106,11 +106,20 @@ private:
     };
 
     //==============================================================================
-    // Locate ROLI Connect's on-disk API cache (same across platforms, under the app-data dir).
+    // Locate ROLI Connect's on-disk API cache. Windows: %APPDATA%\ROLI\ROLI Connect\API Proxy Cache.
+    // macOS: ~/Library/Application Support/... - but whether Connect nests under "ROLI/ROLI Connect" or
+    // just "ROLI Connect" there is unverified from Windows, so try both and return whichever exists.
     static juce::File connectCacheRoot()
     {
-        return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                 .getChildFile ("ROLI").getChildFile ("ROLI Connect").getChildFile ("API Proxy Cache");
+        const auto appData = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory);
+        const juce::File candidates[] = {
+            appData.getChildFile ("ROLI").getChildFile ("ROLI Connect").getChildFile ("API Proxy Cache"),
+            appData.getChildFile ("ROLI Connect").getChildFile ("API Proxy Cache")
+        };
+        for (const auto& c : candidates)
+            if (c.isDirectory())
+                return c;
+        return candidates[0];   // Windows-observed layout, so callers still have a sensible default
     }
 
     // The account subfolder is the one holding the cached /user/products response.
@@ -155,6 +164,21 @@ private:
         return "osx";
        #else
         return "linux";
+       #endif
+    }
+
+    // ROLI Connect's electron-updater feed names the manifest per platform (confirmed against the live
+    // API: osx/latest.yml is rejected as "Incompatible platform and channel file requested"; it must be
+    // latest-mac.yml). The feed serves the manifest's `path:` artifact (Win: the .exe installer; mac: the
+    // app .zip - the .dmg isn't exposed through the feed, "Build file not found").
+    static juce::String updaterYmlName()
+    {
+       #if JUCE_MAC
+        return "latest-mac.yml";
+       #elif JUCE_WINDOWS
+        return "latest.yml";
+       #else
+        return "latest-linux.yml";
        #endif
     }
 
@@ -383,7 +407,7 @@ private:
         juce::String url = it->url, fname = it->filename;
         if (it->ymlTwoStep)
         {
-            juce::WebInputStream yml (juce::URL (it->ymlFeedBase + "latest.yml?flavor=general-edition"), false);
+            juce::WebInputStream yml (juce::URL (it->ymlFeedBase + updaterYmlName() + "?flavor=general-edition"), false);
             yml.withExtraHeaders (authHeaders (token));
             yml.withConnectionTimeout (15000);
             yml.withNumRedirectsToFollow (6);

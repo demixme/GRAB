@@ -13,10 +13,15 @@ instruments configurable and self-documents their protocol.
        alt="GRAB configuring a Seaboard Block: colour-coded 5D sensitivity curves with live touch rings on the keyboard graphic, and MIDI settings, pitch and play-mode cards below.">
 </p>
 
-## Where it's at — v0.1.81
+## Where it's at — v0.1.82
 **Live editing** (changes write as you make them, like Dashboard), a unified **Preset** menu
 (ROLI presets + your own saved presets, per device), and **factory reset** for Blocks — on
 **Windows, macOS and Linux**.
+
+**New in v0.1.82:**
+- **macOS fix** for *Archive my ROLI downloads*: ROLI Connect's installer uses the `latest-mac.yml`
+  manifest on macOS (not `latest.yml`), and the Connect-cache path lookup now tries both the nested and
+  flat layouts. Dashboard/Equator/firmware already worked on macOS.
 
 **New in v0.1.81:**
 - **Archive my ROLI downloads** (*Advanced ▸*). A preservation grab for the whole account while ROLI's
