@@ -105,17 +105,27 @@ installers in the Connect downloads cache (`Strobe2_v2.6.1.7.exe`, `Cypher2_v2.6
 the licence model above**, so the samples alone won't play offline once a licence lapses — same reason
 the only durable fix is a licence-free build. Keep the content *and* the licence-state backup.
 
-**Already gone — legacy Equator 1 online library (confirmed 2026-11-01).** Equator **1**'s in-app
-**Playlist Library / Preset Library** (the cloud service that downloaded the old genre soundpacks —
-5D EDM, Giant Dubstep, Hybrid Acoustic, World Colours, Session Keys, … ~30 packs) is **already
-unreachable**: Equator shows *"Unable to connect to Playlist Library"* while `api.roli.com` and the rest
-of the internet answer fine, so it's that specific legacy backend that's retired, not a connectivity
-problem. Those packs **cannot be re-downloaded** even though the account still lists the entitlements —
-the entitlement is a leftover record, the content service is gone. (They are **not** bundled in the
-Equator app or Extended Library/Content installers — verified by reading those MSIs.) The current
-**Equator 2 Factory + Legacy libraries** (archivable via Studio Player, above) are ROLI's newer curated
-content and the practical replacement; the base Equator installers still hold the factory + sample
-libraries. So archive those while you can; the old Equator-1 genre packs are a lost cause.
+**Owned soundpacks — no working re-download path (confirmed 2026-11-01).** The old genre soundpacks
+(5D EDM, Giant Dubstep, Hybrid Acoustic, World Colours, Session Keys, … ~30 packs) can't be re-fetched by
+an owner through any current ROLI path, even though the account still lists the entitlements:
+- **Equator 1's in-app Playlist/Preset Library is dead** — it shows *"Unable to connect to Playlist
+  Library"* while `api.roli.com` and the rest of the internet answer fine, so that specific legacy backend
+  is retired.
+- **ROLI Connect** doesn't list them, and **Studio Player** only *tag-filters installed presets*
+  (`ROLI Studio` / `Equator2` / `MPE` / `Standard`) - its "Get more Sounds" opens the web **store**.
+- The **web store** (`roli.com/.../collection/create/sounds`) is live but lists these as **paid
+  purchases** (Add to cart) with no "you own this → download" flow; the "Free" many carry is because they
+  were historically *bundled free with hardware*, not a standing free download.
+- They are **not** bundled in the Equator app or Extended Library/Content installers (verified by reading
+  those MSIs).
+
+So the *content* still exists as Equator 2 `.rpkg` (people archived it while the flow worked), but an owner
+has no way to re-pull it. The realistic source is the community **"ROLI Vault"** archive. GRAB's "Archive my
+ROLI downloads" is correctly scoped around this — there's no entitlement-based download URL that resolves for
+these packs, so it fetches the apps/firmware it *can* and copies the `.rpkg` already on disk. The current
+**Equator 2 Factory + Legacy libraries** (archivable via Studio Player) are ROLI's newer curated content and
+the practical replacement; the base Equator installers hold the factory + sample libraries - archive those
+while you can.
 
 ## Lightpad / BLOCKS apps — bundled, and loadable offline with open tooling
 
