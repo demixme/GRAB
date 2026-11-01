@@ -53,7 +53,8 @@ skip their licence check.
   (macOS: `~/Library/Application Support/ROLI/Shared/`). Dashboard / ROLI Studio / Equator validate
   against this when offline.
 - **Node-lock:** a per-machine GUID in `C:\ProgramData\ROLI\Shared\machine.id` ties activation to the
-  computer.
+  computer (macOS/Linux keep the same per-machine id under ROLI's shared data folder; exact path not
+  verified here — treat the Windows path as the Windows-specific example).
 
 **What it means for longevity.** As of 2026-11-01 the licence API is **still up** — `api.roli.com`,
 `my.roli.com`, `content.roli.com` all answer; only the *support portal* is suspended. So authorisation
@@ -75,8 +76,11 @@ Note the two different "Equators": **Equator 1** is the older standalone synth w
 big download below.
 
 How the content flows (observed on Windows): Connect downloads each library as a self-contained
-**`.rpkg`** package into `%APPDATA%\ROLI\ROLI Connect\downloads\` (staged as `.<hash>.<name>.rpkg`
-while in progress, prefix dropped when complete), then hands it to **ROLI Package Manager** —
+**`.rpkg`** package into `%APPDATA%\ROLI\ROLI Connect\downloads\` (macOS:
+`~/Library/Application Support/ROLI/ROLI Connect/downloads/`; Linux: `~/.config/ROLI/ROLI Connect/downloads/`).
+On Windows these are staged as `.<hash>.<name>.rpkg` while in progress (prefix dropped when complete);
+on macOS they're stored under **content-hash filenames with no extension** (e.g. `8e600e5b…-13`), so you
+can't match them by name. Connect then hands the package to **ROLI Package Manager** —
 a helper bundled inside Connect (`…\ROLI Connect\resources\app\resources\win32\bin\ROLI Package
 Manager.exe`) — which unpacks it to `C:\Users\Public\Documents\ROLI\`.
 (macOS: `~/Library/Application Support` + `/Users/Shared/ROLI` / `~/Music/ROLI`.) Because the Package
@@ -170,8 +174,13 @@ cross. The point above is that a *separate* tool could, using entirely open comp
   - `%APPDATA%\ROLI\Shared\` — the signed offline entitlement store (macOS: `~/Library/Application Support/ROLI/Shared/`)
   - `%APPDATA%\ROLI\ROLI Connect\API Proxy Cache\` — Connect's cached API responses (macOS:
     `~/Library/Application Support/ROLI/ROLI Connect/API Proxy Cache/<account>/…products…`; same
-    per-account/URL-encoded layout as Windows — verified on a Mac Studio)
-  - `C:\ProgramData\ROLI\Shared\machine.id` — the node-lock identity
+    per-account/URL-encoded layout as Windows — verified on a Mac Studio). **Note:** fresh/newer Connect
+    installs may not write this at all — then the session token lives only in the next item.
+  - **Connect's Electron Local Storage** — `…/ROLI Connect/Local Storage/leveldb/` (Windows:
+    `%APPDATA%\ROLI Connect\…`; macOS: `~/Library/Application Support/ROLI Connect/…`). Holds the session
+    **JWT** in readable form (plus an encrypted copy in the sibling `Cookies` DB). This is the reliable,
+    always-present token source regardless of Connect version — GRAB's archive tool reads it as a fallback.
+  - `C:\ProgramData\ROLI\Shared\machine.id` — the node-lock identity (Windows path; see above)
   These contain your **personal account token and licence data** — keep them **private** (never commit
   or share them), and note they stay valid only until the entitlement's embedded 28-day `expiration`.
 

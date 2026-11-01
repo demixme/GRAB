@@ -22,9 +22,13 @@ GRAB needs no ROLI driver, but the Piano's port has to be free and enumerated:
   up as **"USBMidi2-ACX"** (rename it in your DAW). MPE and per-note pressure work, and a
   DAW and GRAB can use the Piano at the same time.
 
+**macOS / Linux:** no driver dance — the Piano is class-compliant, so it enumerates
+automatically; just close any app (ROLI Connect/Dashboard, a DAW) that's holding the port,
+and it shows up in GRAB.
+
 GRAB recognises the Piano by name (`roli piano`) or port identifier (`pianofortynine`
-with ROLI's driver, `vid_2af4&pid_0f00` with the in-box driver) — see
-`src/common/LoggingMidi.h`, `isBlocksDevice()`.
+with ROLI's driver, `vid_2af4&pid_0f00` with the in-box driver on Windows; a CoreMIDI/ALSA
+name elsewhere) — see `src/common/LoggingMidi.h`, `isBlocksDevice()`.
 
 ## It's a hybrid: it answers both protocols
 
