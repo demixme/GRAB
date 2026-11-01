@@ -63,6 +63,40 @@ and the signed-and-expiring design means a lapsed licence **cannot legitimately 
 ROLI's signing key**. The durable fixes are all external and worth lobbying the administrator for:
 **offline / perpetual licences, a minimal licence endpoint kept alive, or a licence-free farewell build.**
 
+### ROLI Studio / Equator 2 — content libraries (download now while servers are up)
+
+**ROLI Studio Player** and **ROLI Studio Drums** are the current JUCE instruments (VST3 + standalone;
+the Studio Player hosts the **Equator 2** engine). The apps themselves are small (~35 MB each); their
+**sound content is downloaded separately through ROLI Connect** from ROLI's servers, so it's at the
+same risk as the licences and must be grabbed before the servers go.
+
+Note the two different "Equators": **Equator 1** is the older standalone synth with its own installers
+(already in the local archive); **Equator 2** is the engine inside Studio Player, whose content is the
+big download below.
+
+How the content flows (observed on Windows): Connect downloads each library as a self-contained
+**`.rpkg`** package into `%APPDATA%\ROLI\ROLI Connect\downloads\` (staged as `.<hash>.<name>.rpkg`
+while in progress, prefix dropped when complete), then unpacks it to `C:\Users\Public\Documents\ROLI\`.
+(macOS: `~/Library/Application Support` + `/Users/Shared/ROLI` / `~/Music/ROLI`.)
+
+| Library | Size | Package (`.rpkg`) | Unpacks to |
+|---|---|---|---|
+| **Equator2 Factory Library 1.0.0** | 5.2 GB | `Equator2 Factory Content-1.0.0.rpkg` | `Public\Documents\ROLI\Equator\Factory Library\` |
+| **Equator1 Legacy Library 1.1.0** | 1.3 GB | `Equator Legacy Content-1.1.0.rpkg` | `Public\Documents\ROLI\Equator\Downloaded Library\` |
+| **Fundamentals soundpacks** (Equator / Cypher2 / Strobe2 / Drums) | ~266 MB | (bundled) | `Public\Documents\ROLI\Soundpacks\` |
+
+The bundled synths **Strobe2** and **Cypher2** (FXpansion / "Make Believe Studios") also come down as
+installers in the Connect downloads cache (`Strobe2_v2.6.1.7.exe`, `Cypher2_v2.6.1.7.exe`).
+
+**To preserve:** in Studio Player, Install both libraries, then copy to your own archive:
+- the two `.rpkg` packages from `…\ROLI Connect\downloads\` (cleanest — self-contained, re-installable),
+- the unpacked `C:\Users\Public\Documents\ROLI\` folder (Equator libraries + Soundpacks),
+- the `studioplayer-*.rpkg` / `studiodrums-*.rpkg` app packages and the Strobe2 / Cypher2 installers.
+
+**Caveat:** archiving the content preserves the *sounds*, but Equator 2 / Studio still **authorise via
+the licence model above**, so the samples alone won't play offline once a licence lapses — same reason
+the only durable fix is a licence-free build. Keep the content *and* the licence-state backup.
+
 ## Lightpad / BLOCKS apps — bundled, and loadable offline with open tooling
 
 An "app" (Note Grid, Fader Block, Drum Block, …) is a **Littlefoot program** the device runs.
