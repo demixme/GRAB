@@ -84,11 +84,14 @@ Manager ships *with* Connect, archiving the Connect installer preserves the unpa
 `.rpkg` should therefore be re-installable offline (worth confirming — playback still needs licence
 auth regardless).
 
-| Library | Size | Package (`.rpkg`) | Unpacks to |
+| Library | Package size | Package (`.rpkg`) | Unpacks to |
 |---|---|---|---|
-| **Equator2 Factory Library 1.0.0** | 5.2 GB | `Equator2 Factory Content-1.0.0.rpkg` | `Public\Documents\ROLI\Equator\Factory Library\` |
-| **Equator1 Legacy Library 1.1.0** | 1.3 GB | `Equator Legacy Content-1.1.0.rpkg` | `Public\Documents\ROLI\Equator\Downloaded Library\` |
+| **Equator2 Factory Library 1.0.0** | 4.89 GB | `Equator2 Factory Content-1.0.0.rpkg` | `Public\Documents\ROLI\Equator2\Factory Library\` |
+| **Equator1 Legacy Library 1.1.0** | 1.29 GB | `Equator Legacy Content-1.1.0.rpkg` | (merges into) `Public\Documents\ROLI\Equator2\Factory Library\` |
 | **Fundamentals soundpacks** (Equator / Cypher2 / Strobe2 / Drums) | ~266 MB | (bundled) | `Public\Documents\ROLI\Soundpacks\` |
+
+Both libraries unpack under Equator 2's **own** `Equator2\` folder (~6.3 GB, ~600 presets + samples in
+ROLI's format) — *not* the Equator 1 `Equator\` folder, which stays empty. Verified installed 2026-11-01.
 
 The bundled synths **Strobe2** and **Cypher2** (FXpansion / "Make Believe Studios") also come down as
 installers in the Connect downloads cache (`Strobe2_v2.6.1.7.exe`, `Cypher2_v2.6.1.7.exe`).
