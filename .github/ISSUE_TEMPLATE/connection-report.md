@@ -24,7 +24,7 @@ GRAB logs every MIDI port it sees. Please paste the `=== MIDI inputs ===` and
 
 Find the newest log here:
 - **Windows:** `%APPDATA%\GRAB\logs\`
-- **macOS:** `~/Library/GRAB/logs/`
+- **macOS:** `~/Library/Application Support/GRAB/logs/`
 - **Linux:** `~/.config/GRAB/logs/`
 
 ```

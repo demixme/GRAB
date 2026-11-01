@@ -8,6 +8,7 @@
 #include <roli_blocks_basics/roli_blocks_basics.h>
 
 #include "DeviceProfile.h"
+#include "GrabPaths.h"
 
 #include <thread>
 
@@ -101,8 +102,7 @@ public:
 private:
     static juce::File settingsFile()
     {
-        return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                   .getChildFile ("GRAB").getChildFile ("settings.properties");
+        return grab::dataDir().getChildFile ("settings.properties");
     }
 
     static juce::String loadEndpoint()
@@ -149,8 +149,7 @@ private:
         rebuildJson();
         // Per-user dir (not the working directory — a Finder/Explorer-launched app has an
         // unpredictable CWD it can't write to). Matches Capture/Diagnostics.
-        auto dir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                       .getChildFile ("GRAB").getChildFile ("profiles");
+        auto dir = grab::dataDir().getChildFile ("profiles");
         dir.createDirectory();
         auto f = dir.getChildFile (juce::String (grab::blockTypeName (block->getType()))
                                    + "-" + block->versionNumber + "-"

@@ -3,6 +3,7 @@
 #include "SectionCard.h"
 #include "FaderPanel.h"
 #include "Help.h"
+#include "GrabPaths.h"
 
 #include <functional>
 #include <set>
@@ -1030,8 +1031,7 @@ bool Rise2Component::fieldShown (juce::uint32 id) const
 juce::File Rise2Component::presetDir() const
 {
     // Scoped per device family so a RISE preset never shows up for (or is applied to) a GRAND.
-    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-             .getChildFile ("GRAB").getChildFile ("presets")
+    return grab::dataDir().getChildFile ("presets")
              .getChildFile (grand ? "grand" : "rise");
 }
 

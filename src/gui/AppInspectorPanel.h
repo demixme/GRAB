@@ -148,15 +148,31 @@ private:
         add (H1,    "Try it\n");
         add (Body,  "Press \"Preview demo\" for a built-in animation, or open a factory app (bundled with ROLI "
                     "Dashboard) from:\n");
+       #if JUCE_MAC
+        add (Note,  "    /Applications/ROLI Dashboard.app  ->  Show Package Contents  ->  Contents/Resources/Littlefoot/\n");
+       #else
         add (Note,  "    C:\\Program Files (x86)\\ROLI\\ROLI Dashboard\\Littlefoot\\\n");
+       #endif
         add (Body,  "e.g. Note Grid, Fader Block, Drum Block. (Some apps use device features the preview stubs, so "
                     "the picture is an approximation.)\n");
         body.setReadOnly (true); body.setCaretPosition (0);
     }
 
+    // ROLI Dashboard's bundled factory .littlefoot scripts, per OS (best-effort start dir).
+    static juce::File dashboardLittlefootDir()
+    {
+       #if JUCE_WINDOWS
+        return juce::File ("C:\\Program Files (x86)\\ROLI\\ROLI Dashboard\\Littlefoot");
+       #elif JUCE_MAC
+        return juce::File ("/Applications/ROLI Dashboard.app/Contents/Resources/Littlefoot");
+       #else
+        return {};
+       #endif
+    }
+
     void browse()
     {
-        juce::File start ("C:\\Program Files (x86)\\ROLI\\ROLI Dashboard\\Littlefoot");
+        auto start = dashboardLittlefootDir();
         if (! start.isDirectory())
             start = juce::File::getSpecialLocation (juce::File::userHomeDirectory);
         chooser = std::make_unique<juce::FileChooser> ("Open a .littlefoot app", start, "*.littlefoot");

@@ -366,7 +366,7 @@ cmake --build build --config Debug --target seadecode
 ```
 `--transport usb|ble|auto` and `--serial <S>` select the transport / a specific
 block. The GUI writes logs to a per-user dir: `%APPDATA%\GRAB\logs` on Windows,
-`~/Library/GRAB/logs` on macOS, `~/.config/GRAB/logs` on Linux.
+`~/Library/Application Support/GRAB/logs` on macOS, `~/.config/GRAB/logs` on Linux.
 
 ## Components
 - **`GRAB`** — the desktop GUI: connection status, transport + device selectors, one

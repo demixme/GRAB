@@ -4,6 +4,7 @@
 
 #include "MainComponent.h"
 #include "Theme.h"
+#include "GrabPaths.h"    // grab::dataDir() + one-time macOS data-folder migration
 #include "BinaryData.h"   // embedded translation files (see CMakeLists / localization/)
 
 #ifndef GRAB_VERSION
@@ -38,6 +39,7 @@ public:
 
     void initialise (const juce::String&) override
     {
+        grab::migrateLegacyDataDir();   // before anything reads GRAB's data folder (mac: move ~/Library/GRAB)
         setupLocalisation();   // before any UI is built, so TRANS() in constructors resolves
         juce::LookAndFeel::setDefaultLookAndFeel (&lookAndFeel);   // before the window, so it picks up the dark bg
         // Show the version in the title bar so a user reporting a bug can read off their build.

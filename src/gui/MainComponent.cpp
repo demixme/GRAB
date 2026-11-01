@@ -7,6 +7,7 @@
 #include "DiagnosePanel.h"
 #include "AirwavePanel.h"
 #include "RoliArchivePanel.h"
+#include "GrabPaths.h"
 #include "AirwaveTesterPanel.h"
 #include "AppInspectorPanel.h"
 #include "Help.h"
@@ -482,8 +483,7 @@ MainComponent::MainComponent()
     // current working directory — a Finder/Explorer-launched app has an unpredictable
     // CWD (e.g. "/" on macOS) where it can't write. Windows: %APPDATA%\GRAB\logs;
     // macOS: ~/Library/Application Support/GRAB/logs; Linux: ~/.config/GRAB/logs.
-    const auto logFile = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                             .getChildFile ("GRAB")
+    const auto logFile = grab::dataDir()
                              .getChildFile ("logs")
                              .getChildFile ("GRAB-"
                                  + juce::Time::getCurrentTime().formatted ("%Y%m%d-%H%M%S") + ".log");
@@ -1502,8 +1502,7 @@ void MainComponent::fetchNames (const juce::String& family, const juce::String& 
 
     // Derive the names URL from the saved contribute endpoint (.../profiles -> .../names).
     juce::PropertiesFile::Options po; po.millisecondsBeforeSaving = 0;
-    juce::PropertiesFile props (juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                                    .getChildFile ("GRAB").getChildFile ("settings.properties"), po);
+    juce::PropertiesFile props (grab::dataDir().getChildFile ("settings.properties"), po);
     const auto base = props.getValue ("profileEndpoint", "https://www.demix.me/grab/v1/profiles");
 
     juce::URL url (base.replace ("profiles", "names"));
@@ -2374,8 +2373,7 @@ juce::File MainComponent::presetDir() const
 {
     // Scoped per device type so a Seaboard preset never shows up for (or is applied to) a LUMI.
     const juce::String type = block != nullptr ? juce::String (grab::blockTypeName (block->getType())) : "block";
-    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-             .getChildFile ("GRAB").getChildFile ("presets").getChildFile (type);
+    return grab::dataDir().getChildFile ("presets").getChildFile (type);
 }
 
 void MainComponent::populatePresetBox()

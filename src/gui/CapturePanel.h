@@ -17,6 +17,7 @@
 
 #include "Anonymize.h"
 #include "Theme.h"
+#include "GrabPaths.h"
 
 #include <cstdint>
 #include <functional>
@@ -442,8 +443,7 @@ private:
     {
         if (rows.empty()) { setStatus ("Nothing captured yet."); return; }
 
-        auto dir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                       .getChildFile ("GRAB").getChildFile ("captures");
+        auto dir = grab::dataDir().getChildFile ("captures");
         dir.createDirectory();
         auto f = dir.getChildFile ("capture-" + sanitize (capturedPortName) + "-"
                      + juce::Time::getCurrentTime().formatted ("%Y%m%d-%H%M%S") + ".txt");
@@ -568,8 +568,7 @@ private:
 
     static juce::File settingsFile()
     {
-        return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                   .getChildFile ("GRAB").getChildFile ("settings.properties");
+        return grab::dataDir().getChildFile ("settings.properties");
     }
 
     static juce::String capturesEndpoint()

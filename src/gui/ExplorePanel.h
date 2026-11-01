@@ -11,6 +11,7 @@
 #include <sea_sysex.h>
 
 #include "Anonymize.h"
+#include "GrabPaths.h"
 
 #include <cstdint>
 #include <thread>
@@ -246,8 +247,7 @@ private:
     void saveToFile()
     {
         if (allLines.isEmpty()) { setStatus ("Run it first."); return; }
-        auto dir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                       .getChildFile ("GRAB").getChildFile ("captures");
+        auto dir = grab::dataDir().getChildFile ("captures");
         dir.createDirectory();
         auto f = dir.getChildFile ("explore-" + juce::Time::getCurrentTime().formatted ("%Y%m%d-%H%M%S") + ".txt");
         if (f.replaceWithText (allLines.joinIntoString ("\n") + "\n")) setStatus ("Saved: " + f.getFullPathName());
@@ -268,8 +268,7 @@ private:
 
     static juce::File settingsFile()
     {
-        return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                   .getChildFile ("GRAB").getChildFile ("settings.properties");
+        return grab::dataDir().getChildFile ("settings.properties");
     }
     static juce::String capturesEndpoint()
     {
