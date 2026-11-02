@@ -105,10 +105,20 @@ public:
 private:
     static int pickRoli (const juce::Array<juce::MidiDeviceInfo>& list)
     {
+        // Match the whole ROLI family, not just the Seaboards: the control blocks (Loop/Touch/Live/
+        // Developer) and Lightpad enumerate as "...Block", Piano/LUMI by name, and every ROLI USB
+        // endpoint carries the vendor id vid_2af4 (Windows identifiers). Previously only seaboard/rise/
+        // grand/roli matched, so a Loop/Touch block left "Run & submit" greyed out.
+        static const char* kNames[] = { "seaboard", "rise", "grand", "roli", "lightpad", "lumi",
+                                        "piano", "block", "airwave" };
         for (int i = 0; i < list.size(); ++i)
-            if (list[i].name.containsIgnoreCase ("seaboard") || list[i].name.containsIgnoreCase ("rise")
-                || list[i].name.containsIgnoreCase ("grand") || list[i].name.containsIgnoreCase ("roli"))
+        {
+            if (list[i].identifier.containsIgnoreCase ("vid_2af4"))   // ROLI USB vendor id
                 return i;
+            for (auto* k : kNames)
+                if (list[i].name.containsIgnoreCase (k))
+                    return i;
+        }
         return -1;
     }
 
