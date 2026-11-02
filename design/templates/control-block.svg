@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  GRAB device template: CONTROL BLOCK (Live / Loop / Touch / Developer)
+  Footprint 2 x 1 units = 200 x 100 px. Same 10-button hardware for all variants;
+  only the LED/accent colour and the PRINTED ICONS differ.
+
+  Layer ids (contract with GRAB - see design/DESIGN-GUIDE.md):
+    chassis     - body / bezel                              (YOURS: photo-real)
+    led-strip   - 13-dot status strip (middle 4..7 lit).    GRAB lights it in the variant colour.
+                  dots id'd led-0..led-12.
+    buttons     - 10 button caps: 5 top (btn-0..4), 3 bottom (btn-5..7), wide -/+ pill (btn-pill).
+    button-leds - EVERY button has its own RGB LED, lit LIVE by GRAB from that button's on/off
+                  colour config (10 buttons = 10 LEDs). btnled-0..7 (the round caps), btnled-8
+                  (minus, left half of pill), btnled-9 (plus, right half). Design BOTH states:
+                  the lit glow AND the unlit/dim cap. Keep each fillable; GRAB sets the colour.
+    icons       - printed legends PER VARIANT (see DESIGN-GUIDE / CONTROL-BLOCKS.md). Make 4 sets.
+    selection-frame - accent border (GRAB recolours)
+    live-overlay    - (control blocks have no finger rings today; KEEP EMPTY, topmost)
+
+  Variant accent colours: Touch #B39CFF . Loop #35D0C6 . Live #FF9A3C . Developer #E6E6EE
+  (template shows Loop teal). Button cap base #2A2C34 on body #17181E.
+  NOTE: corner radii here are GRAB's current DRAW values, not hardware-accurate - adjust to the
+  real device (ROLI caps are only gently rounded). See DESIGN-GUIDE "A note on corner radii".
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100" width="200" height="100">
+  <title>Control Block template (10-button)</title>
+  <desc>One hardware, 4 icon sets. LED strip + per-button LEDs lit live by GRAB. Keep ids.</desc>
+
+  <g id="chassis">
+    <rect x="3" y="3" width="194" height="94" rx="9" fill="#17181e"/>
+  </g>
+
+  <g id="led-strip" fill="#35d0c6">
+    <circle id="led-0" cx="20.29" cy="11.30" r="1.5" fill-opacity="0.30"/>
+    <circle id="led-1" cx="33.57" cy="11.30" r="1.5" fill-opacity="0.30"/>
+    <circle id="led-2" cx="46.86" cy="11.30" r="1.5" fill-opacity="0.30"/>
+    <circle id="led-3" cx="60.14" cy="11.30" r="1.5" fill-opacity="0.30"/>
+    <circle id="led-4" cx="73.43" cy="11.30" r="1.5"/>
+    <circle id="led-5" cx="86.71" cy="11.30" r="1.5"/>
+    <circle id="led-6" cx="100.00" cy="11.30" r="1.5"/>
+    <circle id="led-7" cx="113.29" cy="11.30" r="1.5"/>
+    <circle id="led-8" cx="126.57" cy="11.30" r="1.5" fill-opacity="0.30"/>
+    <circle id="led-9" cx="139.86" cy="11.30" r="1.5" fill-opacity="0.30"/>
+    <circle id="led-10" cx="153.14" cy="11.30" r="1.5" fill-opacity="0.30"/>
+    <circle id="led-11" cx="166.43" cy="11.30" r="1.5" fill-opacity="0.30"/>
+    <circle id="led-12" cx="179.71" cy="11.30" r="1.5" fill-opacity="0.30"/>
+  </g>
+
+  <g id="button-leds">
+    <circle id="btnled-0" cx="25.60" cy="41.52" r="16.81" fill="none" stroke="#35d0c6" stroke-opacity="0.9" stroke-width="1.4"/>
+    <circle id="btnled-1" cx="62.80" cy="41.52" r="16.81" fill="none" stroke="#35d0c6" stroke-opacity="0.9" stroke-width="1.4"/>
+    <circle id="btnled-2" cx="100.00" cy="41.52" r="16.81" fill="none" stroke="#35d0c6" stroke-opacity="0.9" stroke-width="1.4"/>
+    <circle id="btnled-3" cx="137.20" cy="41.52" r="16.81" fill="none" stroke="#35d0c6" stroke-opacity="0.9" stroke-width="1.4"/>
+    <circle id="btnled-4" cx="174.40" cy="41.52" r="16.81" fill="none" stroke="#35d0c6" stroke-opacity="0.9" stroke-width="1.4"/>
+    <circle id="btnled-5" cx="25.60" cy="74.66" r="16.81" fill="none" stroke="#35d0c6" stroke-opacity="0.9" stroke-width="1.4"/>
+    <circle id="btnled-6" cx="62.80" cy="74.66" r="16.81" fill="none" stroke="#35d0c6" stroke-opacity="0.9" stroke-width="1.4"/>
+    <circle id="btnled-7" cx="100.00" cy="74.66" r="16.81" fill="none" stroke="#35d0c6" stroke-opacity="0.9" stroke-width="1.4"/>
+    <rect id="btnled-8" x="119.58" y="56.37" width="36.22" height="36.58" rx="14" fill="none" stroke="#35d0c6" stroke-opacity="0.9" stroke-width="1.4"/>
+    <rect id="btnled-9" x="155.80" y="56.37" width="36.23" height="36.58" rx="14" fill="none" stroke="#35d0c6" stroke-opacity="0.9" stroke-width="1.4"/>
+  </g>
+
+  <g id="buttons" fill="#2a2c34" stroke="#000000" stroke-opacity="0.35" stroke-width="1">
+    <circle id="btn-0" cx="25.60" cy="41.52" r="14.81"/>
+    <circle id="btn-1" cx="62.80" cy="41.52" r="14.81"/>
+    <circle id="btn-2" cx="100.00" cy="41.52" r="14.81"/>
+    <circle id="btn-3" cx="137.20" cy="41.52" r="14.81"/>
+    <circle id="btn-4" cx="174.40" cy="41.52" r="14.81"/>
+    <circle id="btn-5" cx="25.60" cy="74.66" r="14.81"/>
+    <circle id="btn-6" cx="62.80" cy="74.66" r="14.81"/>
+    <circle id="btn-7" cx="100.00" cy="74.66" r="14.81"/>
+    <rect id="btn-pill" x="121.58" y="58.37" width="68.45" height="32.58" rx="14.81"/>
+  </g>
+
+  <g id="icons"></g>
+
+  <rect id="selection-frame" x="4" y="4" width="192" height="92" rx="9"
+        fill="none" stroke="#00b0bb" stroke-width="1.4"/>
+
+  <g id="live-overlay"></g>
+</svg>

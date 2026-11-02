@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  GRAB device template: LUMI KEYS / ROLI PIANO flat keybed
+  Footprint 6 x 3 units = 600 x 300 px. 2-octave / 24-key MODULE (Piano 49 tiles wider).
+
+  Layer ids (contract with GRAB - see design/DESIGN-GUIDE.md):
+    chassis    - body / bezel                         (YOURS: photo-real)
+    keys       - EACH key is RGB-LIT LIVE by GRAB.     (YOURS shapes, but id every key)
+                 White keys key-w-0..13, black keys key-b-0..9. GRAB sets each fill from the
+                 device colour scheme (root/scale/rainbow/piano). Give each key a solid base
+                 fill + optional edge-glow art, but leave the main face fillable (one shape/key).
+    diffuser   - the lightpipe / glow diffusion over the keys (YOURS: the hero look)
+    selection-frame - accent border (GRAB recolours)
+    live-overlay    - finger rings (GRAB draws; KEEP EMPTY, topmost)
+
+  Flat piano keys (NOT the Seaboard keywave): white keys full height; black keys 60% height,
+  60% width, centred on the boundary.  White pitch order per octave: C D E F G A B.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300" width="600" height="300">
+  <title>LUMI / ROLI Piano keybed template (2-octave module)</title>
+  <desc>Each key is recoloured live by GRAB - keep one fillable shape per key with its id.</desc>
+
+  <g id="chassis">
+    <rect x="3" y="3" width="594" height="294" rx="6" fill="#0c0d12"/>
+  </g>
+
+  <!-- White keys: full height. x = 10 + i*41.4 (keys area ~10..590). Each face is live-lit. -->
+  <g id="keys" stroke="#000000" stroke-opacity="0.35" stroke-width="1">
+    <g id="keys-white" fill="#e9ebee">
+      <rect id="key-w-0"  x="11"    y="20" width="39.4" height="262" rx="2"/>
+      <rect id="key-w-1"  x="52.4"  y="20" width="39.4" height="262" rx="2"/>
+      <rect id="key-w-2"  x="93.8"  y="20" width="39.4" height="262" rx="2"/>
+      <rect id="key-w-3"  x="135.1" y="20" width="39.4" height="262" rx="2"/>
+      <rect id="key-w-4"  x="176.5" y="20" width="39.4" height="262" rx="2"/>
+      <rect id="key-w-5"  x="217.9" y="20" width="39.4" height="262" rx="2"/>
+      <rect id="key-w-6"  x="259.3" y="20" width="39.4" height="262" rx="2"/>
+      <rect id="key-w-7"  x="300.7" y="20" width="39.4" height="262" rx="2"/>
+      <rect id="key-w-8"  x="342.1" y="20" width="39.4" height="262" rx="2"/>
+      <rect id="key-w-9"  x="383.4" y="20" width="39.4" height="262" rx="2"/>
+      <rect id="key-w-10" x="424.8" y="20" width="39.4" height="262" rx="2"/>
+      <rect id="key-w-11" x="466.2" y="20" width="39.4" height="262" rx="2"/>
+      <rect id="key-w-12" x="507.6" y="20" width="39.4" height="262" rx="2"/>
+      <rect id="key-w-13" x="549.0" y="20" width="39.4" height="262" rx="2"/>
+    </g>
+    <!-- Black keys: 60% height (~157), 60% width (~24.8), centred on the boundary. Live-lit too. -->
+    <g id="keys-black" fill="#15161b">
+      <rect id="key-b-0" x="38.1"  y="20" width="24.8" height="157" rx="2"/>
+      <rect id="key-b-1" x="79.5"  y="20" width="24.8" height="157" rx="2"/>
+      <rect id="key-b-2" x="162.2" y="20" width="24.8" height="157" rx="2"/>
+      <rect id="key-b-3" x="203.6" y="20" width="24.8" height="157" rx="2"/>
+      <rect id="key-b-4" x="245.0" y="20" width="24.8" height="157" rx="2"/>
+      <rect id="key-b-5" x="327.7" y="20" width="24.8" height="157" rx="2"/>
+      <rect id="key-b-6" x="369.1" y="20" width="24.8" height="157" rx="2"/>
+      <rect id="key-b-7" x="451.8" y="20" width="24.8" height="157" rx="2"/>
+      <rect id="key-b-8" x="493.2" y="20" width="24.8" height="157" rx="2"/>
+      <rect id="key-b-9" x="534.6" y="20" width="24.8" height="157" rx="2"/>
+    </g>
+  </g>
+
+  <g id="diffuser">
+    <!-- The glow/lightpipe diffusion over the keys - the signature LUMI look. Replace. -->
+  </g>
+
+  <rect id="selection-frame" x="4" y="4" width="592" height="292" rx="6"
+        fill="none" stroke="#00b0bb" stroke-width="1.6"/>
+
+  <g id="live-overlay"></g>
+</svg>

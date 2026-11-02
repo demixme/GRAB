@@ -388,6 +388,8 @@ block. The GUI writes logs to a per-user dir: `%APPDATA%\GRAB\logs` on Windows,
 - [PIANO.md](PIANO.md) — ROLI Piano 49 notes: connecting on Windows + the config items it reports.
 - [LUMI.md](LUMI.md) — Piano M / LUMI Keys: the captured config frames, hardware results, and how
   per-key lighting works (out of scope for GRAB).
+- [AIRWAVE.md](AIRWAVE.md) — ROLI Airwave: what it is (Ultraleap IR 170 + host software), its exact
+  gesture MIDI (CC21–31), the pedal, and how to archive/rebuild it ROLI-free.
 - [tools/CAPTURE-DASHBOARD.md](tools/CAPTURE-DASHBOARD.md) — how to capture ROLI Dashboard's
   host→device traffic (USB/MIDI monitor) — the data that adds device-specific features.
 - [DEVICE-PROFILES.md](DEVICE-PROFILES.md) — the opt-in "self-learn" device-profile

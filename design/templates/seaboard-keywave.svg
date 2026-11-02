@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  GRAB device template: SEABOARD keywave (Block / RISE / GRAND)
+  Footprint 6 x 3 logical units = 600 x 300 px (1 unit = 100px). 2-octave / 24-key MODULE.
+  This module tiles: a 49-key board is the same keys repeated to ~1243px wide.
+
+  Layer ids are a CONTRACT with GRAB (see design/DESIGN-GUIDE.md). Keep them.
+    chassis       - device body / moulded shell          (YOURS: make photo-real)
+    surface       - base under the keys                   (YOURS)
+    keys-white    - 14 white keys, left->right            (YOURS: moulded keywave)
+    keys-black    - 10 black keys, raised                 (YOURS)
+    shading       - baked speculars / shadows             (YOURS)
+    control-panel - RISE only: faders + XY pad (optional) (YOURS, own layer)
+    selection-frame - 3px accent border                   (GRAB recolours; keep margin clear)
+    live-overlay  - finger Strike disc + Press ring       (GRAB draws; KEEP EMPTY, topmost)
+
+  Key geometry (match for correct touch mapping):
+    body radius 12 . key inset ~3px side / ~4px top-bottom
+    glide lip = 11% of key height top & bottom (the smooth ribbon)
+    key corner radius: Block 2.5 / RISE 4 / GRAND 5.5  (this file shows RISE = 4)
+    black key: height 50% (Block 42%) of key area, width 58% of a white key, on the boundary
+    Placeholder white keys below are evenly spaced at 3 units / 7 whites = 600/14 ~= 42.86px.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300" width="600" height="300">
+  <title>Seaboard keywave template (2-octave module)</title>
+  <desc>Replace placeholder shapes with photo-real art. Keep layer ids and the empty live-overlay.</desc>
+
+  <g id="chassis">
+    <!-- Moulded body. Replace with your render. rx is a placeholder - real bodies round less. -->
+    <rect x="3" y="3" width="594" height="294" rx="8" fill="#272b33"/>
+  </g>
+
+  <g id="surface">
+    <rect x="6" y="7" width="588" height="286" rx="7" fill="#20242b"/>
+  </g>
+
+  <!-- 14 white keys. x = 6 + i*42.857 (keys area ~ 6..594). Glide lip trimmed top/bottom (11%). -->
+  <g id="keys-white" fill="#2c313b" stroke="#111318" stroke-width="0.8">
+    <rect id="w-0"  x="7"   y="38" width="40.9" height="224" rx="2"/>
+    <rect id="w-1"  x="49.9" y="38" width="40.9" height="224" rx="2"/>
+    <rect id="w-2"  x="92.7" y="38" width="40.9" height="224" rx="2"/>
+    <rect id="w-3"  x="135.6" y="38" width="40.9" height="224" rx="2"/>
+    <rect id="w-4"  x="178.4" y="38" width="40.9" height="224" rx="2"/>
+    <rect id="w-5"  x="221.3" y="38" width="40.9" height="224" rx="2"/>
+    <rect id="w-6"  x="264.1" y="38" width="40.9" height="224" rx="2"/>
+    <rect id="w-7"  x="307.0" y="38" width="40.9" height="224" rx="2"/>
+    <rect id="w-8"  x="349.9" y="38" width="40.9" height="224" rx="2"/>
+    <rect id="w-9"  x="392.7" y="38" width="40.9" height="224" rx="2"/>
+    <rect id="w-10" x="435.6" y="38" width="40.9" height="224" rx="2"/>
+    <rect id="w-11" x="478.4" y="38" width="40.9" height="224" rx="2"/>
+    <rect id="w-12" x="521.3" y="38" width="40.9" height="224" rx="2"/>
+    <rect id="w-13" x="564.1" y="38" width="29"   height="224" rx="2"/>
+  </g>
+
+  <!-- 10 black keys on white boundaries (after whites 0,1,3,4,5 in each octave). w ~= 24.8, h ~= 112. -->
+  <g id="keys-black" fill="#0c0e12" stroke="#060708" stroke-width="0.6">
+    <rect id="b-0" x="36.4"  y="38" width="24.8" height="112" rx="2"/>
+    <rect id="b-1" x="79.3"  y="38" width="24.8" height="112" rx="2"/>
+    <rect id="b-2" x="165.0" y="38" width="24.8" height="112" rx="2"/>
+    <rect id="b-3" x="207.9" y="38" width="24.8" height="112" rx="2"/>
+    <rect id="b-4" x="250.7" y="38" width="24.8" height="112" rx="2"/>
+    <rect id="b-5" x="336.5" y="38" width="24.8" height="112" rx="2"/>
+    <rect id="b-6" x="379.3" y="38" width="24.8" height="112" rx="2"/>
+    <rect id="b-7" x="465.0" y="38" width="24.8" height="112" rx="2"/>
+    <rect id="b-8" x="507.9" y="38" width="24.8" height="112" rx="2"/>
+    <rect id="b-9" x="550.7" y="38" width="24.8" height="112" rx="2"/>
+  </g>
+
+  <g id="shading">
+    <!-- Baked highlights/shadows for the moulded look. Replace. -->
+  </g>
+
+  <!-- RISE only: left control panel (XY pad + faders + buttons). Use seaboard-rise.svg for the full
+       instrument with the panel laid out. This bare keywave module is for Block / GRAND / tiling. -->
+  <g id="control-panel" display="none"></g>
+
+  <!-- GRAB recolours this border (bright=selected / dim=not). Keep the margin clear even if you omit it. -->
+  <rect id="selection-frame" x="4" y="4" width="592" height="292" rx="8"
+        fill="none" stroke="#00b0bb" stroke-width="1.6"/>
+
+  <!-- Finger touch rings land here, nx/ny 0..1 across the key area. KEEP EMPTY + TOPMOST. -->
+  <g id="live-overlay"></g>
+</svg>

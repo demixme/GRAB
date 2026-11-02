@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  GRAB device template: LIGHTPAD BLOCK M
+  Footprint 2 x 2 units = 200 x 200 px (square; rotates cleanly).
+
+  Layer ids (contract with GRAB - see design/DESIGN-GUIDE.md):
+    chassis     - silicone-topped body / bezel            (YOURS: photo-real)
+    grid-leds   - 15x15 RGB LED matrix under the silicone. GRAB may light cells LIVE.
+                  Keep as one group id'd grid-leds; dots id'd led-<row>-<col> (0..14).
+                  Give a dim base fill; the lit state + silicone diffusion is the hero.
+    selection-frame - accent border (GRAB recolours)
+    live-overlay    - finger rings (GRAB draws; KEEP EMPTY, topmost)
+
+  Grid geometry: body inset 5px, cell pitch 12.67px, dot dia 7.85px, 15x15 centred.
+  Touches map nx/ny 0..1 across the grid area.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <title>Lightpad Block M template</title>
+  <desc>15x15 LED grid lit live by GRAB. Keep ids; make the silicone surface photo-real.</desc>
+
+  <g id="chassis">
+    <rect x="3" y="3" width="194" height="194" rx="10" fill="#0b0c11"/>
+  </g>
+
+  <g id="grid-leds" fill="#ffffff" fill-opacity="0.08">
+    <circle id="led-0-0" cx="11.33" cy="11.33" r="3.93"/>
+    <circle id="led-0-1" cx="24.00" cy="11.33" r="3.93"/>
+    <circle id="led-0-2" cx="36.67" cy="11.33" r="3.93"/>
+    <circle id="led-0-3" cx="49.33" cy="11.33" r="3.93"/>
+    <circle id="led-0-4" cx="62.00" cy="11.33" r="3.93"/>
+    <circle id="led-0-5" cx="74.67" cy="11.33" r="3.93"/>
+    <circle id="led-0-6" cx="87.33" cy="11.33" r="3.93"/>
+    <circle id="led-0-7" cx="100.00" cy="11.33" r="3.93"/>
+    <circle id="led-0-8" cx="112.67" cy="11.33" r="3.93"/>
+    <circle id="led-0-9" cx="125.33" cy="11.33" r="3.93"/>
+    <circle id="led-0-10" cx="138.00" cy="11.33" r="3.93"/>
+    <circle id="led-0-11" cx="150.67" cy="11.33" r="3.93"/>
+    <circle id="led-0-12" cx="163.33" cy="11.33" r="3.93"/>
+    <circle id="led-0-13" cx="176.00" cy="11.33" r="3.93"/>
+    <circle id="led-0-14" cx="188.67" cy="11.33" r="3.93"/>
+    <circle id="led-1-0" cx="11.33" cy="24.00" r="3.93"/>
+    <circle id="led-1-1" cx="24.00" cy="24.00" r="3.93"/>
+    <circle id="led-1-2" cx="36.67" cy="24.00" r="3.93"/>
+    <circle id="led-1-3" cx="49.33" cy="24.00" r="3.93"/>
+    <circle id="led-1-4" cx="62.00" cy="24.00" r="3.93"/>
+    <circle id="led-1-5" cx="74.67" cy="24.00" r="3.93"/>
+    <circle id="led-1-6" cx="87.33" cy="24.00" r="3.93"/>
+    <circle id="led-1-7" cx="100.00" cy="24.00" r="3.93"/>
+    <circle id="led-1-8" cx="112.67" cy="24.00" r="3.93"/>
+    <circle id="led-1-9" cx="125.33" cy="24.00" r="3.93"/>
+    <circle id="led-1-10" cx="138.00" cy="24.00" r="3.93"/>
+    <circle id="led-1-11" cx="150.67" cy="24.00" r="3.93"/>
+    <circle id="led-1-12" cx="163.33" cy="24.00" r="3.93"/>
+    <circle id="led-1-13" cx="176.00" cy="24.00" r="3.93"/>
+    <circle id="led-1-14" cx="188.67" cy="24.00" r="3.93"/>
+    <circle id="led-2-0" cx="11.33" cy="36.67" r="3.93"/>
+    <circle id="led-2-1" cx="24.00" cy="36.67" r="3.93"/>
+    <circle id="led-2-2" cx="36.67" cy="36.67" r="3.93"/>
+    <circle id="led-2-3" cx="49.33" cy="36.67" r="3.93"/>
+    <circle id="led-2-4" cx="62.00" cy="36.67" r="3.93"/>
+    <circle id="led-2-5" cx="74.67" cy="36.67" r="3.93"/>
+    <circle id="led-2-6" cx="87.33" cy="36.67" r="3.93"/>
+    <circle id="led-2-7" cx="100.00" cy="36.67" r="3.93"/>
+    <circle id="led-2-8" cx="112.67" cy="36.67" r="3.93"/>
+    <circle id="led-2-9" cx="125.33" cy="36.67" r="3.93"/>
+    <circle id="led-2-10" cx="138.00" cy="36.67" r="3.93"/>
+    <circle id="led-2-11" cx="150.67" cy="36.67" r="3.93"/>
+    <circle id="led-2-12" cx="163.33" cy="36.67" r="3.93"/>
+    <circle id="led-2-13" cx="176.00" cy="36.67" r="3.93"/>
+    <circle id="led-2-14" cx="188.67" cy="36.67" r="3.93"/>
+    <circle id="led-3-0" cx="11.33" cy="49.33" r="3.93"/>
+    <circle id="led-3-1" cx="24.00" cy="49.33" r="3.93"/>
+    <circle id="led-3-2" cx="36.67" cy="49.33" r="3.93"/>
+    <circle id="led-3-3" cx="49.33" cy="49.33" r="3.93"/>
+    <circle id="led-3-4" cx="62.00" cy="49.33" r="3.93"/>
+    <circle id="led-3-5" cx="74.67" cy="49.33" r="3.93"/>
+    <circle id="led-3-6" cx="87.33" cy="49.33" r="3.93"/>
+    <circle id="led-3-7" cx="100.00" cy="49.33" r="3.93"/>
+    <circle id="led-3-8" cx="112.67" cy="49.33" r="3.93"/>
+    <circle id="led-3-9" cx="125.33" cy="49.33" r="3.93"/>
+    <circle id="led-3-10" cx="138.00" cy="49.33" r="3.93"/>
+    <circle id="led-3-11" cx="150.67" cy="49.33" r="3.93"/>
+    <circle id="led-3-12" cx="163.33" cy="49.33" r="3.93"/>
+    <circle id="led-3-13" cx="176.00" cy="49.33" r="3.93"/>
+    <circle id="led-3-14" cx="188.67" cy="49.33" r="3.93"/>
+    <circle id="led-4-0" cx="11.33" cy="62.00" r="3.93"/>
+    <circle id="led-4-1" cx="24.00" cy="62.00" r="3.93"/>
+    <circle id="led-4-2" cx="36.67" cy="62.00" r="3.93"/>
+    <circle id="led-4-3" cx="49.33" cy="62.00" r="3.93"/>
+    <circle id="led-4-4" cx="62.00" cy="62.00" r="3.93"/>
+    <circle id="led-4-5" cx="74.67" cy="62.00" r="3.93"/>
+    <circle id="led-4-6" cx="87.33" cy="62.00" r="3.93"/>
+    <circle id="led-4-7" cx="100.00" cy="62.00" r="3.93"/>
+    <circle id="led-4-8" cx="112.67" cy="62.00" r="3.93"/>
+    <circle id="led-4-9" cx="125.33" cy="62.00" r="3.93"/>
+    <circle id="led-4-10" cx="138.00" cy="62.00" r="3.93"/>
+    <circle id="led-4-11" cx="150.67" cy="62.00" r="3.93"/>
+    <circle id="led-4-12" cx="163.33" cy="62.00" r="3.93"/>
+    <circle id="led-4-13" cx="176.00" cy="62.00" r="3.93"/>
+    <circle id="led-4-14" cx="188.67" cy="62.00" r="3.93"/>
+    <circle id="led-5-0" cx="11.33" cy="74.67" r="3.93"/>
+    <circle id="led-5-1" cx="24.00" cy="74.67" r="3.93"/>
+    <circle id="led-5-2" cx="36.67" cy="74.67" r="3.93"/>
+    <circle id="led-5-3" cx="49.33" cy="74.67" r="3.93"/>
+    <circle id="led-5-4" cx="62.00" cy="74.67" r="3.93"/>
+    <circle id="led-5-5" cx="74.67" cy="74.67" r="3.93"/>
+    <circle id="led-5-6" cx="87.33" cy="74.67" r="3.93"/>
+    <circle id="led-5-7" cx="100.00" cy="74.67" r="3.93"/>
+    <circle id="led-5-8" cx="112.67" cy="74.67" r="3.93"/>
+    <circle id="led-5-9" cx="125.33" cy="74.67" r="3.93"/>
+    <circle id="led-5-10" cx="138.00" cy="74.67" r="3.93"/>
+    <circle id="led-5-11" cx="150.67" cy="74.67" r="3.93"/>
+    <circle id="led-5-12" cx="163.33" cy="74.67" r="3.93"/>
+    <circle id="led-5-13" cx="176.00" cy="74.67" r="3.93"/>
+    <circle id="led-5-14" cx="188.67" cy="74.67" r="3.93"/>
+    <circle id="led-6-0" cx="11.33" cy="87.33" r="3.93"/>
+    <circle id="led-6-1" cx="24.00" cy="87.33" r="3.93"/>
+    <circle id="led-6-2" cx="36.67" cy="87.33" r="3.93"/>
+    <circle id="led-6-3" cx="49.33" cy="87.33" r="3.93"/>
+    <circle id="led-6-4" cx="62.00" cy="87.33" r="3.93"/>
+    <circle id="led-6-5" cx="74.67" cy="87.33" r="3.93"/>
+    <circle id="led-6-6" cx="87.33" cy="87.33" r="3.93"/>
+    <circle id="led-6-7" cx="100.00" cy="87.33" r="3.93"/>
+    <circle id="led-6-8" cx="112.67" cy="87.33" r="3.93"/>
+    <circle id="led-6-9" cx="125.33" cy="87.33" r="3.93"/>
+    <circle id="led-6-10" cx="138.00" cy="87.33" r="3.93"/>
+    <circle id="led-6-11" cx="150.67" cy="87.33" r="3.93"/>
+    <circle id="led-6-12" cx="163.33" cy="87.33" r="3.93"/>
+    <circle id="led-6-13" cx="176.00" cy="87.33" r="3.93"/>
+    <circle id="led-6-14" cx="188.67" cy="87.33" r="3.93"/>
+    <circle id="led-7-0" cx="11.33" cy="100.00" r="3.93"/>
+    <circle id="led-7-1" cx="24.00" cy="100.00" r="3.93"/>
+    <circle id="led-7-2" cx="36.67" cy="100.00" r="3.93"/>
+    <circle id="led-7-3" cx="49.33" cy="100.00" r="3.93"/>
+    <circle id="led-7-4" cx="62.00" cy="100.00" r="3.93"/>
+    <circle id="led-7-5" cx="74.67" cy="100.00" r="3.93"/>
+    <circle id="led-7-6" cx="87.33" cy="100.00" r="3.93"/>
+    <circle id="led-7-7" cx="100.00" cy="100.00" r="3.93"/>
+    <circle id="led-7-8" cx="112.67" cy="100.00" r="3.93"/>
+    <circle id="led-7-9" cx="125.33" cy="100.00" r="3.93"/>
+    <circle id="led-7-10" cx="138.00" cy="100.00" r="3.93"/>
+    <circle id="led-7-11" cx="150.67" cy="100.00" r="3.93"/>
+    <circle id="led-7-12" cx="163.33" cy="100.00" r="3.93"/>
+    <circle id="led-7-13" cx="176.00" cy="100.00" r="3.93"/>
+    <circle id="led-7-14" cx="188.67" cy="100.00" r="3.93"/>
+    <circle id="led-8-0" cx="11.33" cy="112.67" r="3.93"/>
+    <circle id="led-8-1" cx="24.00" cy="112.67" r="3.93"/>
+    <circle id="led-8-2" cx="36.67" cy="112.67" r="3.93"/>
+    <circle id="led-8-3" cx="49.33" cy="112.67" r="3.93"/>
+    <circle id="led-8-4" cx="62.00" cy="112.67" r="3.93"/>
+    <circle id="led-8-5" cx="74.67" cy="112.67" r="3.93"/>
+    <circle id="led-8-6" cx="87.33" cy="112.67" r="3.93"/>
+    <circle id="led-8-7" cx="100.00" cy="112.67" r="3.93"/>
+    <circle id="led-8-8" cx="112.67" cy="112.67" r="3.93"/>
+    <circle id="led-8-9" cx="125.33" cy="112.67" r="3.93"/>
+    <circle id="led-8-10" cx="138.00" cy="112.67" r="3.93"/>
+    <circle id="led-8-11" cx="150.67" cy="112.67" r="3.93"/>
+    <circle id="led-8-12" cx="163.33" cy="112.67" r="3.93"/>
+    <circle id="led-8-13" cx="176.00" cy="112.67" r="3.93"/>
+    <circle id="led-8-14" cx="188.67" cy="112.67" r="3.93"/>
+    <circle id="led-9-0" cx="11.33" cy="125.33" r="3.93"/>
+    <circle id="led-9-1" cx="24.00" cy="125.33" r="3.93"/>
+    <circle id="led-9-2" cx="36.67" cy="125.33" r="3.93"/>
+    <circle id="led-9-3" cx="49.33" cy="125.33" r="3.93"/>
+    <circle id="led-9-4" cx="62.00" cy="125.33" r="3.93"/>
+    <circle id="led-9-5" cx="74.67" cy="125.33" r="3.93"/>
+    <circle id="led-9-6" cx="87.33" cy="125.33" r="3.93"/>
+    <circle id="led-9-7" cx="100.00" cy="125.33" r="3.93"/>
+    <circle id="led-9-8" cx="112.67" cy="125.33" r="3.93"/>
+    <circle id="led-9-9" cx="125.33" cy="125.33" r="3.93"/>
+    <circle id="led-9-10" cx="138.00" cy="125.33" r="3.93"/>
+    <circle id="led-9-11" cx="150.67" cy="125.33" r="3.93"/>
+    <circle id="led-9-12" cx="163.33" cy="125.33" r="3.93"/>
+    <circle id="led-9-13" cx="176.00" cy="125.33" r="3.93"/>
+    <circle id="led-9-14" cx="188.67" cy="125.33" r="3.93"/>
+    <circle id="led-10-0" cx="11.33" cy="138.00" r="3.93"/>
+    <circle id="led-10-1" cx="24.00" cy="138.00" r="3.93"/>
+    <circle id="led-10-2" cx="36.67" cy="138.00" r="3.93"/>
+    <circle id="led-10-3" cx="49.33" cy="138.00" r="3.93"/>
+    <circle id="led-10-4" cx="62.00" cy="138.00" r="3.93"/>
+    <circle id="led-10-5" cx="74.67" cy="138.00" r="3.93"/>
+    <circle id="led-10-6" cx="87.33" cy="138.00" r="3.93"/>
+    <circle id="led-10-7" cx="100.00" cy="138.00" r="3.93"/>
+    <circle id="led-10-8" cx="112.67" cy="138.00" r="3.93"/>
+    <circle id="led-10-9" cx="125.33" cy="138.00" r="3.93"/>
+    <circle id="led-10-10" cx="138.00" cy="138.00" r="3.93"/>
+    <circle id="led-10-11" cx="150.67" cy="138.00" r="3.93"/>
+    <circle id="led-10-12" cx="163.33" cy="138.00" r="3.93"/>
+    <circle id="led-10-13" cx="176.00" cy="138.00" r="3.93"/>
+    <circle id="led-10-14" cx="188.67" cy="138.00" r="3.93"/>
+    <circle id="led-11-0" cx="11.33" cy="150.67" r="3.93"/>
+    <circle id="led-11-1" cx="24.00" cy="150.67" r="3.93"/>
+    <circle id="led-11-2" cx="36.67" cy="150.67" r="3.93"/>
+    <circle id="led-11-3" cx="49.33" cy="150.67" r="3.93"/>
+    <circle id="led-11-4" cx="62.00" cy="150.67" r="3.93"/>
+    <circle id="led-11-5" cx="74.67" cy="150.67" r="3.93"/>
+    <circle id="led-11-6" cx="87.33" cy="150.67" r="3.93"/>
+    <circle id="led-11-7" cx="100.00" cy="150.67" r="3.93"/>
+    <circle id="led-11-8" cx="112.67" cy="150.67" r="3.93"/>
+    <circle id="led-11-9" cx="125.33" cy="150.67" r="3.93"/>
+    <circle id="led-11-10" cx="138.00" cy="150.67" r="3.93"/>
+    <circle id="led-11-11" cx="150.67" cy="150.67" r="3.93"/>
+    <circle id="led-11-12" cx="163.33" cy="150.67" r="3.93"/>
+    <circle id="led-11-13" cx="176.00" cy="150.67" r="3.93"/>
+    <circle id="led-11-14" cx="188.67" cy="150.67" r="3.93"/>
+    <circle id="led-12-0" cx="11.33" cy="163.33" r="3.93"/>
+    <circle id="led-12-1" cx="24.00" cy="163.33" r="3.93"/>
+    <circle id="led-12-2" cx="36.67" cy="163.33" r="3.93"/>
+    <circle id="led-12-3" cx="49.33" cy="163.33" r="3.93"/>
+    <circle id="led-12-4" cx="62.00" cy="163.33" r="3.93"/>
+    <circle id="led-12-5" cx="74.67" cy="163.33" r="3.93"/>
+    <circle id="led-12-6" cx="87.33" cy="163.33" r="3.93"/>
+    <circle id="led-12-7" cx="100.00" cy="163.33" r="3.93"/>
+    <circle id="led-12-8" cx="112.67" cy="163.33" r="3.93"/>
+    <circle id="led-12-9" cx="125.33" cy="163.33" r="3.93"/>
+    <circle id="led-12-10" cx="138.00" cy="163.33" r="3.93"/>
+    <circle id="led-12-11" cx="150.67" cy="163.33" r="3.93"/>
+    <circle id="led-12-12" cx="163.33" cy="163.33" r="3.93"/>
+    <circle id="led-12-13" cx="176.00" cy="163.33" r="3.93"/>
+    <circle id="led-12-14" cx="188.67" cy="163.33" r="3.93"/>
+    <circle id="led-13-0" cx="11.33" cy="176.00" r="3.93"/>
+    <circle id="led-13-1" cx="24.00" cy="176.00" r="3.93"/>
+    <circle id="led-13-2" cx="36.67" cy="176.00" r="3.93"/>
+    <circle id="led-13-3" cx="49.33" cy="176.00" r="3.93"/>
+    <circle id="led-13-4" cx="62.00" cy="176.00" r="3.93"/>
+    <circle id="led-13-5" cx="74.67" cy="176.00" r="3.93"/>
+    <circle id="led-13-6" cx="87.33" cy="176.00" r="3.93"/>
+    <circle id="led-13-7" cx="100.00" cy="176.00" r="3.93"/>
+    <circle id="led-13-8" cx="112.67" cy="176.00" r="3.93"/>
+    <circle id="led-13-9" cx="125.33" cy="176.00" r="3.93"/>
+    <circle id="led-13-10" cx="138.00" cy="176.00" r="3.93"/>
+    <circle id="led-13-11" cx="150.67" cy="176.00" r="3.93"/>
+    <circle id="led-13-12" cx="163.33" cy="176.00" r="3.93"/>
+    <circle id="led-13-13" cx="176.00" cy="176.00" r="3.93"/>
+    <circle id="led-13-14" cx="188.67" cy="176.00" r="3.93"/>
+    <circle id="led-14-0" cx="11.33" cy="188.67" r="3.93"/>
+    <circle id="led-14-1" cx="24.00" cy="188.67" r="3.93"/>
+    <circle id="led-14-2" cx="36.67" cy="188.67" r="3.93"/>
+    <circle id="led-14-3" cx="49.33" cy="188.67" r="3.93"/>
+    <circle id="led-14-4" cx="62.00" cy="188.67" r="3.93"/>
+    <circle id="led-14-5" cx="74.67" cy="188.67" r="3.93"/>
+    <circle id="led-14-6" cx="87.33" cy="188.67" r="3.93"/>
+    <circle id="led-14-7" cx="100.00" cy="188.67" r="3.93"/>
+    <circle id="led-14-8" cx="112.67" cy="188.67" r="3.93"/>
+    <circle id="led-14-9" cx="125.33" cy="188.67" r="3.93"/>
+    <circle id="led-14-10" cx="138.00" cy="188.67" r="3.93"/>
+    <circle id="led-14-11" cx="150.67" cy="188.67" r="3.93"/>
+    <circle id="led-14-12" cx="163.33" cy="188.67" r="3.93"/>
+    <circle id="led-14-13" cx="176.00" cy="188.67" r="3.93"/>
+    <circle id="led-14-14" cx="188.67" cy="188.67" r="3.93"/>
+  </g>
+
+  <rect id="selection-frame" x="4" y="4" width="192" height="192" rx="10"
+        fill="none" stroke="#00b0bb" stroke-width="1.6"/>
+
+  <g id="live-overlay"></g>
+</svg>

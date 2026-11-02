@@ -39,3 +39,8 @@ __pycache__/
 # Maintainer-only export token (never commit)
 /.grab-export-token
 *.token
+
+# ROLI product photos used as tracing reference (copyrighted - local only, don't re-host).
+# The README is tracked; the images are not.
+/design/product-photos/*
+!/design/product-photos/README.md
