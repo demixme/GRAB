@@ -71,9 +71,19 @@ the Studio Player hosts the **Equator 2** engine). The apps themselves are small
 **sound content is downloaded separately through ROLI Connect** from ROLI's servers, so it's at the
 same risk as the licences and must be grabbed before the servers go.
 
-Note the two different "Equators": **Equator 1** is the older standalone synth with its own installers
-(already in the local archive); **Equator 2** is the engine inside Studio Player, whose content is the
-big download below.
+#### Naming — mind the version numbers (they don't all mean the same thing)
+
+- **Equator 1 vs Equator 2 are two different ROLI products that coexist.** **Equator 1** (a.k.a.
+  "Equator" / "Equator Legacy") is the original synth with its own standalone + plugin installers
+  (already in the local archive). **Equator 2** is the newer engine, shipped standalone *and* as the
+  engine inside Studio Player, whose content is the big download below. Separate installers, separate
+  licences, separate content libraries — so when someone says "Equator", ask **which one**. (Confusingly,
+  *both* content libraries unpack under the `Equator2\` folder — see the table below.)
+- **Strobe2 and Cypher2 are NOT a "version 2" split.** The "2" is just part of the product name — they're
+  **FXpansion's** second-generation synths that ROLI took over. There is **no ROLI "Strobe 1 / Cypher 1"**
+  to look for; the only versions in the ROLI catalogue are **Strobe2** and **Cypher2** (installers
+  `v2.6.1.7`). Their distant ancestors (FXpansion's original Strobe/Cypher in "DCAM Synth Squad") predate
+  ROLI and aren't part of this ecosystem. So don't go hunting for a missing "1" of these two.
 
 How the content flows (observed on Windows): Connect downloads each library as a self-contained
 **`.rpkg`** package into `%APPDATA%\ROLI\ROLI Connect\downloads\` (macOS:
