@@ -3,6 +3,11 @@
 Drop overhead **top-down** ROLI product shots here. They're the tracing reference for redrawing the
 templates in [`design/templates/`](../templates/) accurately. Not shipped in the app; reference only.
 
+> **Credit / rights:** these images are the property of **ROLI** (and, where applicable, the retailers
+> they were sourced from). They are included here solely as a tracing/realism reference for redrawing
+> GRAB's device art, under a preservation effort for hardware whose maker is in administration. No
+> ownership is claimed. If you are a rights holder and would like an image removed, open an issue.
+
 ## What makes a shot usable
 
 * **True top-down / orthographic** — straight down on the device, not a 3/4 angle. (An angled hero

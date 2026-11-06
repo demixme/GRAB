@@ -40,7 +40,5 @@ __pycache__/
 /.grab-export-token
 *.token
 
-# ROLI product photos used as tracing reference (copyrighted - local only, don't re-host).
-# The README is tracked; the images are not.
-/design/product-photos/*
-!/design/product-photos/README.md
+# ROLI product photos: tracing reference, included for a graphics designer. See the credit
+# note in design/product-photos/README.md (images remain ROLI / reseller property).
