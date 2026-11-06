@@ -20,24 +20,44 @@ Each device occupies a fixed footprint in those units. **Your artboard must have
 ratio as the footprint**, or the device will look stretched and — worse — the live overlays will
 land in the wrong place.
 
-Convention for the templates: **1 logical unit = 100 px**.
+Convention for the templates: **1 logical unit = 100 px**, and **1 logical unit = 47 mm** of real
+hardware (the BLOCKS DNA grid module is 94 mm = 2 units — see below). So the pixel grid maps to a real
+physical scale; use it to sanity-check any traced proportions.
 
-| Device (GRAB `Family`) | Footprint (units) | Artboard @100px/unit | Notes |
-|---|---|---|---|
-| Seaboard **Block** (`block`) | 6 × 3 | 600 × 300 | 2 octaves / 24 keys, moulded keywave |
-| Seaboard **RISE 25** (`rise`) | 8 × 3 (incl. panel) | 800 × 300 | panel (200) + 25-key keywave. Template: `seaboard-rise.svg` |
-| Seaboard **RISE 2 / RISE 49** (`rise`) | wider | — | panel + 49-key keywave (C2–C6). Re-lay the panel per RISE 2; tile the keys |
-| Seaboard **GRAND** (`grand`) | scales to key count | — | 25 / 49 / 61-key variants; softest, roundest keywave |
-| **LUMI Keys / ROLI Piano M** (`lumi`) | 6 × 3 | 600 × 300 | 24 keys, flat RGB-lit keybed |
-| **ROLI Piano 49** (`lumi`) | ~12.4 × 3 | 1243 × 300 | 49 keys, same flat keybed style |
-| **Lightpad Block M** (`lightpad`) | 2 × 2 | 200 × 200 | square; 15 × 15 pressure LED grid |
-| **Control Block** (`control`) | 2 × 1 | 200 × 100 | 10 buttons; Live / Loop / Touch / Developer variants |
+### BLOCKS DNA family — true relative scale (locked by the magnet grid)
+
+These snap together on ROLI's 94 mm DNA module grid, so their sizes are **fixed relative to each other**
+and must stay that way (a Seaboard Block is exactly 3 Lightpads wide and 1.5 deep). Confirmed against
+ROLI's published dimensions and the top-view photos in `product-photos/`:
+
+| Device (GRAB `Family`) | Real top-view | DNA modules | Footprint (units) | Artboard | Notes |
+|---|---|---|---|---|---|
+| **Lightpad Block M** (`lightpad`) | 94 × 94 mm | 1 × 1 | 2 × 2 | 200 × 200 | square; 15 × 15 pressure LED grid |
+| **Control Block** (`control`) | 95 × 48 mm | 1 × ½ | 2 × 1 | 200 × 100 | 10 buttons; Live / Loop / Touch / Developer variants |
+| Seaboard **Block** (`block`) | 282 × 141 mm | 3 × 1½ | 6 × 3 | 600 × 300 | 2 octaves / 24 keys, moulded keywave |
+
+### Standalone instruments — own aspect only (not on the DNA grid)
+
+RISE, GRAND and the ROLI Piano / LUMI don't snap to BLOCKS, so only **each device's own aspect ratio**
+matters (they're shown on their own). Aspects below are **measured from the top-view photos** and are
+authoritative over the old procedural estimates. Height is anchored at 3 units (300 px) by drawing
+convention; width = 3 × aspect. These depths are **not** cross-device scale.
+
+| Device (GRAB `Family`) | Photo aspect (W:H) | Footprint (units) | Artboard | Notes |
+|---|---|---|---|---|
+| **LUMI Keys / ROLI Piano M** (`lumi`) | 2.01 | 6 × 3 | 600 × 300 | 24 keys, flat RGB-lit keybed |
+| Seaboard **RISE 25** (`rise`) | 2.41 | ~7.2 × 3 | 723 × 300 | panel + 25-key keywave. Template: `seaboard-rise.svg` |
+| Seaboard **GRAND** (`grand`) | 2.78 | ~8.35 × 3 | 835 × 300 | this key count; 25 / 49 / 61 variants, softest keywave |
+| **ROLI Piano 49** (`lumi`) | 3.55 | ~10.6 × 3 | 1065 × 300 | 49 keys — pitched **tighter** than the 3-units/octave keywave rule (set tiling to match) |
+| Seaboard **RISE 2 / RISE 49** (`rise`) | 3.97 | ~11.9 × 3 | 1190 × 300 | panel + 49-key keywave (C2–C6). Re-lay the panel per RISE 2; tile the keys |
 
 The keybeds are **procedurally tiled by key**: GRAB draws `keyCount` keys from a low note, white keys
 evenly spaced at `3 units / 7 white keys`, black keys on the boundary between whites. So you don't
 need a separate artboard per key count — design **one octave (or the 2-octave module)** cleanly and
 we tile it. The 600×300 and 200×200 templates are the canonical modules; wider boards (RISE 49, Piano
-49) are the same module repeated.
+49) are the same module repeated — **except the ROLI Piano 49**, whose measured aspect (3.55) is tighter
+than tiling the 24-key LUMI module at 3 units/octave would give (~4.1): its keys are narrower, so the
+per-octave width needs lowering to ~2.65 units/octave to match the photo when that art is wired in.
 
 **Rotation:** snapped BLOCKS can be rotated 90° in GRAB (it rotates your art about its centre). Design
 everything to read correctly at 0°; the square devices (Lightpad, and roughly Control) rotate cleanly.
@@ -53,7 +73,7 @@ them. Bake them into the chassis art and they'll be wrong the moment a device is
 | Layer id | What GRAB does with it | You provide |
 |---|---|---|
 | `live-overlay` | Draws finger **Strike disc + Press ring** (and chord ghosts) here, positioned 0..1 across the active area. **Topmost. Keep empty.** | Nothing — reserve the layer |
-| `keys` (LUMI/Piano) | Recolours **each key** live from the device's colour scheme (root/scale/rainbow/piano) | One shape per key, id'd `key-0`, `key-1`, … left→right, so each can be filled live |
+| `keys` (LUMI/Piano) | Recolours **each key** live from the device's colour scheme (root/scale/rainbow/piano) | One shape per key, id'd `key-w-0…` (whites) and `key-b-0…` (blacks) left→right, so each can be filled live |
 | `led-strip` (Control) | Lights the 13-dot strip in the subtype colour | The 13 dot shapes, id'd `led-0`…`led-12` |
 | `button-leds` (Control) | Each button has a live **on/off colour** from its config | A fillable ring/halo per button, `btnled-0`…`btnled-9` |
 | `grid-leds` (Lightpad) | May light grid cells live | The 15×15 dots, grouped; id the group `grid-leds` |
@@ -183,6 +203,25 @@ layer structure so we can swap by theme.
 ---
 
 ## Deliverables & format
+
+**What to deliver (device checklist):**
+
+1. **Seaboard Block** keywave (24-key module) — `seaboard-keywave.svg`
+2. **Seaboard RISE 25** — full instrument, left panel + keywave — `seaboard-rise.svg`
+3. **Seaboard RISE 2** — panel re-laid (Pitch/Mod edge strips), same keywave — `seaboard-rise.svg` variant
+4. **Seaboard GRAND** — wooden keywave, softest radius — `seaboard-keywave.svg` (grand radius)
+5. **LUMI / ROLI Piano M** keybed (24-key module) — `lumi-piano-keybed.svg`
+6. **Lightpad Block M** — `lightpad-block.svg`
+7. **Control Block** body — `control-block.svg` — **plus 4 icon sets** on the `icons` layer (Live / Loop /
+   Touch / Developer legends + accent colours; see Device variants)
+
+RISE 49 and Piano 49 are **not** separate arts — GRAB tiles the keywave / keybed module wider (Piano 49 at
+the tighter ~2.65 units/octave noted above). So it's **~6 bodies + the 4 control-icon variants**.
+
+> **Aspect:** every template's `viewBox` now carries the correct, photo-measured aspect (e.g.
+> `seaboard-rise.svg` = 723×300 = 2.41, panel re-laid to the real RISE 25 order: faders, XY pad, octave
+> −/+). Treat the artboard aspect as fixed; the corner radii and internal detail are yours to refine from
+> the photo. (Reference photos are supplied **separately** — they're not in the repo.)
 
 Per device, ideally:
 

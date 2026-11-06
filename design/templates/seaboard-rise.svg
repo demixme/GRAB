@@ -1,10 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
   GRAB device template: SEABOARD RISE (full instrument) - RISE 25 / RISE 2
-  Footprint 8 x 3 units = 800 x 300 px. LEFT = control panel (0..200), RIGHT = keywave (200..800).
+  Footprint ~7.23 x 3 units = 723 x 300 px (aspect 2.41, measured from the RISE 25 top-view photo).
+  LEFT = control panel (0..~148, ~20%), RIGHT = keywave (~150..718).
   NOTE: GRAB currently draws RISE as the keywave ONLY. This template adds the control panel as its
   own layers so, when the art lands, GRAB extends the RISE footprint to include it and drives the
   live elements (fader thumbs, XY dot) from the device. The keywave half matches seaboard-keywave.svg.
+
+  Panel order matches the real RISE 25 (top->bottom): mode pill, THREE vertical touch faders,
+  XY touch pad, then octave -/+ at the bottom.
 
   Layer ids (contract with GRAB - see design/DESIGN-GUIDE.md):
     chassis       - full body / moulded shell                 (YOURS: photo-real)
@@ -27,72 +31,73 @@
     * RISE 49 / GRAND: wider keywave (tile the key module); same panel treatment.
   Corner radii are placeholders - real bodies/keys round less (see DESIGN-GUIDE).
 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 300" width="800" height="300">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 723 300" width="723" height="300">
   <title>Seaboard RISE template (control panel + keywave)</title>
-  <desc>RISE 25 layout. Panel faders/XY move live via panel-live; keywave rings via live-overlay.</desc>
+  <desc>RISE 25 layout, aspect 2.41. Panel faders/XY move live via panel-live; keywave rings via live-overlay.</desc>
 
   <g id="chassis">
-    <rect x="3" y="3" width="794" height="294" rx="8" fill="#272b33"/>
+    <rect x="3" y="3" width="717" height="294" rx="8" fill="#272b33"/>
   </g>
 
   <g id="panel">
-    <rect x="6" y="7" width="190" height="286" rx="7" fill="#1b1e25"/>
-  </g>
-
-  <g id="xy-pad">
-    <rect id="xy-surface" x="43" y="34" width="114" height="114" rx="6" fill="#121419" stroke="#2a2e38" stroke-width="1"/>
+    <rect x="6" y="7" width="136" height="286" rx="7" fill="#1b1e25"/>
   </g>
 
   <g id="fader-tracks" fill="#121419" stroke="#2a2e38" stroke-width="1">
-      <rect id="fader-track-0" x="44" y="168" width="16" height="92" rx="8"/>
-      <rect id="fader-track-1" x="92" y="168" width="16" height="92" rx="8"/>
-      <rect id="fader-track-2" x="140" y="168" width="16" height="92" rx="8"/>
+      <rect id="fader-track-0" x="33" y="52" width="14" height="90" rx="7"/>
+      <rect id="fader-track-1" x="67" y="52" width="14" height="90" rx="7"/>
+      <rect id="fader-track-2" x="101" y="52" width="14" height="90" rx="7"/>
   </g>
   <g id="fader-labels-grp">
-      <text id="fader-label-0" x="52" y="274" font-size="9" fill="#9aa6b6" text-anchor="middle">Glide</text>
-      <text id="fader-label-1" x="100" y="274" font-size="9" fill="#9aa6b6" text-anchor="middle">Slide</text>
-      <text id="fader-label-2" x="148" y="274" font-size="9" fill="#9aa6b6" text-anchor="middle">Press</text>
+      <text id="fader-label-0" x="40" y="156" font-size="9" fill="#9aa6b6" text-anchor="middle">Glide</text>
+      <text id="fader-label-1" x="74" y="156" font-size="9" fill="#9aa6b6" text-anchor="middle">Slide</text>
+      <text id="fader-label-2" x="108" y="156" font-size="9" fill="#9aa6b6" text-anchor="middle">Press</text>
+  </g>
+
+  <g id="xy-pad">
+    <rect id="xy-surface" x="26" y="162" width="96" height="96" rx="6" fill="#121419" stroke="#2a2e38" stroke-width="1"/>
   </g>
 
   <g id="buttons" fill="#2a2c34" stroke="#000000" stroke-opacity="0.35" stroke-width="1">
-    <circle id="btn-mode" cx="28" cy="22" r="8"/>
-    <circle id="btn-oct-down" cx="70" cy="280" r="9"/>
-    <circle id="btn-oct-up" cx="130" cy="280" r="9"/>
+    <rect id="btn-mode" x="20" y="18" width="36" height="14" rx="7"/>
+    <circle id="btn-oct-down" cx="92" cy="278" r="9"/>
+    <circle id="btn-oct-up" cx="116" cy="278" r="9"/>
+    <circle cx="26" cy="278" r="9"/>
   </g>
   <g id="button-leds">
-    <circle id="btnled-mode" cx="28" cy="22" r="10" fill="none" stroke="#00b0bb" stroke-opacity="0.9" stroke-width="1.2"/>
-    <circle id="btnled-oct-down" cx="70" cy="280" r="11" fill="none" stroke="#00b0bb" stroke-opacity="0.6" stroke-width="1.2"/>
-    <circle id="btnled-oct-up" cx="130" cy="280" r="11" fill="none" stroke="#00b0bb" stroke-opacity="0.6" stroke-width="1.2"/>
+    <rect id="btnled-mode" x="18" y="16" width="40" height="18" rx="9" fill="none" stroke="#00b0bb" stroke-opacity="0.9" stroke-width="1.2"/>
+    <circle id="btnled-oct-down" cx="92" cy="278" r="11" fill="none" stroke="#00b0bb" stroke-opacity="0.6" stroke-width="1.2"/>
+    <circle id="btnled-oct-up" cx="116" cy="278" r="11" fill="none" stroke="#00b0bb" stroke-opacity="0.6" stroke-width="1.2"/>
   </g>
 
   <!-- Keywave (right half). White keys then black keys. See seaboard-keywave.svg for the module. -->
   <g id="keys-white" fill="#2c313b" stroke="#111318" stroke-width="0.8">
-      <rect id="w-0" x="207.0" y="38" width="40.9" height="224" rx="3"/>
-      <rect id="w-1" x="249.9" y="38" width="40.9" height="224" rx="3"/>
-      <rect id="w-2" x="292.7" y="38" width="40.9" height="224" rx="3"/>
-      <rect id="w-3" x="335.6" y="38" width="40.9" height="224" rx="3"/>
-      <rect id="w-4" x="378.4" y="38" width="40.9" height="224" rx="3"/>
-      <rect id="w-5" x="421.3" y="38" width="40.9" height="224" rx="3"/>
-      <rect id="w-6" x="464.1" y="38" width="40.9" height="224" rx="3"/>
-      <rect id="w-7" x="507.0" y="38" width="40.9" height="224" rx="3"/>
-      <rect id="w-8" x="549.9" y="38" width="40.9" height="224" rx="3"/>
-      <rect id="w-9" x="592.7" y="38" width="40.9" height="224" rx="3"/>
-      <rect id="w-10" x="635.6" y="38" width="40.9" height="224" rx="3"/>
-      <rect id="w-11" x="678.4" y="38" width="40.9" height="224" rx="3"/>
-      <rect id="w-12" x="721.3" y="38" width="40.9" height="224" rx="3"/>
-      <rect id="w-13" x="764.1" y="38" width="29.0" height="224" rx="3"/>
+      <rect id="w-0" x="150.0" y="38" width="39.6" height="224" rx="3"/>
+      <rect id="w-1" x="191.6" y="38" width="39.6" height="224" rx="3"/>
+      <rect id="w-2" x="233.1" y="38" width="39.6" height="224" rx="3"/>
+      <rect id="w-3" x="274.6" y="38" width="39.6" height="224" rx="3"/>
+      <rect id="w-4" x="316.1" y="38" width="39.6" height="224" rx="3"/>
+      <rect id="w-5" x="357.7" y="38" width="39.6" height="224" rx="3"/>
+      <rect id="w-6" x="399.2" y="38" width="39.6" height="224" rx="3"/>
+      <rect id="w-7" x="440.8" y="38" width="39.6" height="224" rx="3"/>
+      <rect id="w-8" x="482.4" y="38" width="39.6" height="224" rx="3"/>
+      <rect id="w-9" x="523.9" y="38" width="39.6" height="224" rx="3"/>
+      <rect id="w-10" x="565.4" y="38" width="39.6" height="224" rx="3"/>
+      <rect id="w-11" x="606.9" y="38" width="39.6" height="224" rx="3"/>
+      <rect id="w-12" x="648.5" y="38" width="39.6" height="224" rx="3"/>
+      <rect id="w-13" x="690.0" y="38" width="28.1" height="224" rx="3"/>
   </g>
   <g id="keys-black" fill="#0c0e12" stroke="#060708" stroke-width="0.6">
-      <rect id="b-0" x="236.4" y="38" width="24.8" height="112" rx="3"/>
-      <rect id="b-1" x="279.3" y="38" width="24.8" height="112" rx="3"/>
-      <rect id="b-2" x="365.0" y="38" width="24.8" height="112" rx="3"/>
-      <rect id="b-3" x="407.9" y="38" width="24.8" height="112" rx="3"/>
-      <rect id="b-4" x="450.7" y="38" width="24.8" height="112" rx="3"/>
-      <rect id="b-5" x="536.5" y="38" width="24.8" height="112" rx="3"/>
-      <rect id="b-6" x="579.3" y="38" width="24.8" height="112" rx="3"/>
-      <rect id="b-7" x="665.0" y="38" width="24.8" height="112" rx="3"/>
-      <rect id="b-8" x="707.9" y="38" width="24.8" height="112" rx="3"/>
-      <rect id="b-9" x="750.7" y="38" width="24.8" height="112" rx="3"/>
+      <rect id="b-0" x="178.5" y="38" width="24.0" height="112" rx="3"/>
+      <rect id="b-1" x="220.1" y="38" width="24.0" height="112" rx="3"/>
+      <rect id="b-2" x="303.1" y="38" width="24.0" height="112" rx="3"/>
+      <rect id="b-3" x="344.7" y="38" width="24.0" height="112" rx="3"/>
+      <rect id="b-4" x="386.2" y="38" width="24.0" height="112" rx="3"/>
+      <rect id="b-5" x="469.4" y="38" width="24.0" height="112" rx="3"/>
+      <rect id="b-6" x="510.9" y="38" width="24.0" height="112" rx="3"/>
+      <rect id="b-7" x="593.9" y="38" width="24.0" height="112" rx="3"/>
+      <rect id="b-8" x="635.5" y="38" width="24.0" height="112" rx="3"/>
+      <rect id="b-9" x="677.0" y="38" width="24.0" height="112" rx="3"/>
   </g>
 
   <g id="labels">
@@ -101,13 +106,13 @@
 
   <!-- LIVE: GRAB repositions these from the device. Placeholders show a mid-travel state. -->
   <g id="panel-live">
-    <circle id="xy-dot" cx="100" cy="91" r="6" fill="#0be4f4"/>
-      <rect id="fader-thumb-0" x="42" y="210" width="20" height="8" rx="4"/>
-      <rect id="fader-thumb-1" x="90" y="210" width="20" height="8" rx="4"/>
-      <rect id="fader-thumb-2" x="138" y="210" width="20" height="8" rx="4"/>
+    <circle id="xy-dot" cx="74" cy="210" r="6" fill="#0be4f4"/>
+      <rect id="fader-thumb-0" x="31" y="93" width="18" height="8" rx="4"/>
+      <rect id="fader-thumb-1" x="65" y="93" width="18" height="8" rx="4"/>
+      <rect id="fader-thumb-2" x="99" y="93" width="18" height="8" rx="4"/>
   </g>
 
-  <rect id="selection-frame" x="4" y="4" width="792" height="292" rx="8"
+  <rect id="selection-frame" x="4" y="4" width="715" height="292" rx="8"
         fill="none" stroke="#00b0bb" stroke-width="1.6"/>
 
   <g id="live-overlay"></g>
