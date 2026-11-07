@@ -284,7 +284,7 @@ private:
         // V2 keybed art: size the footprint to the SVG's real aspect (its key pitch differs from the
         // generic 3-units/octave), so stretchToFit doesn't distort it. No-op when there's no V2 art.
         if (useDeviceArtV2)
-            if (const char* f = keybedArtFile (t.family, t.keyCount > 0 ? t.keyCount : octaves * 12))
+            if (const char* f = v2FileFor (t.family, t.keyCount > 0 ? t.keyCount : octaves * 12))
                 if (auto* a = loadArt (f))
                     if (a->viewBox.getHeight() > 0.0f)
                         t.uw = t.uh * a->viewBox.getWidth() / a->viewBox.getHeight();
@@ -385,14 +385,9 @@ private:
                                                                                    : nat.reduced (kBodyMargin, kKeyInsetV);
         // V2 art: land the rings on the SVG's real playing rect (data-grab-active-area).
         if (useDeviceArtV2)
-        {
-            const char* f = (t.family == Family::lightpad)
-                                ? "lightpad-block.svg"
-                                : keybedArtFile (t.family, t.keyCount > 0 ? t.keyCount : t.octaves * 12);
-            if (f != nullptr)
+            if (const char* f = v2FileFor (t.family, t.keyCount > 0 ? t.keyCount : t.octaves * 12))
                 if (auto* a = loadArt (f))
                     inset = activeInset (*a, nat);
-        }
         auto drawMarker = [&g, &inset] (float nx, float ny, float strike, float press, float a)
         {
             const float mx = inset.getX() + juce::jlimit (0.0f, 1.0f, nx) * inset.getWidth();
@@ -459,6 +454,18 @@ private:
     void drawFlatKeybed (juce::Graphics& g, juce::Rectangle<float> r, int octaveCount,
                          juce::Colour border = grab::theme::accent.withAlpha (0.9f))
     {
+        // V2: LUMI / ROLI Piano from the SVG kit, with each key recoloured live by the device's
+        // colour scheme (key-w-N / key-b-N). Footprint aspect is fixed in buildLegacyLocked.
+        if (useDeviceArtV2)
+            if (const char* f = v2FileFor (Family::lumi, octaveCount * 12))
+                if (auto* a = loadArt (f))
+                {
+                    recolourLumiKeys (*a);
+                    recolourFrame (*a, border);
+                    a->drawable->drawWithin (g, r, juce::RectanglePlacement::stretchToFit, 1.0f);
+                    return;
+                }
+
         g.setColour (juce::Colour (0xff0c0d12));
         g.fillRoundedRectangle (r, 10.0f);
         g.setColour (border);
@@ -505,9 +512,10 @@ private:
         // aspect in buildLegacyLocked, so stretchToFit doesn't distort. RISE still draws below (its
         // SVG includes the control panel, handled in a later phase). Border overlaid for selection.
         if (useDeviceArtV2)
-            if (const char* f = keybedArtFile (fam, keyCount))
+            if (const char* f = v2FileFor (fam, keyCount))
                 if (auto* a = loadArt (f))
                 {
+                    recolourFrame (*a, border);   // selection highlight via the SVG's own frame
                     a->drawable->drawWithin (g, r, juce::RectanglePlacement::stretchToFit, 1.0f);
                     return;   // the SVG carries its own chassis + selection-frame (correct corner radius)
                 }
@@ -576,6 +584,7 @@ private:
         if (useDeviceArtV2)
             if (auto* a = loadArt ("lightpad-block.svg"))
             {
+                recolourFrame (*a, border);
                 a->drawable->drawWithin (g, r, juce::RectanglePlacement::stretchToFit, 1.0f);
                 return;   // the SVG carries its own chassis + selection-frame (correct corner radius)
             }
@@ -645,22 +654,70 @@ private:
                                      : "control-developer.svg";
     }
 
-    // The keybed SVG for a family + key count, or nullptr if that family has no V2 keybed art yet.
-    // GRAND maps to the nearest built size (Studio 37 / Stage 61 / 88); the Block is always 24.
-    // RISE/LUMI are handled separately (panel / per-key colour), so they return nullptr here.
-    static const char* keybedArtFile (Family fam, int keyCount)
+    // The model SVG for a family + key count, or nullptr if that family has no V2 art yet.
+    // GRAND/LUMI map to the nearest built size; Block/Lightpad are fixed. Control uses controlArtFile
+    // (per subtype); RISE returns nullptr (its SVG bundles the control panel - a later phase).
+    static const char* v2FileFor (Family fam, int keyCount)
     {
-        if (fam == Family::block) return "seaboard-block-24.svg";
-        if (fam == Family::grand)
+        switch (fam)
         {
-            static const int   sz[3] = { 37, 61, 88 };
-            static const char* fl[3] = { "grand-studio-37.svg", "grand-stage-61.svg", "grand-88.svg" };
-            int best = 0;
-            for (int i = 1; i < 3; ++i)
-                if (std::abs (keyCount - sz[i]) < std::abs (keyCount - sz[best])) best = i;
-            return fl[best];
+            case Family::block:    return "seaboard-block-24.svg";
+            case Family::lightpad: return "lightpad-block.svg";
+            case Family::lumi:     return keyCount >= 37 ? "piano-49.svg" : "lumi-24.svg";
+            case Family::grand:
+            {
+                static const int   sz[3] = { 37, 61, 88 };
+                static const char* fl[3] = { "grand-studio-37.svg", "grand-stage-61.svg", "grand-88.svg" };
+                int best = 0;
+                for (int i = 1; i < 3; ++i)
+                    if (std::abs (keyCount - sz[i]) < std::abs (keyCount - sz[best])) best = i;
+                return fl[best];
+            }
+            case Family::rise:
+            case Family::control:
+            default:               return nullptr;
         }
+    }
+
+    // Find a sub-drawable by its SVG id (JUCE stores the id as the Drawable's componentID).
+    static juce::Drawable* findDrawableById (juce::Drawable* d, juce::StringRef id)
+    {
+        if (d == nullptr) return nullptr;
+        if (d->getComponentID() == id) return d;
+        if (auto* comp = dynamic_cast<juce::DrawableComposite*> (d))
+            for (int i = 0; i < comp->getNumChildComponents(); ++i)
+                if (auto* child = dynamic_cast<juce::Drawable*> (comp->getChildComponent (i)))
+                    if (auto* found = findDrawableById (child, id)) return found;
         return nullptr;
+    }
+
+    // Recolour the SVG's selection-frame stroke to convey selection state (bright/dim/normal accent).
+    void recolourFrame (const Art& a, juce::Colour c)
+    {
+        if (auto* d = findDrawableById (a.drawable.get(), "selection-frame"))
+            if (auto* s = dynamic_cast<juce::DrawableShape*> (d))
+                s->setStrokeFill (c);
+    }
+
+    // Recolour each LUMI/Piano key (key-w-N / key-b-N) by the live colour scheme, the way the
+    // drawn flat keybed does - so the SVG keys light up with the device's scheme, not the demo art.
+    void recolourLumiKeys (const Art& a)
+    {
+        static const int whitePc[7]  = { 0, 2, 4, 5, 7, 9, 11 };
+        static const int blackSeq[5] = { 1, 3, 6, 8, 10 };
+        auto* root = a.drawable.get();
+        for (int i = 0; ; ++i)
+        {
+            auto* d = findDrawableById (root, juce::String ("key-w-") + juce::String (i));
+            if (d == nullptr) break;
+            if (auto* s = dynamic_cast<juce::DrawableShape*> (d)) s->setFill (keyColour (whitePc[i % 7], true));
+        }
+        for (int j = 0; ; ++j)
+        {
+            auto* d = findDrawableById (root, juce::String ("key-b-") + juce::String (j));
+            if (d == nullptr) break;
+            if (auto* s = dynamic_cast<juce::DrawableShape*> (d)) s->setFill (keyColour (blackSeq[j % 5], false));
+        }
     }
 
     // Map an Art's active-area (viewBox coords) onto the drawn footprint `nat`, so touch rings land
@@ -686,6 +743,7 @@ private:
         if (useDeviceArtV2)
             if (auto* a = loadArt (controlArtFile (sub)))
             {
+                recolourFrame (*a, border);
                 a->drawable->drawWithin (g, r, juce::RectanglePlacement::stretchToFit, 1.0f);
                 return;   // the SVG carries its own chassis + selection-frame (correct corner radius)
             }
