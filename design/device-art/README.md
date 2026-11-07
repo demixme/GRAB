@@ -19,7 +19,7 @@ art-v2/
                  for block / rise / grand / lumi, plus grand-button (GRAND's centred master button)
     fixed/       lightpad-block, control-block (body) + icons-live / -loop / -touch / -developer
     manifest.json  how to assemble: surround caps, key insets, tile names, white-key pitch per family
-  models/        12 models assembled from the kit, exactly as GRAB would do it (reference + test fixtures)
+  models/        13 models assembled from the kit, exactly as GRAB would do it (reference + test fixtures)
   models.json    slug, name, width for each model
 generator/       the Python that draws the kit (see generator/README.md)
 ```
@@ -47,12 +47,12 @@ look in a browser. Every model passes `generator/validate.py` (the guide's layer
 
 - **Kit vs per-model files.** The kit keeps one source of truth for every key count. If wiring tiles
   in is more work than it's worth, `models/` are complete per-model SVGs you can use directly.
-- **Which key counts to ship.** Built now: Block 24, RISE 25/49, GRAND Studio 37 + Stage 61, LUMI 24, Piano 49.
+- **Which key counts to ship.** Built now: Block 24, RISE 25/49, GRAND Studio 37 + Stage 61 + 88 First Edition, LUMI 24, Piano 49.
 - **GRAND = Studio (37 keys, 608 × 338 mm) and Stage (61 keys, 937 × 338 mm)**, per ROLI's support page
   and the photos, in a matte black body (not wood). GRAB already draws each GRAND at the key count it
-  reports (`Rise2Component.cpp` ~648), so the tiles fit any count. `Rise2Component` also mentions an
-  **88-key First Edition**: there's no photo or size for it here, so it isn't drawn as its own model
-  yet. Send a top-down photo and it's one more line in `kit.py`. (The Studio assembles at 530 px
+  reports (`Rise2Component.cpp` ~648), so the tiles fit any count. The **88-key First Edition** (2013,
+  88 made, A0–C8, 1313 × 338 mm) is drawn too, from launch photos: same black body and master button.
+  (The Studio assembles at 530 px
   wide against 540 from ROLI's size: it shares the Stage's key pitch.)
 - **RISE 49 width.** It assembles at 1224 px against the photo's 1190. RISE 2 keys are slightly
   narrower, so it's one pitch value in the manifest if you want it exact.

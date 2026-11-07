@@ -290,6 +290,7 @@ MODELS_LIST = [   # (file, title, family, lowNote, keyCount, pitch override)
     ("rise-49", "Seaboard RISE 2 / RISE 49", "rise", 48, 49, None),
     ("grand-studio-37", "Seaboard GRAND Studio", "grand", 48, 37, None),   # 608 x 338 mm
     ("grand-stage-61", "Seaboard GRAND Stage", "grand", 48, 61, None),     # 937 x 338 mm
+    ("grand-88", "Seaboard GRAND 88 First Edition", "grand", 21, 88, None),  # 1313 x 338 mm, A0-C8, 88 made
     ("lumi-24", "LUMI Keys / ROLI Piano M", "lumi", 48, 24, None),
     ("piano-49", "ROLI Piano 49", "lumi", 48, 49, 36.5),
 ]

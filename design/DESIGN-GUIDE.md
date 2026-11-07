@@ -49,6 +49,7 @@ convention; width = 3 × aspect. These depths are **not** cross-device scale.
 | Seaboard **RISE 25** (`rise`) | 2.41 | ~7.2 × 3 | 723 × 300 | panel + 25-key keywave. Template: `seaboard-rise.svg` |
 | Seaboard **GRAND Stage** (`grand`) | 2.77 | ~8.35 × 3 | 835 × 300 | 61 keys, 937 × 338 mm; softest keywave |
 | Seaboard **GRAND Studio** (`grand`) | 1.80 | ~5.4 × 3 | 540 × 300 | 37 keys, 608 × 338 mm; same body and keys as the Stage |
+| Seaboard **GRAND 88 First Edition** (`grand`) | 3.88 | ~11.65 × 3 | 1165 × 300 | 88 keys A0–C8, 1313 × 338 mm; 2013, 88 made |
 | **ROLI Piano 49** (`lumi`) | 3.55 | ~10.6 × 3 | 1065 × 300 | 49 keys — pitched **tighter** than the 3-units/octave keywave rule (set tiling to match) |
 | Seaboard **RISE 2 / RISE 49** (`rise`) | 3.97 | ~11.9 × 3 | 1190 × 300 | panel + 49-key keywave (C2–C6). Re-lay the panel per RISE 2; tile the keys |
 
@@ -144,7 +145,7 @@ lands where the finger really is.
   the XY pad and buttons. Re-lay the panel to match it (keep the same layer ids / live-element ids),
   and use current ROLI product photos as the realism reference. RISE 49 / GRAND = wider keywave, same
   panel treatment.
-- **Seaboard GRAND** — Studio (37 keys) and Stage (61 keys), matte black body with a centred master
+- **Seaboard GRAND** — Studio (37 keys), Stage (61 keys) and the rare 88 First Edition, matte black body with a centred master
   button; softest key radius. Match the variant's key count that GRAB reports.
 - **LUMI Keys / ROLI Piano M** — 24 edge-lit keys with vivid per-key RGB; the glow under each key is
   the hero. ROLI Piano is the LUMI rebrand; Piano 49 is the wide version.
