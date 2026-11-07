@@ -78,6 +78,18 @@ public:
         rebuildLegacy();
     }
 
+    // Live RISE panel positions (normalised 0..1, or <0 for no data): three touch faders + XY pad.
+    // Fed from Rise2Component's performance MIDI so the device graphic's own panel mirrors the
+    // hardware. Message-thread only (the FaderPanel's 30 Hz poll), read in paint() - no lock needed.
+    void setRisePanel (float left, float mid, float right, float x, float y)
+    {
+        if (risePanel[0] == left && risePanel[1] == mid && risePanel[2] == right
+            && risePanelXY[0] == x && risePanelXY[1] == y) return;
+        risePanel[0] = left; risePanel[1] = mid; risePanel[2] = right;
+        risePanelXY[0] = x;  risePanelXY[1] = y;
+        if (! usingLayout) repaint();   // the RISE keybed is a legacy tile
+    }
+
     // nx (0..1 across the keybed's white-key span) for a MIDI note on the current legacy keybed,
     // matching drawKeybed's geometry exactly - so the RISE/GRAND touch ring sits on the pressed key.
     // bendSemitones nudges it along for Glide (approximate: the average white-key spacing).
@@ -275,6 +287,8 @@ private:
         // One keybed tile, ~3 logical units per octave wide by 3 tall. Width tracks the real white-key
         // count (so a 49-key board is sized as 49 keys, not padded to 5 whole octaves); for whole-octave
         // callers this equals the old octaves*3, so their layout is unchanged.
+        risePanel[0] = risePanel[1] = risePanel[2] = -1.0f;   // clear stale live panel on any rebuild
+        risePanelXY[0] = risePanelXY[1] = -1.0f;
         Tile t; t.uid = 0; t.family = family; t.octaves = octaves;
         t.lowNote  = legacyKeys > 0 ? legacyLow  : defaultLowC (octaves);
         t.keyCount = legacyKeys;   // 0 => whole octaves (drawKeybed derives from octaves)
@@ -284,6 +298,7 @@ private:
         t.uh = 3.0f;
         // V2 keybed art: size the footprint to the SVG's real aspect (its key pitch differs from the
         // generic 3-units/octave), so stretchToFit doesn't distort it. No-op when there's no V2 art.
+        // RISE draws the whole device (keybed + its side control panel), so it uses the full viewBox.
         if (useDeviceArtV2)
             if (const char* f = v2FileFor (t.family, t.keyCount > 0 ? t.keyCount : octaves * 12))
                 if (auto* a = loadArt (f))
@@ -513,16 +528,32 @@ private:
     void drawKeybed (juce::Graphics& g, juce::Rectangle<float> r, Family fam, int lowNote, int keyCount,
                      juce::Colour border = grab::theme::accent.withAlpha (0.9f))
     {
-        // V2: Seaboard Block / GRAND keybed from the SVG kit. The tile footprint is set to the SVG's
-        // aspect in buildLegacyLocked, so stretchToFit doesn't distort. RISE still draws below (its
-        // SVG includes the control panel, handled in a later phase). Border overlaid for selection.
+        // V2: Seaboard Block / GRAND / RISE keybed from the SVG kit. The tile footprint is set to the
+        // SVG's aspect in buildLegacyLocked, so stretchToFit doesn't distort. RISE's SVG is the whole
+        // device (keybed + its side control panel); the live faders/XY in Rise2Component's panel below
+        // stay the editable controls. Border overlaid for selection.
         if (useDeviceArtV2)
             if (const char* f = v2FileFor (fam, keyCount))
                 if (auto* a = loadArt (f))
                 {
-                    recolourFrame (*a, border);   // selection highlight via the SVG's own frame
+                    // A single RISE/GRAND is never part of a multi-device selection, so its whole-device
+                    // selection-frame is just a decorative teal outline (its top/bottom runs read as
+                    // stray edges). Hide it there; Seaboard blocks keep it for DNA selection highlighting.
+                    if (fam == Family::rise || fam == Family::grand)
+                    {
+                        if (auto* fr = findDrawableById (a->drawable.get(), "selection-frame"))
+                            fr->setVisible (false);
+                    }
+                    else
+                        recolourFrame (*a, border);   // selection highlight via the SVG's own frame
+
+                    if (fam == Family::rise)
+                        if (auto* leds = findDrawableById (a->drawable.get(), "button-leds"))
+                            leds->setVisible (false);   // hide the SVG's always-on indicator LEDs (static,
+                                                        // and only drawn for some buttons - looks inconsistent)
                     a->drawable->drawWithin (g, r, juce::RectanglePlacement::stretchToFit, 1.0f);
-                    return;   // the SVG carries its own chassis + selection-frame (correct corner radius)
+                    if (fam == Family::rise) drawRisePanel (g, *a, r);   // mirror the live faders / XY
+                    return;   // the SVG carries its own chassis (correct corner radius)
                 }
 
         const int   totalWhites = keybedWhiteCount (lowNote, keyCount);
@@ -678,7 +709,7 @@ private:
                     if (std::abs (keyCount - sz[i]) < std::abs (keyCount - sz[best])) best = i;
                 return fl[best];
             }
-            case Family::rise:
+            case Family::rise:     return keyCount >= 37 ? "rise-49.svg" : "rise-25.svg";
             case Family::control:
             default:               return nullptr;
         }
@@ -734,6 +765,50 @@ private:
                  nat.getY() + (a.active.getY() / a.viewBox.getHeight()) * nat.getHeight(),
                  (a.active.getWidth()  / a.viewBox.getWidth())  * nat.getWidth(),
                  (a.active.getHeight() / a.viewBox.getHeight()) * nat.getHeight() };
+    }
+
+    // Draw the live touch-fader thumbs + XY dot onto the RISE SVG's own panel, mirroring the hardware.
+    // Positions come from setRisePanel (0..1, or <0 for none); where we have live data the SVG's static
+    // thumb/dot layer is hidden so there's no double image, and untouched controls keep the SVG art.
+    // The geometry is the RISE panel's fixed layout in viewBox units (identical in rise-25 / rise-49).
+    void drawRisePanel (juce::Graphics& g, const Art& a, juce::Rectangle<float> r)
+    {
+        if (a.viewBox.getWidth() <= 0.0f || a.viewBox.getHeight() <= 0.0f) return;
+        const float sx = r.getWidth()  / a.viewBox.getWidth();
+        const float sy = r.getHeight() / a.viewBox.getHeight();
+        auto vx = [&] (float x) { return r.getX() + (x - a.viewBox.getX()) * sx; };
+        auto vy = [&] (float y) { return r.getY() + (y - a.viewBox.getY()) * sy; };
+
+        // Three faders: thumb centre X, and the groove's thumb-travel (value 1 = top, 0 = bottom).
+        static const float faderX[3] = { 43.75f, 77.75f, 110.75f };
+        const float travTop = 67.8f, travBot = 147.3f;
+        for (int i = 0; i < 3; ++i)
+        {
+            const float v = risePanel[i];
+            const bool  live = v >= 0.0f;
+            if (auto* d = findDrawableById (a.drawable.get(), juce::String ("fader-thumb-") + juce::String (i)))
+                d->setVisible (! live);   // hide the SVG's static thumb only where we drive it live
+            if (! live) continue;
+            const float cx = vx (faderX[i]);
+            const float cy = vy (travBot + (travTop - travBot) * juce::jlimit (0.0f, 1.0f, v));
+            const float w = juce::jmax (2.0f, 9.0f * sx), h = juce::jmax (2.0f, 3.0f * sy);
+            g.setColour (juce::Colour (0xffe4e4e6));
+            g.fillRoundedRectangle (cx - w * 0.5f, cy - h * 0.5f, w, h, h * 0.5f);
+        }
+
+        // XY pad: the dot at (x -> left..right, y -> bottom..top) of the pad's inner surface.
+        const float xv = risePanelXY[0], yv = risePanelXY[1];
+        const bool  xyLive = xv >= 0.0f && yv >= 0.0f;
+        if (auto* d = findDrawableById (a.drawable.get(), "xy-dot"))
+            d->setVisible (! xyLive);
+        if (xyLive)
+        {
+            const float px = vx (33.0f + juce::jlimit (0.0f, 1.0f, xv) * 85.4f);
+            const float py = vy (230.0f - juce::jlimit (0.0f, 1.0f, yv) * 65.4f);
+            const float rr = juce::jmax (1.5f, 2.6f * sx);
+            g.setColour (juce::Colour (0x330be4f4)); g.fillEllipse (px - rr * 2.0f, py - rr * 2.0f, rr * 4.0f, rr * 4.0f);
+            g.setColour (juce::Colour (0xff0be4f4)); g.fillEllipse (px - rr, py - rr, rr * 2.0f, rr * 2.0f);
+        }
     }
 
     // Control block (Live / Loop / Touch): a short dark body with a row of button discs.
@@ -920,6 +995,10 @@ private:
     // (struct Art is declared above, next to loadArt, so its signature can name it.)
     bool   useDeviceArtV2 = false;
     std::map<juce::String, Art> artCache;
+
+    // Live RISE panel positions (see setRisePanel): three faders + XY pad, each 0..1 or <0 for none.
+    float  risePanel[3]  = { -1.0f, -1.0f, -1.0f };
+    float  risePanelXY[2] = { -1.0f, -1.0f };
 
     std::vector<Tile> tiles;                 // the drawn arrangement (legacy keybed or real topology)
     bool   usingLayout = false;              // true once setLayout() has supplied real tiles

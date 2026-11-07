@@ -680,6 +680,13 @@ void MainComponent::connect (seaprobe::Transport transport)
             keyboardView.setTouch (0, chan, x, 0.5f, pressure, strike, end);   // setTouch is thread-safe
         };
 
+        // Mirror the RISE's touch faders + XY pad onto the device graphic (the SVG's own panel layers),
+        // from the same live-CC source the editable FaderPanel uses. GRAND never fires this (no faders).
+        rise2Page->onPanel = [this] (float l, float m, float r, float x, float y)
+        {
+            keyboardView.setRisePanel (l, m, r, x, y);
+        };
+
         rebuildRiseDeviceEntries();   // list this + any other RISE/GRAND, and a "Blocks" switch entry
         resized();
         return;

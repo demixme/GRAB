@@ -75,6 +75,12 @@ public:
         graphic for the Studio (37) / Stage (61) / First Edition (88). Called on the message thread. */
     std::function<void (int)> onKeyCount;
 
+    /** Live touch-fader / XY-pad positions (each normalised 0..1, or <0 for no data yet), polled
+        from the device's performance MIDI ~30x/s, so the RISE device graphic can mirror the hardware
+        panel. Order: Left, Middle, Right, X, Y. Only fires for RISE (the GRAND has no faders/XY).
+        Called on the message thread. */
+    std::function<void (float, float, float, float, float)> onPanel;
+
     /** Persistent device info for the shared DeviceInfoBar: name, firmware, battery (0..1, <0 if
         unknown), transport ("USB"/"BLE"). Called on the message thread when the state is read. */
     std::function<void (juce::String name, juce::String fw, float battery01, juce::String transport)> onDeviceInfo;

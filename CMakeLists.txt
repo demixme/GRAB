@@ -143,7 +143,9 @@ juce_add_binary_data(GRABDeviceArt
         design/device-art/art-v2/models/grand-stage-61.svg
         design/device-art/art-v2/models/grand-88.svg
         design/device-art/art-v2/models/lumi-24.svg
-        design/device-art/art-v2/models/piano-49.svg)
+        design/device-art/art-v2/models/piano-49.svg
+        design/device-art/art-v2/models/rise-25.svg
+        design/device-art/art-v2/models/rise-49.svg)
 
 target_link_libraries(GRAB PRIVATE
     sea_sysex
