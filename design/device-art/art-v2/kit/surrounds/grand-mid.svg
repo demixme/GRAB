@@ -3,8 +3,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 300" width="10" height="300" >
 <title>GRAND - mid</title>
 <path d="M0 2H10V298H0V2Z" fill="#0e0e0f"/>
-<path d="M0 3H10V297H0V3Z" fill="#424347"/>
-<path d="M0 4H10" stroke="#55565b" stroke-width="1" fill="none"/>
+<path d="M0 3H10V297H0V3Z" fill="#2c2c2f"/>
+<path d="M0 4H10" stroke="#38383c" stroke-width="1" fill="none"/>
 <path d="M0 83H10V275H0V83Z" fill="#0e0e0f"/>
 <path d="M0 84H10V274H0V84Z" fill="#18181a"/>
 <path d="M0 86.6H10V274H0V86.6Z" fill="#2b2b2d"/>

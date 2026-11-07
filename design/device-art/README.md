@@ -19,7 +19,7 @@ art-v2/
                  for block / rise / grand / lumi, plus grand-button (GRAND's centred master button)
     fixed/       lightpad-block, control-block (body) + icons-live / -loop / -touch / -developer
     manifest.json  how to assemble: surround caps, key insets, tile names, white-key pitch per family
-  models/        13 models assembled from the kit, exactly as GRAB would do it (reference + test fixtures)
+  models/        12 models assembled from the kit, exactly as GRAB would do it (reference + test fixtures)
   models.json    slug, name, width for each model
 generator/       the Python that draws the kit (see generator/README.md)
 ```
@@ -47,9 +47,12 @@ look in a browser. Every model passes `generator/validate.py` (the guide's layer
 
 - **Kit vs per-model files.** The kit keeps one source of truth for every key count. If wiring tiles
   in is more work than it's worth, `models/` are complete per-model SVGs you can use directly.
-- **Which key counts to ship.** Built now: Block 24, RISE 25/49, GRAND 25/49/61, LUMI 24, Piano 49.
-- **GRAND body: metal or wood?** The photo shows dark brushed metal and the guide says wood. Metal
-  is drawn; wood is one swap in `generator/style.json` (`devices.grand._wood`).
+- **Which key counts to ship.** Built now: Block 24, RISE 25/49, GRAND Studio 37 + Stage 61, LUMI 24, Piano 49.
+- **GRAND = Studio (37 keys, 608 × 338 mm) and Stage (61 keys, 937 × 338 mm)**, per ROLI's support page
+  and the photos, in a matte black body (not wood). GRAB's port-name inference (`MainComponent.cpp`,
+  around line 44) treats any GRAND that isn't "88" as 61 keys from C3, so a Studio would be drawn as 61.
+  It needs a Studio → 37 case. Is there really a GRAND 88, or can that branch go? (The Studio
+  assembles at 530 px wide against 540 from ROLI's size: it shares the Stage's key pitch.)
 - **RISE 49 width.** It assembles at 1224 px against the photo's 1190. RISE 2 keys are slightly
   narrower, so it's one pitch value in the manifest if you want it exact.
 - **RISE 2 panel.** The guide mentions Pitch/Mod edge strips, but the RISE 2 photo shows the same

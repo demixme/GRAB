@@ -47,7 +47,8 @@ convention; width = 3 × aspect. These depths are **not** cross-device scale.
 |---|---|---|---|---|
 | **LUMI Keys / ROLI Piano M** (`lumi`) | 2.01 | 6 × 3 | 600 × 300 | 24 keys, flat RGB-lit keybed |
 | Seaboard **RISE 25** (`rise`) | 2.41 | ~7.2 × 3 | 723 × 300 | panel + 25-key keywave. Template: `seaboard-rise.svg` |
-| Seaboard **GRAND** (`grand`) | 2.78 | ~8.35 × 3 | 835 × 300 | this key count; 25 / 49 / 61 variants, softest keywave |
+| Seaboard **GRAND Stage** (`grand`) | 2.77 | ~8.35 × 3 | 835 × 300 | 61 keys, 937 × 338 mm; softest keywave |
+| Seaboard **GRAND Studio** (`grand`) | 1.80 | ~5.4 × 3 | 540 × 300 | 37 keys, 608 × 338 mm; same body and keys as the Stage |
 | **ROLI Piano 49** (`lumi`) | 3.55 | ~10.6 × 3 | 1065 × 300 | 49 keys — pitched **tighter** than the 3-units/octave keywave rule (set tiling to match) |
 | Seaboard **RISE 2 / RISE 49** (`rise`) | 3.97 | ~11.9 × 3 | 1190 × 300 | panel + 49-key keywave (C2–C6). Re-lay the panel per RISE 2; tile the keys |
 
@@ -143,8 +144,8 @@ lands where the finger really is.
   the XY pad and buttons. Re-lay the panel to match it (keep the same layer ids / live-element ids),
   and use current ROLI product photos as the realism reference. RISE 49 / GRAND = wider keywave, same
   panel treatment.
-- **Seaboard GRAND** — large, premium wooden-bodied keywave; softest key radius. Match the specific
-  variant's key count that GRAB reports.
+- **Seaboard GRAND** — Studio (37 keys) and Stage (61 keys), matte black body with a centred master
+  button; softest key radius. Match the variant's key count that GRAB reports.
 - **LUMI Keys / ROLI Piano M** — 24 edge-lit keys with vivid per-key RGB; the glow under each key is
   the hero. ROLI Piano is the LUMI rebrand; Piano 49 is the wide version.
 - **Lightpad Block M** — silicone pressure surface over a 15×15 RGB matrix; the lit cells and the soft
@@ -209,7 +210,7 @@ layer structure so we can swap by theme.
 1. **Seaboard Block** keywave (24-key module) — `seaboard-keywave.svg`
 2. **Seaboard RISE 25** — full instrument, left panel + keywave — `seaboard-rise.svg`
 3. **Seaboard RISE 2** — panel re-laid (Pitch/Mod edge strips), same keywave — `seaboard-rise.svg` variant
-4. **Seaboard GRAND** — wooden keywave, softest radius — `seaboard-keywave.svg` (grand radius)
+4. **Seaboard GRAND** Studio / Stage — matte black, softest radius — `seaboard-keywave.svg` (grand radius)
 5. **LUMI / ROLI Piano M** keybed (24-key module) — `lumi-piano-keybed.svg`
 6. **Lightpad Block M** — `lightpad-block.svg`
 7. **Control Block** body — `control-block.svg` — **plus 4 icon sets** on the `icons` layer (Live / Loop /

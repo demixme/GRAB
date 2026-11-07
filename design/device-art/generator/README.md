@@ -8,7 +8,7 @@ python3 design/device-art/generator/kit.py   # writes ../art-v2/kit + ../art-v2/
 |-|-|-|
 | `style.json` | All visual decisions: materials, light, colours, radii, key/LED looks, Control Block accents | designer |
 | `build.py` | Drawing library: geometry (mirrors `KeyboardView.h` + photo measurements), shapes, Control Block icons | code |
-| `kit.py` | Cuts the devices into tiles / 3-slice surrounds / fixed parts, writes `manifest.json`, assembles the 13 models | code |
+| `kit.py` | Cuts the devices into tiles / 3-slice surrounds / fixed parts, writes `manifest.json`, assembles the 12 models | code |
 | `validate.py` | Checks any SVG (generated, hand-edited or Figma-exported) against GRAB's contract | run it |
 
 `python3 validate.py some.svg` checks a single file. It rejects anything JUCE's Drawable can't render
