@@ -56,6 +56,14 @@ public:
     void setBlocks  (int)     { /* retained for call sites; real chaining now comes via setLayout() */ }
     int  getOctaves() const   { return octaves; }
 
+    // The drawn arrangement's width:height ratio, so the host can size this view to show the device as
+    // large as the space allows (fill the width up to a max height) instead of a fixed-height strip.
+    float contentAspect() const
+    {
+        const juce::ScopedLock sl (touchLock);
+        return boundsH > 0.0f ? boundsW / boundsH : 3.0f;
+    }
+
     // Device art V2 toggle (Advanced -> New device art): draw the designer's SVG kit instead of the
     // hand-drawn vector art, where a family has been wired in. Phase 1 covers Control blocks only;
     // families without V2 art fall back to the drawn art automatically.

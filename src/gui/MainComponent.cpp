@@ -464,6 +464,7 @@ MainComponent::MainComponent()
                     juce::PropertiesFile props (grab::dataDir().getChildFile ("settings.properties"), po);
                     props.setValue ("deviceArtV2", deviceArtV2);
                     keyboardView.setUseDeviceArtV2 (deviceArtV2);
+                    resized();   // the art's aspect may differ (e.g. GRAND gains its surround), so re-size the keyboard
                 }
             });
     };
@@ -2962,7 +2963,14 @@ void MainComponent::resized()
     {
         if (keyboardView.isVisible())
         {
-            keyboardView.setBounds (area.removeFromTop (108));   // full width; keys are a fixed scale, centred/clipped
+            // Size the keyboard to fill the width at the device's own aspect, capped at a max height
+            // (and a share of the available space), so wide devices (GRAND, with its surround) aren't
+            // crushed into a thin strip and smaller devices can show larger. The view centres its art.
+            const float aspect = juce::jmax (0.1f, keyboardView.contentAspect());
+            const int   maxH   = juce::jmin (210, juce::roundToInt (area.getHeight() * 0.42f));
+            const int   h      = juce::jlimit (96, juce::jmax (96, maxH),
+                                               juce::roundToInt (area.getWidth() / aspect));
+            keyboardView.setBounds (area.removeFromTop (h));
             area.removeFromTop (8);
         }
     };
