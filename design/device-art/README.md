@@ -52,8 +52,7 @@ look in a browser. Every model passes `generator/validate.py` (the guide's layer
   and the photos, in a matte black body (not wood). GRAB already draws each GRAND at the key count it
   reports (`Rise2Component.cpp` ~648), so the tiles fit any count. The **88-key First Edition** (2013,
   88 made, A0–C8, 1313 × 338 mm) is drawn too, from launch photos: same black body and master button.
-  (The Studio assembles at 530 px
-  wide against 540 from ROLI's size: it shares the Stage's key pitch.)
+  (The Studio assembles at 530 px wide against 540 from ROLI's size: it shares the Stage's key pitch.)
 - **RISE 49 width.** It assembles at 1224 px against the photo's 1190. RISE 2 keys are slightly
   narrower, so it's one pitch value in the manifest if you want it exact.
 - **RISE 2 panel.** The guide mentions Pitch/Mod edge strips, but the RISE 2 photo shows the same
@@ -63,6 +62,37 @@ look in a browser. Every model passes `generator/validate.py` (the guide's layer
   (Live: Mode, Volume, Scale, Chord, Arp, Sustain, Octave, Love). `KeyboardView::drawControlIcon`
   still draws the old glyphs, so port them or use `icons-<variant>.svg`.
 - No ROLI logo or wordmark is drawn (trademark).
+
+## Update: keyboards redrawn from photo traces
+
+The Seaboard Block, RISE, GRAND and Piano/LUMI art was redrawn from Illustrator traces of the product
+photos: shapes measured, then simplified to flat colours. **Control Blocks and Lightpad are unchanged**
+(byte-identical), so the Control Block wiring in #16 needs nothing. Every model keeps its footprint.
+
+- **Block:** keywave (ridges, S-grooves, gaps) measured from the Seaboard M trace, neutral greys, rounded corners.
+- **RISE:** the trace only sets the casing and fader slots; the keys are the Block's tiles, so the two match.
+- **GRAND:** cooler charcoal body, lighter key tray, pale pills in a dark halo, lit toes on the white keys.
+  It now has **its own white and gap tiles** (`grand-white`, `grand-gap`). Read the tile names from
+  `manifest.json` (`families.grand.tiles`) rather than assuming `seaboard-*`.
+- **Piano / LUMI:** open-top black-key frames, wide key gaps, light front lip. New optional
+  **`families.lumi.blackOffsets`**: each black key's centre offset from its boundary, by pitch class
+  (C#=1 … A#=10), in white-key pitches. Offset the black tile by `offset × pitch`. If you ignore it, keys are centred.
+- **Seams:** the RISE, GRAND and LUMI 3-slice parts are drawn with non-overlapping regions (`fill-rule="evenodd"`),
+  so the left/mid/right joins don't show a line when anti-aliased.
+- The look is switchable per device in `generator/style.json` (`"look": "trace"`), with the measurements next to it.
+
+### Selection border and corners
+
+Corners look off when GRAB's old fixed 12 px `drawRoundedRectangle (r.reduced (1), 12.0f, …)` border is drawn
+over the art: at GRAB's size the art's corners are much tighter. Size the border from the art instead.
+With `s = drawnHeight / 300` (surround SVGs are 300 tall), use `radius = (manifest.families[fam].radius + 1) * s`,
+inset by `2 * s` (that's the body's outer edge). For Lightpad / Control Block (200-wide fixed SVGs), use radius 9, inset 4, `s = drawnWidth / 200`.
+Draw one border only, not a second outline on the tile bounds.
+
+### Open question
+
+The RISE photo shows the faders as a lit line with no thumb. The art keeps the `fader-thumb-*` live layer
+(GRAB moves it to show the value). Keep it, or drop it and show the value another way?
 
 ## Regenerate
 

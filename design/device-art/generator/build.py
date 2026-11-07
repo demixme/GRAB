@@ -302,7 +302,9 @@ def rise_panel(d, t):
             with d.g(f"fader-track-{i}"):
                 rr(d, x - 0.8, y - 0.8, P["fw"] + 1.6, P["fh"] + 1.6, 5, fill=t["edge"])
                 well(d, x, y, P["fw"], P["fh"], 4, t)
-                rr(d, x + P["fw"] / 2 - 0.6, y + 18, 1.2, P["fh"] - 26, 0.6, fill=t["white"], fill_opacity=0.35)
+                lw = t.get("faderLineW", 1.2)
+                rr(d, x + P["fw"] / 2 - lw / 2, y + 18, lw, P["fh"] - t.get("faderLineEnd", 26), lw / 2,
+                   fill=t.get("faderLine", t["white"]), fill_opacity=t.get("faderLineOpacity", 0.35))
     with d.g("xy-pad"):
         x, y, w, h = P["xy"]
         with d.g("xy-surface"):
