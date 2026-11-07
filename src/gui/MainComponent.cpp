@@ -434,6 +434,7 @@ MainComponent::MainComponent()
         airwave.addItem (10, "Airwave CC tester (emulator)...");   // sends CC21-31 for DAW mapping, no hardware
         m.addSubMenu ("Airwave (experimental)", airwave);
         m.addItem (11, "BLOCKS app inspector (experimental)...");   // read a .littlefoot app; preview only for now
+        m.addItem (13, "New device art (preview)", true, deviceArtV2);   // phase-1 toggle: designer SVG kit vs drawn art
         m.addItem (4, "How you can help...");
         m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (advancedBtn),
             [this] (int r)
@@ -455,6 +456,14 @@ MainComponent::MainComponent()
                                         [this] (const juce::String& s, const juce::Array<juce::File>& sp) { return loadAppToDevice (s, sp); });
                     openDialog (p, "BLOCKS app inspector (experimental)");
                 }
+                else if (r == 13)   // toggle device art V2 (persisted), apply to the keybed view live
+                {
+                    deviceArtV2 = ! deviceArtV2;
+                    juce::PropertiesFile::Options po; po.millisecondsBeforeSaving = 0;
+                    juce::PropertiesFile props (grab::dataDir().getChildFile ("settings.properties"), po);
+                    props.setValue ("deviceArtV2", deviceArtV2);
+                    keyboardView.setUseDeviceArtV2 (deviceArtV2);
+                }
             });
     };
 
@@ -467,6 +476,12 @@ MainComponent::MainComponent()
     checkForUpdate();   // ask GitHub for the latest release; lights up the footer if newer
     addChildComponent (keyboardView);   // shown only for keyboard devices
     keyboardView.onTileClicked = [this] (juce::uint64 uid) { selectBlockByUid (uid); }; // Dashboard-style click-to-select
+    {   // restore the device-art V2 preference (Advanced -> New device art)
+        juce::PropertiesFile::Options po; po.millisecondsBeforeSaving = 0;
+        juce::PropertiesFile props (grab::dataDir().getChildFile ("settings.properties"), po);
+        deviceArtV2 = props.getBoolValue ("deviceArtV2", false);
+        keyboardView.setUseDeviceArtV2 (deviceArtV2);
+    }
 
     addChildComponent (busyLabel);      // shown only while a factory reset reboots the device
     busyLabel.setJustificationType (juce::Justification::centred);

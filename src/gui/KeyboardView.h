@@ -12,9 +12,11 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "Theme.h"
+#include "DeviceArtData.h"   // embedded device-art SVGs (CMake: GRABDeviceArt)
 
 #include <atomic>
 #include <map>
+#include <memory>
 #include <vector>
 
 class KeyboardView  : public juce::Component,
@@ -52,6 +54,11 @@ public:
     void setFamily  (Family f){ family = f; rebuildLegacy(); }
     void setBlocks  (int)     { /* retained for call sites; real chaining now comes via setLayout() */ }
     int  getOctaves() const   { return octaves; }
+
+    // Device art V2 toggle (Advanced -> New device art): draw the designer's SVG kit instead of the
+    // hand-drawn vector art, where a family has been wired in. Phase 1 covers Control blocks only;
+    // families without V2 art fall back to the drawn art automatically.
+    void setUseDeviceArtV2 (bool b) { if (useDeviceArtV2 != b) { useDeviceArtV2 = b; repaint(); } }
 
     // Exact keybed range: draw `keyCount` keys from `lowNote` (a C for the C-to-C boards). Use this
     // instead of setOctaves for RISE/GRAND so the real key count is drawn (e.g. a 49-key RISE 2 =
@@ -546,6 +553,34 @@ private:
                 g.fillEllipse (gx + xx * cell + (cell - dot) * 0.5f, gy + yy * cell + (cell - dot) * 0.5f, dot, dot);
     }
 
+    // Device art V2: the embedded control-block SVG for a subtype, parsed once and cached. Developer
+    // and generic share the Developer art. Returns nullptr if the resource is missing (caller falls
+    // back to the drawn art). Keyed by subtype; a cached null is retried on the next call.
+    juce::Drawable* controlArt (Control sub)
+    {
+        const char* file = sub == Control::live  ? "control-live.svg"
+                         : sub == Control::loop  ? "control-loop.svg"
+                         : sub == Control::touch ? "control-touch.svg"
+                                                 : "control-developer.svg";   // developer + generic
+        const int cacheKey = (int) sub;
+        auto it = artCache.find (cacheKey);
+        if (it != artCache.end() && it->second != nullptr) return it->second.get();
+
+        std::unique_ptr<juce::Drawable> d;
+        for (int i = 0; i < DeviceArtData::namedResourceListSize; ++i)
+            if (juce::String (DeviceArtData::originalFilenames[i]) == file)
+            {
+                int size = 0;
+                if (const char* data = DeviceArtData::getNamedResource (DeviceArtData::namedResourceList[i], size))
+                    if (auto xml = juce::XmlDocument::parse (juce::String::fromUTF8 (data, size)))
+                        d = juce::Drawable::createFromSVG (*xml);
+                break;
+            }
+        auto* ptr = d.get();
+        artCache[cacheKey] = std::move (d);
+        return ptr;
+    }
+
     // Control block (Live / Loop / Touch): a short dark body with a row of button discs.
     // A ROLI Control Block: Live / Loop / Touch (and Developer). All are the same 10-button hardware
     // - 5 round buttons on top, 3 round + a wide -/+ on the bottom, with an LED dot strip above. The
@@ -553,6 +588,17 @@ private:
     void drawControl (juce::Graphics& g, juce::Rectangle<float> r, Control sub,
                       juce::Colour border = grab::theme::accent.withAlpha (0.7f))
     {
+        // V2: draw the designer's SVG, then GRAB's accent border on top so selection highlight still
+        // reads. Falls through to the hand-drawn art if the SVG isn't available.
+        if (useDeviceArtV2)
+            if (auto* d = controlArt (sub))
+            {
+                d->drawWithin (g, r, juce::RectanglePlacement::stretchToFit, 1.0f);
+                g.setColour (border);
+                g.drawRoundedRectangle (r.reduced (1.0f), 9.0f, 1.4f);
+                return;
+            }
+
         g.setColour (juce::Colour (0xff17181e));
         g.fillRoundedRectangle (r, 9.0f);
         g.setColour (border);
@@ -714,6 +760,11 @@ private:
     int    legacyLow  = 48;                  // exact-range keybed: leftmost MIDI note (a C)
     int    legacyKeys = 0;                   // exact-range keybed: key count (0 = whole octaves)
     Family family  = Family::rise;
+
+    // Device art V2 (off by default; flipped from Advanced -> New device art). artCache holds the
+    // parsed Drawable per Control subtype so the SVG is parsed at most once.
+    bool   useDeviceArtV2 = false;
+    std::map<int, std::unique_ptr<juce::Drawable>> artCache;
 
     std::vector<Tile> tiles;                 // the drawn arrangement (legacy keybed or real topology)
     bool   usingLayout = false;              // true once setLayout() has supplied real tiles
