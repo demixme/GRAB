@@ -122,10 +122,27 @@ juce_add_binary_data(GRABTranslations SOURCES
     localization/grab_de.txt
     localization/grab_es.txt)
 
+# ---------------------------------------------------------------------------
+# Device art V2: embed the designer's device-art SVGs (design/device-art) so
+# KeyboardView can draw them via juce::Drawable instead of the hand-drawn vector
+# art. Phase 1 = Control blocks only; more families are added here as they are
+# wired in. A distinct namespace/header keeps it from colliding with
+# GRABTranslations' default BinaryData namespace.
+# ---------------------------------------------------------------------------
+juce_add_binary_data(GRABDeviceArt
+    NAMESPACE DeviceArtData
+    HEADER_NAME DeviceArtData.h
+    SOURCES
+        design/device-art/art-v2/models/control-live.svg
+        design/device-art/art-v2/models/control-loop.svg
+        design/device-art/art-v2/models/control-touch.svg
+        design/device-art/art-v2/models/control-developer.svg)
+
 target_link_libraries(GRAB PRIVATE
     sea_sysex
     roli_blocks_basics
     GRABTranslations
+    GRABDeviceArt
     juce::juce_gui_extra
     juce::juce_audio_devices
     juce::juce_cryptography
