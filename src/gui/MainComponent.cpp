@@ -1073,7 +1073,7 @@ void MainComponent::updateLumiKeyboardColours()
     const int  schemeId   = 100 + 7 * activeMode;              // that mode's Color Scheme id
     const int  scheme     = val (schemeId, 1);                 // 0 Pro, 1 User, 2 Piano, 3 Stage, 4 Rainbow
 
-    keyboardView.setColourScheme (scheme, scale, key, globalC, rootC);
+    keyboardView.setColourScheme (scheme, scale, key, globalC, rootC, val (36, 100));  // id 36 = Brightness
 }
 
 // Chord-mode intervals (semitones above the played note) per ROLI's Chord config (id 24), in the
@@ -2674,13 +2674,14 @@ void MainComponent::forcePianoPreview()
     add (mk (102, 1, "Enable Pitch Bend", CT::boolean, 0, 1, "Mode 1", {}), 1);
     add (mk (103, 1, "Enable Pressure", CT::boolean, 0, 1, "Mode 1", {}), 1);
 
-    keyboardView.setFamily (KeyboardView::Family::block);
+    keyboardView.setFamily (KeyboardView::Family::lumi);   // ROLI Piano is a flat light-up keybed (LUMI family), not a keywave
     keyboardView.setOctaves (4);   // Piano 49 ≈ 4 octaves
     keyboardView.setBlocks (1);
     keyboardView.setVisible (true);
     setStatus ("ROLI Piano preview (simulated, no hardware).  Ctrl+Alt+Shift+P to exit.");
     if (logger != nullptr) logger->line ("DEV: ROLI Piano preview (" + juce::String ((int) simConfig.size()) + " synthetic items)");
     rebuildRows();
+    updateLumiKeyboardColours();   // light the keyboard from the synthetic scale/key/colours
 }
 
 // Secret dev shortcut (Ctrl+Alt+Shift+C): a synthetic Control Block config page - the decoded

@@ -128,13 +128,14 @@ public:
     // ROLI support): 0 Pro (root in a highlight, scale white), 1 User (root + scale in your Global/
     // Root colours), 2 Piano (plain white/black), 3 Stage (dim rainbow), 4 Rainbow (in-key rainbow).
     // `scale` is 0..18 (device order), `root` 0..11 (C..B). Rainbow hues are an approximation.
-    void setColourScheme (int scheme, int scale, int root, juce::uint32 inScale, juce::uint32 rootColour)
+    void setColourScheme (int scheme, int scale, int root, juce::uint32 inScale, juce::uint32 rootColour,
+                          int brightnessPct = 100)
     {
         if (colourScheme == scheme && scaleId == scale && rootNote == ((root % 12) + 12) % 12
-            && inScaleArgb == inScale && rootArgb == rootColour)
+            && inScaleArgb == inScale && rootArgb == rootColour && brightness == brightnessPct)
             return;
         colourScheme = scheme; scaleId = scale; rootNote = ((root % 12) + 12) % 12;
-        inScaleArgb = inScale; rootArgb = rootColour;
+        inScaleArgb = inScale; rootArgb = rootColour; brightness = juce::jlimit (0, 100, brightnessPct);
         repaint();
     }
 
@@ -439,15 +440,19 @@ private:
         const juce::Colour dim  (0xff15161f);
         const auto rainbow = [pitchClass] (float v) { return juce::Colour::fromHSV ((float) pitchClass / 12.0f, 0.85f, v, 1.0f); };
 
+        juce::Colour c;
         switch (colourScheme)
         {
-            case 2: return white ? juce::Colour (0xffe9ebee) : juce::Colour (0xff15161b);
-            case 3: return rainbow (0.35f);
-            case 4: return inScale ? rainbow (1.0f) : off;
-            case 0: return isRoot ? juce::Colour (rootArgb).withAlpha (1.0f) : inScale ? juce::Colour (0xffe9ebee) : dim;
-            case 1: default: return isRoot ? juce::Colour (rootArgb).withAlpha (1.0f)
-                                 : inScale ? juce::Colour (inScaleArgb).withAlpha (1.0f) : dim;
+            case 2:  c = white ? juce::Colour (0xffe9ebee) : juce::Colour (0xff15161b); break;
+            case 3:  c = rainbow (0.35f); break;
+            case 4:  c = inScale ? rainbow (1.0f) : off; break;
+            case 0:  c = isRoot ? juce::Colour (rootArgb).withAlpha (1.0f) : inScale ? juce::Colour (0xffe9ebee) : dim; break;
+            case 1:
+            default: c = isRoot ? juce::Colour (rootArgb).withAlpha (1.0f)
+                        : inScale ? juce::Colour (inScaleArgb).withAlpha (1.0f) : dim; break;
         }
+        // Track the device's LED brightness (id 36, 0..100) so the keybed dims with it, live or preview.
+        return brightness >= 100 ? c : c.withMultipliedBrightness (brightness * 0.01f);
     }
 
     // Flat, per-key coloured keyboard for LUMI / Piano (Dashboard-style), not the Seaboard keywave.
@@ -924,6 +929,7 @@ private:
     int           colourScheme = 1;
     int           scaleId     = 0;
     int           rootNote    = 0;
+    int           brightness  = 100;         // LUMI/Piano LED brightness (id 36, 0..100)
     juce::uint32  inScaleArgb = 0xff00b0bb;
     juce::uint32  rootArgb    = 0xffffffff;
 
