@@ -309,21 +309,29 @@ def grand_surround_trace(out, spec, dev):
         tray_i = slab(tx0, tx1, ty0, ty1, tr, left, right, right, left)
         floor = slab(tx0, tx1, ty0 + k, ty1, max(1, tr - k / 2), left, right, right, left)
         d.add("path", d=slab(x0 - left, x1 + right, 2, H - 2, r + 1, left, right, right, left) + body, fill=c["outline"], fill_rule="evenodd")
-        d.add("path", d=body + upper, fill=c["lip"], fill_rule="evenodd")
-        d.add("path", d=upper + tray_o, fill=c["base"], fill_rule="evenodd")
+        if flat:   # one body colour: no lit front lip
+            d.add("path", d=body + tray_o, fill=c["base"], fill_rule="evenodd")
+        else:
+            d.add("path", d=body + upper, fill=c["lip"], fill_rule="evenodd")
+            d.add("path", d=upper + tray_o, fill=c["base"], fill_rule="evenodd")
         d.add("path", d=tray_o + tray_i, fill=c["trayRim"], fill_rule="evenodd")
         d.add("path", d=tray_i + floor, fill=c["trayInset"], fill_rule="evenodd")
         d.add("path", d=floor, fill=c["tray"])
 
+    flat = dev["trace"].get("flat", False)
     a = Doc(Lw, H, "GRAND - left cap", {}); sl(a, 3, Lw, 24, Lw, left=True)
     m = Doc(MID, H, "GRAND - mid", {}); sl(m, 0, MID, 0, MID)
     z = Doc(Rw, H, "GRAND - right cap", {}); sl(z, 0, Rw - 3, 0, 6, right=True)
     o = Doc(60, 84, "GRAND - master button (centred ornament)", {})
     cx, cy, rb = 30, 44, 25
     o.add("circle", cx=cx, cy=cy, r=rb + 1, fill=c["outline"])
-    o.add("circle", cx=cx, cy=cy, r=rb, fill=c["buttonRing"])
-    o.add("circle", cx=cx + 1, cy=cy + 1, r=rb - 3, fill=c["buttonFace"])
-    o.add("circle", cx=cx + 2, cy=cy, r=1.8, fill=c["buttonMark"])
+    if flat:   # plain disc, no ring or offset shadow
+        o.add("circle", cx=cx, cy=cy, r=rb, fill=c["buttonFace"])
+        o.add("circle", cx=cx, cy=cy, r=1.8, fill=c["buttonMark"])
+    else:
+        o.add("circle", cx=cx, cy=cy, r=rb, fill=c["buttonRing"])
+        o.add("circle", cx=cx + 1, cy=cy + 1, r=rb - 3, fill=c["buttonFace"])
+        o.add("circle", cx=cx + 2, cy=cy, r=1.8, fill=c["buttonMark"])
     out.update({"grand-left": a, "grand-mid": m, "grand-right": z, "grand-button": o})
     spec["grand"] = dict(left=Lw, right=Rw, keys=dict(left=26, right=26, top=ty0 + 2, bottom=H - ty1 + 2), radius=r,
                          ornament=dict(file="grand-button", centre_x=0.5, y=0))
@@ -346,9 +354,12 @@ def rise_surround_trace(out, spec, dev):
         tray_i = slab(tx0, tx1, ty0, ty1, tr, left, right, right, left)
         floor = slab(tx0, tx1, ty0 + k, ty1, max(1, tr - k / 2), left, right, right, left)
         d.add("path", d=slab(x0 - left, x1 + right, 2, H - 2, r + 1, left, right, right, left) + body, fill=c["outline"], fill_rule="evenodd")
-        d.add("path", d=body + upper + front, fill=c["lip"], fill_rule="evenodd")
-        d.add("path", d=front, fill=c["front"])
-        d.add("path", d=upper + tray_o, fill=c["base"], fill_rule="evenodd")
+        if T.get("flat"):   # one body colour: no lip, no front band
+            d.add("path", d=body + tray_o, fill=c["base"], fill_rule="evenodd")
+        else:
+            d.add("path", d=body + upper + front, fill=c["lip"], fill_rule="evenodd")
+            d.add("path", d=front, fill=c["front"])
+            d.add("path", d=upper + tray_o, fill=c["base"], fill_rule="evenodd")
         d.add("path", d=tray_o + tray_i, fill=c["trayRim"], fill_rule="evenodd")
         d.add("path", d=tray_i + floor, fill=c["trayInset"], fill_rule="evenodd")
         d.add("path", d=floor, fill=c["tray"])
