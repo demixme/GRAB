@@ -73,6 +73,9 @@ public:
         updateLoadButton();
     }
 
+    /** Draw the LED preview with the designer's Lightpad SVG instead of the hand-drawn grid. */
+    void setUseDeviceArtV2 (bool b) { led->setUseDeviceArtV2 (b); }
+
     /** Run the built-in demo app - used by the no-device preview shortcut. */
     void previewDemo()
     {

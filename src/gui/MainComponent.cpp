@@ -454,6 +454,7 @@ MainComponent::MainComponent()
                     auto* p = new AppInspectorPanel();
                     p->setDeviceLoader ([this] { return appLoadTargetName(); },
                                         [this] (const juce::String& s, const juce::Array<juce::File>& sp) { return loadAppToDevice (s, sp); });
+                    p->setUseDeviceArtV2 (deviceArtV2);
                     openDialog (p, "BLOCKS app inspector (experimental)");
                 }
                 else if (r == 13)   // toggle device art V2 (persisted), apply to the keybed view live
@@ -2581,6 +2582,7 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
             case 'A': { auto* p = new AppInspectorPanel();
                         p->setDeviceLoader ([this] { return appLoadTargetName(); },
                                             [this] (const juce::String& s, const juce::Array<juce::File>& sp) { return loadAppToDevice (s, sp); });
+                        p->setUseDeviceArtV2 (deviceArtV2);
                         p->previewDemo();
                         openDialog (p, "BLOCKS app inspector (experimental)"); return true; }
             default:  break;
