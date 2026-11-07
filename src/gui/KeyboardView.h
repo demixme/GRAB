@@ -369,10 +369,16 @@ private:
 
         auto inset = (t.family == Family::lightpad || t.family == Family::control) ? nat.reduced (kBodyMargin)
                                                                                    : nat.reduced (kBodyMargin, kKeyInsetV);
-        // V2 keybed art: land the rings on the SVG's real playing rect (data-grab-active-area).
-        if (useDeviceArtV2 && t.family == Family::block)
-            if (auto* a = loadArt ("seaboard-block-24.svg"))
-                inset = activeInset (*a, nat);
+        // V2 art: land the rings on the SVG's real playing rect (data-grab-active-area).
+        if (useDeviceArtV2)
+        {
+            const char* f = t.family == Family::block    ? "seaboard-block-24.svg"
+                          : t.family == Family::lightpad ? "lightpad-block.svg"
+                                                         : nullptr;
+            if (f != nullptr)
+                if (auto* a = loadArt (f))
+                    inset = activeInset (*a, nat);
+        }
         auto drawMarker = [&g, &inset] (float nx, float ny, float strike, float press, float a)
         {
             const float mx = inset.getX() + juce::jlimit (0.0f, 1.0f, nx) * inset.getWidth();
@@ -551,6 +557,17 @@ private:
     void drawPad (juce::Graphics& g, juce::Rectangle<float> r, int gridN,
                   juce::Colour border = grab::theme::accent.withAlpha (0.9f))
     {
+        // V2: Lightpad body + 15x15 LED grid from the SVG kit (200x200 square == the 2x2 footprint,
+        // so it maps cleanly). Touch rings draw over it via the active-area inset in drawTile.
+        if (useDeviceArtV2)
+            if (auto* a = loadArt ("lightpad-block.svg"))
+            {
+                a->drawable->drawWithin (g, r, juce::RectanglePlacement::stretchToFit, 1.0f);
+                g.setColour (border);
+                g.drawRoundedRectangle (r.reduced (1.0f), 10.0f, 1.6f);
+                return;
+            }
+
         gridN = juce::jlimit (3, 30, gridN);
         g.setColour (juce::Colour (0xff0b0c11));
         g.fillRoundedRectangle (r, 10.0f);
