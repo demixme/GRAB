@@ -286,6 +286,7 @@ private:
 
     FooterBar footer;                           // hover-help strip along the bottom
     KeyboardView keyboardView;                  // stylised keywave at the top (keyboard devices)
+    bool deviceArtV2 = false;                   // Advanced -> New device art (preview); persisted in settings
     juce::Label  busyLabel;                     // centred overlay shown while the device reboots
     double resettingSinceMs = 0.0;              // >0 while a factory reset's reboot is expected
     juce::MidiDeviceListConnection deviceList;  // to pick up a RISE switched on after launch
