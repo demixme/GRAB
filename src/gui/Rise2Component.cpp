@@ -283,6 +283,7 @@ Rise2Component::Rise2Component (seaprobe::RawLogger& loggerToUse, juce::String p
 {
     liveCc.fill (-1);   // no CC data yet
     touchNote.fill (-1); touchZ.fill (0.0f); touchBend.fill (0.0f); touchStrike.fill (0.0f);
+    touchSlide.fill (0.5f);   // Slide centred until the device reports a position
     // statusLabel / infoLabel are no longer shown here - status + device info are routed up to
     // MainComponent's shared top bar (onStatus / onDeviceInfo). The members stay as harmless
     // fallbacks for the rare pre-wiring call.
@@ -566,12 +567,19 @@ void Rise2Component::handleIncomingMidiMessage (juce::MidiInput*, const juce::Mi
         liveCc[(size_t) juce::jlimit (0, 127, message.getControllerNumber())] = message.getControllerValue();
 
     // Synthesise live keyboard touches from the device's performance MIDI (the RISE/GRAND report
-    // touch as per-channel notes + channel pressure + pitch bend, not the BLOCKS touch surface).
-    // One finger per MIDI channel: noteOn = finger down, channel pressure = ring size (Press),
-    // pitch bend = horizontal glide, noteOff = finger up. onTouch forwards to the keyboard graphic.
-    if (onTouch != nullptr && (message.isNoteOnOrOff() || message.isChannelPressure() || message.isPitchWheel()))
+    // touch as per-channel notes + channel pressure + pitch bend + Slide CC, not the BLOCKS touch
+    // surface). One finger per MIDI channel: noteOn = finger down, channel pressure = ring size
+    // (Press), pitch bend = horizontal glide (X), the Slide CC = vertical position (Y), noteOff =
+    // finger up. onTouch forwards to the keyboard graphic.
+    if (onTouch != nullptr && (message.isNoteOnOrOff() || message.isChannelPressure() || message.isPitchWheel()
+                               || (message.isController() && message.getControllerNumber() == slideCcNumber.load())))
     {
         const int ch = juce::jlimit (1, 16, message.getChannel());
+        auto fire = [&] (float press, bool end)
+        {
+            onTouch (ch, touchNote[(size_t) ch], press, touchBend[(size_t) ch],
+                     touchSlide[(size_t) ch], touchStrike[(size_t) ch], end);
+        };
         if (message.isNoteOnOrOff())
         {
             const bool on = message.isNoteOn() && message.getVelocity() > 0;
@@ -580,24 +588,25 @@ void Rise2Component::handleIncomingMidiMessage (juce::MidiInput*, const juce::Mi
                 touchNote[(size_t) ch]   = message.getNoteNumber();
                 touchStrike[(size_t) ch] = message.getFloatVelocity();   // Strike: fixed for the note
                 touchZ[(size_t) ch]      = message.getFloatVelocity();   // seed Press until pressure arrives
+                touchSlide[(size_t) ch]  = 0.5f;                         // centre until a Slide CC arrives
             }
-            onTouch (ch, touchNote[(size_t) ch], on ? touchZ[(size_t) ch] : 0.0f, touchBend[(size_t) ch],
-                     touchStrike[(size_t) ch], ! on);
+            fire (on ? touchZ[(size_t) ch] : 0.0f, ! on);
             if (! on) touchNote[(size_t) ch] = -1;
         }
         else if (message.isChannelPressure())
         {
             touchZ[(size_t) ch] = (float) message.getChannelPressureValue() / 127.0f;
-            if (touchNote[(size_t) ch] >= 0)
-                onTouch (ch, touchNote[(size_t) ch], touchZ[(size_t) ch], touchBend[(size_t) ch],
-                         touchStrike[(size_t) ch], false);
+            if (touchNote[(size_t) ch] >= 0) fire (touchZ[(size_t) ch], false);
         }
-        else // pitch wheel
+        else if (message.isPitchWheel())
         {
             touchBend[(size_t) ch] = ((float) message.getPitchWheelValue() - 8192.0f) / 8192.0f;
-            if (touchNote[(size_t) ch] >= 0)
-                onTouch (ch, touchNote[(size_t) ch], touchZ[(size_t) ch], touchBend[(size_t) ch],
-                         touchStrike[(size_t) ch], false);
+            if (touchNote[(size_t) ch] >= 0) fire (touchZ[(size_t) ch], false);
+        }
+        else // Slide CC: vertical finger position
+        {
+            touchSlide[(size_t) ch] = (float) message.getControllerValue() / 127.0f;
+            if (touchNote[(size_t) ch] >= 0) fire (touchZ[(size_t) ch], false);
         }
     }
 
@@ -659,6 +668,9 @@ void Rise2Component::onState (rise2::State s)
         firmware = state.text (off::firmware, 8);   // stored for preset metadata
         const float battery01 = juce::jlimit (0.0f, 1.0f, (float) state.at (off::battery) / 7.0f);
         if (onDeviceInfo) onDeviceInfo (portName, firmware, battery01, transport);
+        // Which CC the RISE sends Slide on (so the touch graphic reads vertical position); default 74.
+        const int sc = state.at (off::slideCc);
+        slideCcNumber = (sc > 0 ? juce::jlimit (1, 127, sc) : 74);
     }
 
     // The write protocol is confirmed on both the RISE 2 (fw 2.x) and the original RISE

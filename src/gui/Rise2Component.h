@@ -13,6 +13,7 @@
 #include "ThrottledWriter.h"
 
 #include <array>
+#include <atomic>
 #include <map>
 #include <memory>
 #include <set>
@@ -67,9 +68,10 @@ public:
 
     /** Live keyboard touch, synthesised from the device's performance MIDI and forwarded to the
         keyboard graphic. Set by MainComponent. Args: MIDI channel 1-16, note, pressure 0-1,
-        pitch bend -1..1, strike 0-1 (note-on velocity, fixed for the note), isEnd. Called on the
-        MIDI thread. */
-    std::function<void (int, int, float, float, float, bool)> onTouch;
+        pitch bend -1..1, slide 0-1 (vertical finger position, from the device's Slide CC; 0.5 =
+        centre until it arrives), strike 0-1 (note-on velocity, fixed for the note), isEnd. Called
+        on the MIDI thread. */
+    std::function<void (int, int, float, float, float, float, bool)> onTouch;
 
     /** The GRAND's reported key count (from its reply), so MainComponent can size the keyboard
         graphic for the Studio (37) / Stage (61) / First Edition (88). Called on the message thread. */
@@ -137,6 +139,8 @@ private:
     std::array<float, 17> touchZ;      // last pressure per channel (Press)
     std::array<float, 17> touchBend;   // last pitch bend (-1..1) per channel (Glide)
     std::array<float, 17> touchStrike; // note-on velocity per channel (Strike), fixed for the note
+    std::array<float, 17> touchSlide;  // last Slide position (0..1) per channel; 0.5 = centre until it arrives
+    std::atomic<int> slideCcNumber { 74 };  // which CC the device sends Slide on (read on the MIDI thread)
     std::map<juce::uint32, juce::int32> deviceValues;
     std::map<juce::uint32, juce::int32> pendingValues;
     std::map<juce::uint32, juce::int32> expected;  // after a save, what the device should report

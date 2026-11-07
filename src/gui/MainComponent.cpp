@@ -671,14 +671,16 @@ void MainComponent::connect (seaprobe::Transport transport)
 
         // Live touch rings from the RISE/GRAND's performance MIDI (they have no BLOCKS touch surface).
         keyboardView.startTouchDisplay();
-        rise2Page->onTouch = [this] (int chan, int note, float pressure, float bend, float strike, bool end)
+        rise2Page->onTouch = [this] (int chan, int note, float pressure, float bend, float slide, float strike, bool end)
         {
             // The keybed is C-rooted and may be a partial octave (49-key boards), so KeyboardView maps
             // the note to the true key centre - rings land exactly on the pressed key (bend nudges x
-            // for Glide). y stays centred: RISE/GRAND Slide (CC74) isn't parsed here, GRAND has none.
+            // for Glide). y comes from Slide (vertical finger position): slide 0..1 up the key maps to
+            // y 1..0 (the drawn keybed has y=0 at the top). GRAND is 4D (no Slide), so it stays centred.
             const float x = keyboardView.legacyNoteToX (note, bend * 2.0f);
+            const float y = 1.0f - juce::jlimit (0.0f, 1.0f, slide);
             // Tile 0 is the single RISE/GRAND keybed (not a DNA block).
-            keyboardView.setTouch (0, chan, x, 0.5f, pressure, strike, end);   // setTouch is thread-safe
+            keyboardView.setTouch (0, chan, x, y, pressure, strike, end);   // setTouch is thread-safe
         };
 
         // Mirror the RISE's touch faders + XY pad onto the device graphic (the SVG's own panel layers),
