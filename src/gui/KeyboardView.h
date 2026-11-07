@@ -509,9 +509,7 @@ private:
                 if (auto* a = loadArt (f))
                 {
                     a->drawable->drawWithin (g, r, juce::RectanglePlacement::stretchToFit, 1.0f);
-                    g.setColour (border);
-                    g.drawRoundedRectangle (r.reduced (1.0f), 12.0f, 1.6f);
-                    return;
+                    return;   // the SVG carries its own chassis + selection-frame (correct corner radius)
                 }
 
         const int   totalWhites = keybedWhiteCount (lowNote, keyCount);
@@ -579,9 +577,7 @@ private:
             if (auto* a = loadArt ("lightpad-block.svg"))
             {
                 a->drawable->drawWithin (g, r, juce::RectanglePlacement::stretchToFit, 1.0f);
-                g.setColour (border);
-                g.drawRoundedRectangle (r.reduced (1.0f), 10.0f, 1.6f);
-                return;
+                return;   // the SVG carries its own chassis + selection-frame (correct corner radius)
             }
 
         gridN = juce::jlimit (3, 30, gridN);
@@ -691,9 +687,7 @@ private:
             if (auto* a = loadArt (controlArtFile (sub)))
             {
                 a->drawable->drawWithin (g, r, juce::RectanglePlacement::stretchToFit, 1.0f);
-                g.setColour (border);
-                g.drawRoundedRectangle (r.reduced (1.0f), 9.0f, 1.4f);
-                return;
+                return;   // the SVG carries its own chassis + selection-frame (correct corner radius)
             }
 
         g.setColour (juce::Colour (0xff17181e));
