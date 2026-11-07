@@ -49,10 +49,11 @@ look in a browser. Every model passes `generator/validate.py` (the guide's layer
   in is more work than it's worth, `models/` are complete per-model SVGs you can use directly.
 - **Which key counts to ship.** Built now: Block 24, RISE 25/49, GRAND Studio 37 + Stage 61, LUMI 24, Piano 49.
 - **GRAND = Studio (37 keys, 608 × 338 mm) and Stage (61 keys, 937 × 338 mm)**, per ROLI's support page
-  and the photos, in a matte black body (not wood). GRAB's port-name inference (`MainComponent.cpp`,
-  around line 44) treats any GRAND that isn't "88" as 61 keys from C3, so a Studio would be drawn as 61.
-  It needs a Studio → 37 case. Is there really a GRAND 88, or can that branch go? (The Studio
-  assembles at 530 px wide against 540 from ROLI's size: it shares the Stage's key pitch.)
+  and the photos, in a matte black body (not wood). GRAB already draws each GRAND at the key count it
+  reports (`Rise2Component.cpp` ~648), so the tiles fit any count. `Rise2Component` also mentions an
+  **88-key First Edition**: there's no photo or size for it here, so it isn't drawn as its own model
+  yet. Send a top-down photo and it's one more line in `kit.py`. (The Studio assembles at 530 px
+  wide against 540 from ROLI's size: it shares the Stage's key pitch.)
 - **RISE 49 width.** It assembles at 1224 px against the photo's 1190. RISE 2 keys are slightly
   narrower, so it's one pitch value in the manifest if you want it exact.
 - **RISE 2 panel.** The guide mentions Pitch/Mod edge strips, but the RISE 2 photo shows the same
