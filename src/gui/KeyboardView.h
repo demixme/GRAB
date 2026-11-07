@@ -15,6 +15,7 @@
 #include "DeviceArtData.h"   // embedded device-art SVGs (CMake: GRABDeviceArt)
 
 #include <atomic>
+#include <cstdlib>
 #include <map>
 #include <memory>
 #include <vector>
@@ -58,7 +59,13 @@ public:
     // Device art V2 toggle (Advanced -> New device art): draw the designer's SVG kit instead of the
     // hand-drawn vector art, where a family has been wired in. Phase 1 covers Control blocks only;
     // families without V2 art fall back to the drawn art automatically.
-    void setUseDeviceArtV2 (bool b) { if (useDeviceArtV2 != b) { useDeviceArtV2 = b; repaint(); } }
+    void setUseDeviceArtV2 (bool b)
+    {
+        if (useDeviceArtV2 == b) return;
+        useDeviceArtV2 = b;
+        if (usingLayout) repaint();   // DNA tiles keep their fixed footprints (already match the art)
+        else rebuildLegacy();         // legacy keybed: re-derive the footprint (GRAND aspect changes)
+    }
 
     // Exact keybed range: draw `keyCount` keys from `lowNote` (a C for the C-to-C boards). Use this
     // instead of setOctaves for RISE/GRAND so the real key count is drawn (e.g. a 49-key RISE 2 =
@@ -274,6 +281,13 @@ private:
         t.ux = 0; t.uy = 0;
         t.uw = juce::jmax (1.0f, (float) whites * (3.0f / 7.0f));   // 3 units / 7 white keys
         t.uh = 3.0f;
+        // V2 keybed art: size the footprint to the SVG's real aspect (its key pitch differs from the
+        // generic 3-units/octave), so stretchToFit doesn't distort it. No-op when there's no V2 art.
+        if (useDeviceArtV2)
+            if (const char* f = keybedArtFile (t.family, t.keyCount > 0 ? t.keyCount : octaves * 12))
+                if (auto* a = loadArt (f))
+                    if (a->viewBox.getHeight() > 0.0f)
+                        t.uw = t.uh * a->viewBox.getWidth() / a->viewBox.getHeight();
         tiles.assign (1, t);
     }
 
@@ -372,9 +386,9 @@ private:
         // V2 art: land the rings on the SVG's real playing rect (data-grab-active-area).
         if (useDeviceArtV2)
         {
-            const char* f = t.family == Family::block    ? "seaboard-block-24.svg"
-                          : t.family == Family::lightpad ? "lightpad-block.svg"
-                                                         : nullptr;
+            const char* f = (t.family == Family::lightpad)
+                                ? "lightpad-block.svg"
+                                : keybedArtFile (t.family, t.keyCount > 0 ? t.keyCount : t.octaves * 12);
             if (f != nullptr)
                 if (auto* a = loadArt (f))
                     inset = activeInset (*a, nat);
@@ -487,16 +501,18 @@ private:
     void drawKeybed (juce::Graphics& g, juce::Rectangle<float> r, Family fam, int lowNote, int keyCount,
                      juce::Colour border = grab::theme::accent.withAlpha (0.9f))
     {
-        // V2: Seaboard Block keybed from the SVG kit (24-key, fixed). RISE/GRAND still draw below
-        // (variable key counts / panels come in a later phase). Border overlaid for selection.
-        if (useDeviceArtV2 && fam == Family::block)
-            if (auto* a = loadArt ("seaboard-block-24.svg"))
-            {
-                a->drawable->drawWithin (g, r, juce::RectanglePlacement::stretchToFit, 1.0f);
-                g.setColour (border);
-                g.drawRoundedRectangle (r.reduced (1.0f), 12.0f, 1.6f);
-                return;
-            }
+        // V2: Seaboard Block / GRAND keybed from the SVG kit. The tile footprint is set to the SVG's
+        // aspect in buildLegacyLocked, so stretchToFit doesn't distort. RISE still draws below (its
+        // SVG includes the control panel, handled in a later phase). Border overlaid for selection.
+        if (useDeviceArtV2)
+            if (const char* f = keybedArtFile (fam, keyCount))
+                if (auto* a = loadArt (f))
+                {
+                    a->drawable->drawWithin (g, r, juce::RectanglePlacement::stretchToFit, 1.0f);
+                    g.setColour (border);
+                    g.drawRoundedRectangle (r.reduced (1.0f), 12.0f, 1.6f);
+                    return;
+                }
 
         const int   totalWhites = keybedWhiteCount (lowNote, keyCount);
         const float radius   = fam == Family::block ? 2.5f : fam == Family::rise ? 4.0f : 5.5f;
@@ -631,6 +647,24 @@ private:
              : sub == Control::loop  ? "control-loop.svg"
              : sub == Control::touch ? "control-touch.svg"
                                      : "control-developer.svg";
+    }
+
+    // The keybed SVG for a family + key count, or nullptr if that family has no V2 keybed art yet.
+    // GRAND maps to the nearest built size (Studio 37 / Stage 61 / 88); the Block is always 24.
+    // RISE/LUMI are handled separately (panel / per-key colour), so they return nullptr here.
+    static const char* keybedArtFile (Family fam, int keyCount)
+    {
+        if (fam == Family::block) return "seaboard-block-24.svg";
+        if (fam == Family::grand)
+        {
+            static const int   sz[3] = { 37, 61, 88 };
+            static const char* fl[3] = { "grand-studio-37.svg", "grand-stage-61.svg", "grand-88.svg" };
+            int best = 0;
+            for (int i = 1; i < 3; ++i)
+                if (std::abs (keyCount - sz[i]) < std::abs (keyCount - sz[best])) best = i;
+            return fl[best];
+        }
+        return nullptr;
     }
 
     // Map an Art's active-area (viewBox coords) onto the drawn footprint `nat`, so touch rings land
