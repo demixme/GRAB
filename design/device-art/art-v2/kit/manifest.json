@@ -56,13 +56,13 @@
         "centre_x": 0.5,
         "y": 0
       },
+      "pitch": 21.75,
       "tiles": {
-        "white": "seaboard-white",
-        "gap": "seaboard-gap",
+        "white": "grand-white",
+        "gap": "grand-gap",
         "black": "grand-black",
         "tileHeight": 700
-      },
-      "pitch": 21.75
+      }
     },
     "lumi": {
       "surround": "lumi",
@@ -71,8 +71,8 @@
       "keys": {
         "left": 3,
         "right": 3,
-        "top": 61,
-        "bottom": 4
+        "top": 63,
+        "bottom": 5.5
       },
       "radius": 11,
       "tiles": {
@@ -84,6 +84,13 @@
       "pitch": 42.43,
       "pitchOverrides": {
         "ROLI Piano 49": 36.5
+      },
+      "blackOffsets": {
+        "1": -0.1,
+        "3": 0.1,
+        "6": -0.12,
+        "8": 0.0,
+        "10": 0.12
       }
     }
   },
