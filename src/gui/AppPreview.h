@@ -14,6 +14,7 @@
 #include <array>
 #include <memory>
 
+#include "DeviceArtData.h"
 #include "Theme.h"
 
 class LittleFootApp
@@ -50,8 +51,26 @@ public:
     void start() { startTimer (33); }   // ~30 fps
     void stop()  { stopTimer(); }
 
+    /** Draw the designer's Lightpad SVG (recolouring its 225 led-y-x cells from the LED buffer)
+        instead of the hand-drawn grid. Falls back to the drawn grid if the art can't be loaded. */
+    void setUseDeviceArtV2 (bool b) { if (useV2 == b) return; useV2 = b; repaint(); }
+
     void paint (juce::Graphics& g) override
     {
+        if (useV2 && ensureArt())
+        {
+            for (int y = 0; y < LittleFootApp::H; ++y)
+                for (int x = 0; x < LittleFootApp::W; ++x)
+                    if (auto* shape = ledShapes[(size_t) (y * LittleFootApp::W + x)])
+                        shape->setFill (juce::Colour (app.pixel (x, y)));
+
+            auto r = getLocalBounds().toFloat().reduced (4.0f);
+            const float side = juce::jmin (r.getWidth(), r.getHeight());
+            r = r.withSizeKeepingCentre (side, side);
+            art->drawWithin (g, r, juce::RectanglePlacement::stretchToFit, 1.0f);
+            return;
+        }
+
         auto r = getLocalBounds().toFloat().reduced (4.0f);
         const float side = juce::jmin (r.getWidth(), r.getHeight());
         r = r.withSizeKeepingCentre (side, side);
@@ -73,7 +92,53 @@ public:
 private:
     void timerCallback() override { app.repaint(); if (! app.isLoaded()) stopTimer(); repaint(); }
 
+    // Find a sub-drawable by its SVG id (JUCE stores the id as the Drawable's componentID).
+    static juce::Drawable* findById (juce::Drawable* d, juce::StringRef id)
+    {
+        if (d == nullptr) return nullptr;
+        if (d->getComponentID() == id) return d;
+        if (auto* comp = dynamic_cast<juce::DrawableComposite*> (d))
+            for (int i = 0; i < comp->getNumChildComponents(); ++i)
+                if (auto* child = dynamic_cast<juce::Drawable*> (comp->getChildComponent (i)))
+                    if (auto* found = findById (child, id)) return found;
+        return nullptr;
+    }
+
+    // Lazily parse lightpad-block.svg and cache a DrawableShape* for each led-y-x cell. Returns false
+    // (once, cached) if the resource is missing/unparseable, so paint() falls back to the drawn grid.
+    bool ensureArt()
+    {
+        if (artTried) return art != nullptr;
+        artTried = true;
+
+        for (int i = 0; i < DeviceArtData::namedResourceListSize; ++i)
+            if (juce::String ("lightpad-block.svg") == DeviceArtData::originalFilenames[i])
+            {
+                int size = 0;
+                if (const char* data = DeviceArtData::getNamedResource (DeviceArtData::namedResourceList[i], size))
+                    if (auto xml = juce::XmlDocument::parse (juce::String::fromUTF8 (data, size)))
+                        art = juce::Drawable::createFromSVG (*xml);
+                break;
+            }
+
+        if (art != nullptr)
+            for (int y = 0; y < LittleFootApp::H; ++y)
+                for (int x = 0; x < LittleFootApp::W; ++x)
+                {
+                    const auto id = juce::String ("led-") + juce::String (y) + "-" + juce::String (x);
+                    ledShapes[(size_t) (y * LittleFootApp::W + x)]
+                        = dynamic_cast<juce::DrawableShape*> (findById (art.get(), id));
+                }
+
+        return art != nullptr;
+    }
+
     LittleFootApp& app;
+
+    bool useV2 = false, artTried = false;
+    std::unique_ptr<juce::Drawable> art;
+    std::array<juce::DrawableShape*, (size_t) (LittleFootApp::W * LittleFootApp::H)> ledShapes { };
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LEDGridComponent)
 };
 

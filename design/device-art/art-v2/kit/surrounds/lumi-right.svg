@@ -6,7 +6,6 @@
 <path d="M0 3H56A11 11 0 0 1 67 14V286A11 11 0 0 1 56 297H0V3ZM0 3H56A11 11 0 0 1 67 14V63H0V3ZM0 63H64.5V283.5A11 11 0 0 1 53.5 294.5H0V63Z" fill="#6b6b6b" fill-rule="evenodd"/>
 <path d="M0 63H64.5V283.5A11 11 0 0 1 53.5 294.5H0V63Z" fill="#0b0b0b"/>
 <path d="M0 3H56A11 11 0 0 1 67 14V63H0V3Z" fill="#292929"/>
-<path d="M0 4.75H56" stroke="#353535" stroke-width="1.5" fill="none"/>
 <rect x="8.2" y="21.5" width="2.5" height="17.3" rx="1.25" fill="#babdbb"/>
 <rect x="14.6" y="21.5" width="2.5" height="17.3" rx="1.25" fill="#babdbb"/>
 <rect x="24.8" y="21.5" width="2.5" height="17.3" rx="1.25" fill="#babdbb"/>

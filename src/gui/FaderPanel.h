@@ -55,6 +55,7 @@ public:
         const int v = live[(size_t) assignedCc()];
         if (v != liveVal) { liveVal = v; repaint(); }
     }
+    float liveNorm() const { return liveVal < 0 ? -1.0f : (float) liveVal / 127.0f; }   // -1 = no data
 
     void paint (juce::Graphics& g) override
     {
@@ -154,6 +155,8 @@ public:
         const int ny = live[(size_t) juce::jlimit (0, 127, yAssign)];
         if (nx != liveX || ny != liveY) { liveX = nx; liveY = ny; repaint(); }
     }
+    float liveXNorm() const { return liveX < 0 ? -1.0f : (float) liveX / 127.0f; }   // -1 = no data
+    float liveYNorm() const { return liveY < 0 ? -1.0f : (float) liveY / 127.0f; }
 
     void paint (juce::Graphics& g) override
     {
@@ -245,6 +248,10 @@ public:
         }
     }
 
+    /** Push the live fader / XY values (each normalised 0..1, or <0 for no data yet) every tick, so
+        another view (the RISE device graphic) can mirror the hardware. Order: Left, Middle, Right, X, Y. */
+    std::function<void (float, float, float, float, float)> onLive;
+
     std::vector<std::unique_ptr<Fader>> faders;
     std::unique_ptr<XYPad> xy;
 
@@ -254,6 +261,14 @@ private:
         if (live == nullptr) return;
         for (auto& f : faders) f->updateLive (live);
         if (xy != nullptr)    xy->updateLive (live);
+
+        if (onLive != nullptr)
+        {
+            auto fv = [this] (size_t i) { return i < faders.size() ? faders[i]->liveNorm() : -1.0f; };
+            onLive (fv (0), fv (1), fv (2),
+                    xy != nullptr ? xy->liveXNorm() : -1.0f,
+                    xy != nullptr ? xy->liveYNorm() : -1.0f);
+        }
     }
 
     const int* live = nullptr;

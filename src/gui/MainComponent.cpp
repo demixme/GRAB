@@ -454,6 +454,7 @@ MainComponent::MainComponent()
                     auto* p = new AppInspectorPanel();
                     p->setDeviceLoader ([this] { return appLoadTargetName(); },
                                         [this] (const juce::String& s, const juce::Array<juce::File>& sp) { return loadAppToDevice (s, sp); });
+                    p->setUseDeviceArtV2 (deviceArtV2);
                     openDialog (p, "BLOCKS app inspector (experimental)");
                 }
                 else if (r == 13)   // toggle device art V2 (persisted), apply to the keybed view live
@@ -463,6 +464,7 @@ MainComponent::MainComponent()
                     juce::PropertiesFile props (grab::dataDir().getChildFile ("settings.properties"), po);
                     props.setValue ("deviceArtV2", deviceArtV2);
                     keyboardView.setUseDeviceArtV2 (deviceArtV2);
+                    resized();   // the art's aspect may differ (e.g. GRAND gains its surround), so re-size the keyboard
                 }
             });
     };
@@ -677,6 +679,13 @@ void MainComponent::connect (seaprobe::Transport transport)
             const float x = keyboardView.legacyNoteToX (note, bend * 2.0f);
             // Tile 0 is the single RISE/GRAND keybed (not a DNA block).
             keyboardView.setTouch (0, chan, x, 0.5f, pressure, strike, end);   // setTouch is thread-safe
+        };
+
+        // Mirror the RISE's touch faders + XY pad onto the device graphic (the SVG's own panel layers),
+        // from the same live-CC source the editable FaderPanel uses. GRAND never fires this (no faders).
+        rise2Page->onPanel = [this] (float l, float m, float r, float x, float y)
+        {
+            keyboardView.setRisePanel (l, m, r, x, y);
         };
 
         rebuildRiseDeviceEntries();   // list this + any other RISE/GRAND, and a "Blocks" switch entry
@@ -1073,7 +1082,7 @@ void MainComponent::updateLumiKeyboardColours()
     const int  schemeId   = 100 + 7 * activeMode;              // that mode's Color Scheme id
     const int  scheme     = val (schemeId, 1);                 // 0 Pro, 1 User, 2 Piano, 3 Stage, 4 Rainbow
 
-    keyboardView.setColourScheme (scheme, scale, key, globalC, rootC);
+    keyboardView.setColourScheme (scheme, scale, key, globalC, rootC, val (36, 100));  // id 36 = Brightness
 }
 
 // Chord-mode intervals (semitones above the played note) per ROLI's Chord config (id 24), in the
@@ -2581,6 +2590,7 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
             case 'A': { auto* p = new AppInspectorPanel();
                         p->setDeviceLoader ([this] { return appLoadTargetName(); },
                                             [this] (const juce::String& s, const juce::Array<juce::File>& sp) { return loadAppToDevice (s, sp); });
+                        p->setUseDeviceArtV2 (deviceArtV2);
                         p->previewDemo();
                         openDialog (p, "BLOCKS app inspector (experimental)"); return true; }
             default:  break;
@@ -2674,13 +2684,14 @@ void MainComponent::forcePianoPreview()
     add (mk (102, 1, "Enable Pitch Bend", CT::boolean, 0, 1, "Mode 1", {}), 1);
     add (mk (103, 1, "Enable Pressure", CT::boolean, 0, 1, "Mode 1", {}), 1);
 
-    keyboardView.setFamily (KeyboardView::Family::block);
+    keyboardView.setFamily (KeyboardView::Family::lumi);   // ROLI Piano is a flat light-up keybed (LUMI family), not a keywave
     keyboardView.setOctaves (4);   // Piano 49 ≈ 4 octaves
     keyboardView.setBlocks (1);
     keyboardView.setVisible (true);
     setStatus ("ROLI Piano preview (simulated, no hardware).  Ctrl+Alt+Shift+P to exit.");
     if (logger != nullptr) logger->line ("DEV: ROLI Piano preview (" + juce::String ((int) simConfig.size()) + " synthetic items)");
     rebuildRows();
+    updateLumiKeyboardColours();   // light the keyboard from the synthetic scale/key/colours
 }
 
 // Secret dev shortcut (Ctrl+Alt+Shift+C): a synthetic Control Block config page - the decoded
@@ -2952,7 +2963,14 @@ void MainComponent::resized()
     {
         if (keyboardView.isVisible())
         {
-            keyboardView.setBounds (area.removeFromTop (108));   // full width; keys are a fixed scale, centred/clipped
+            // Size the keyboard to fill the width at the device's own aspect, capped at a max height
+            // (and a share of the available space), so wide devices (GRAND, with its surround) aren't
+            // crushed into a thin strip and smaller devices can show larger. The view centres its art.
+            const float aspect = juce::jmax (0.1f, keyboardView.contentAspect());
+            const int   maxH   = juce::jmin (210, juce::roundToInt (area.getHeight() * 0.42f));
+            const int   h      = juce::jlimit (96, juce::jmax (96, maxH),
+                                               juce::roundToInt (area.getWidth() / aspect));
+            keyboardView.setBounds (area.removeFromTop (h));
             area.removeFromTop (8);
         }
     };

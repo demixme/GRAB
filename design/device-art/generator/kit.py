@@ -272,7 +272,8 @@ def lumi_surround_trace(out, spec, dev):
         d.add("path", d=body + top + bed, fill=c["lip"], fill_rule="evenodd")
         d.add("path", d=bed, fill=c["keybed"])
         d.add("path", d=top, fill=c["bar"])
-        d.add("path", d=f"M{f(x0 + (r if left else 0))} 4.75H{f(x1 - (r if right else 0))}", stroke=c["barLit"], stroke_width=1.5, fill="none")
+        # No lit top line: at GRAB's render size the barLit stroke reads as a thick light-grey line
+        # across the top of the LUMI/Piano (like the rim we dropped on the keyboards). Leave it flat.
 
     a = Doc(Lw, H, "LUMI - left cap (controls)", {}); sl(a, 3, Lw, left=True)
     bx, by, br = C["button"]

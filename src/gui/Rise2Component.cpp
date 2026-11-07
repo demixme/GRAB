@@ -822,6 +822,10 @@ void Rise2Component::rebuildRows()
                 pad->setTooltip (grab::helpForParameter ("XY Pad X CC"));
             }
             faderPanel->setLiveSource (liveCc.data());
+            faderPanel->onLive = [this] (float l, float m, float r, float x, float y)
+            {
+                if (onPanel != nullptr) onPanel (l, m, r, x, y);   // mirror the hardware onto the device graphic
+            };
             if (! faderPanel->faders.empty() || faderPanel->xy != nullptr)
                 card->addItem (*faderPanel, 150);
 

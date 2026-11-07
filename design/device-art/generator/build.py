@@ -474,14 +474,8 @@ def control(variant):
     with d.g("led-strip"):
         for i in range(13):
             led_dot(d, f"led-{i}", bx + led_gap * (i + 1), led_y, 1.5, accent, 4 <= i <= 7)
-    with d.g("button-leds"):
-        for i, (cx, cy) in enumerate(centres):
-            with d.g(f"btnled-{i}"):
-                led_glow(d, lambda g, inn, cx=cx, cy=cy: ring(cx, cy, cr + g * 0.7, cr), accent)
-        with d.g("btnled-8"):
-            led_glow(d, lambda g, inn: half_pill_ring(px, py, pw / 2, ph, "left", g * 0.7, 0), accent)
-        with d.g("btnled-9"):
-            led_glow(d, lambda g, inn: half_pill_ring(px + pw / 2, py, pw / 2, ph, "right", g * 0.7, 0), accent)
+    # No ring glows around the buttons: the real Control blocks don't light a ring - the button's
+    # printed icon lights in the block's colour (see the icons group below, drawn in the accent).
     with d.g("buttons"):
         c = L["cast"] * 0.6
         for i, (cx, cy) in enumerate(centres):        # raised caps: deep shadow down-left, lit face
@@ -490,7 +484,7 @@ def control(variant):
         rr(d, px - c, py + c, pw, ph, ph / 2, fill=t["deep"])
         rr(d, px, py, pw, ph, ph / 2, id="btn-pill", fill=t["lit"])
 
-    icol = accent if dev["iconUseAccent"] else t["white"]
+    icol = accent   # the lit element is the printed icon, in the block's colour (Developer = neutral)
     with d.g("icons"):
         for i, (cx, cy) in enumerate(centres):
             with d.g(f"icon-{i}"):
