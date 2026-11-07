@@ -1,85 +1,117 @@
-# FabFilter-inspired UI redesign — design brief
+# FabFilter-inspired UI redesign — two-track plan
 
-A handoff brief for restyling **the whole GRAB UI** in a FabFilter-inspired visual
-language — not just the 5D curves. Fred's design artifact is the **canonical visual
-spec** (layout, colours, typography, spacing); this doc maps that design onto GRAB's
-current code so the work lands without breaking the device I/O, presets, or live sync.
+A plan for bringing GRAB's whole UI into a FabFilter-inspired visual language. It splits
+the work into two lanes so each side does what it's best at: **Fred designs; we translate
+to code.** The UI redesign touches the device I/O, presets, and live-sync wiring, so the
+code half must be done by someone who can verify none of that breaks — not shipped into
+the repo unsupervised.
 
-> **The artifact is the source of truth for *how it looks*.** This doc is the source of
-> truth for *what to change in the code* and *what must not break*. Open Fred's artifact
-> alongside this.
+This replaces the earlier "point Fred's session at the repo" idea.
 
-## Scope
+---
 
-Reskin and re-lay-out the entire app in the FabFilter style: the window chrome, the
-device graphic, the settings panels, and — as the centrepiece — the **5D response graph
-overlaying all five dimensions** (see its own section below). Keep every existing feature
-and all device behaviour; this is a presentation-layer change, not a protocol change.
+## Why two tracks
 
-## Current UI → what to restyle (component map)
+The device art worked as a straight handoff (Fred draws SVGs, we drop them in) because the
+art can't break anything functional. The UI redesign is different: it reworks
+`GrabLookAndFeel`, the layout of both host pages, the config widgets, and the paths that
+write to the device. The risk isn't "does it look right" (Fred can judge that) — it's
+"did Save-to-device, Autosave, presets, GRAND's 4D handling, and the throttled live-writes
+survive the refactor." That's exactly what a non-coder can't test, so the code lands on our
+side, verified against CI and a real device.
+
+---
+
+## Track A — Fred (design)
+
+**Deliverable: a clickable prototype + a token sheet.** Both are design artifacts, not
+production code.
+
+### A1. A clickable prototype (HTML/React artifact)
+Nails the look and the interactions so there's nothing to guess when we translate:
+- The full window at a realistic size, and at a **reduced width** (GRAB is resizable).
+- All four zones laid out: **header**, **device graphic**, **main settings panel**,
+  **footer**.
+- The **5D response graph** as the centrepiece — all five curves overlaid on one graph,
+  with the hover/select/drag behaviour shown.
+- **Control states** visible: normal / hover / active / "changed-from-device" for buttons,
+  sliders, combo boxes, and the curves.
+
+> A static-leaning prototype is ideal — if the artifact is plain HTML/CSS we can read the
+> exact tokens straight out of it. A heavy dynamic app renders nothing to a static read.
+
+### A2. A token sheet (can be a panel in the same artifact, or a short doc)
+The concrete values we'll port into the theme:
+- **Colours** — every hex: backgrounds, panels, borders, text (primary/secondary), accent,
+  and the five 5D colours (current ones: Strike `#0be4f4`, Glide `#73fe91`, Slide
+  `#ff77fd`, Press `#52d7ba`, Lift `#fbc435` — keep or restate).
+- **Typography** — font family, sizes, weights per role (titles, labels, values).
+- **Spacing & shape** — the spacing grid, panel/card corner radii, border widths, padding.
+- **Zone proportions** — header / device-graphic / main-panel / footer heights, and how
+  they reflow when the window narrows.
+- **5D graph spec** — axes and grid, how a curve is selected and dragged, hover focus
+  (active brightens/forward, others dim), and the min/max end-node handles.
+
+Fred can drive his **own** Claude session for Track A (build the prototype, extract the
+tokens from his existing artifact) — that's design work, and the ideal use of his session.
+
+---
+
+## Track B — us (translate to JUCE/C++)
+
+We port Fred's prototype + tokens into GRAB, on a branch, verified on CI and a device.
+
+### Where each piece lives (component map)
 
 | Zone | Component (file) | Notes |
 |---|---|---|
-| **App-wide look** | `GrabLookAndFeel` ([`src/gui/Theme.h`](../../src/gui/Theme.h)) | The single central hook — set as the default LookAndFeel in [`src/gui/Main.cpp`](../../src/gui/Main.cpp). Most of the FabFilter restyle (colours, fonts, control painting) goes **here**, so it applies everywhere at once. |
-| **Header** | `DeviceInfoBar` ([`DeviceInfoBar.h`](../../src/gui/DeviceInfoBar.h)) + the button row in `MainComponent` | Battery icon+%, device name, firmware, transport; plus Diagnose / Reload / Save / Autosave / Transport / device switcher / Advanced. |
-| **Device graphic** | `KeyboardView` ([`KeyboardView.h`](../../src/gui/KeyboardView.h)) | The device render (recently rebuilt on Fred's SVG art, adaptive height). Restyle the frame/placement to match, but keep the art + live touch/fader sync. |
-| **Settings** | `SectionCard` ([`SectionCard.h`](../../src/gui/SectionCard.h)) holding `ConfigRow`s + `CurveComponent`s | Titled cards (Sensitivity, MIDI Settings, Play mode, Pedals, CC Assignments). Laid out in a scrolling `viewport`. |
-| **Footer** | `FooterBar` ([`FooterBar.h`](../../src/gui/FooterBar.h)) | Version, hover-help text, update-available notice. |
-| **RISE/GRAND page** | `Rise2Component` ([`Rise2Component.h`](../../src/gui/Rise2Component.h)) | Its own header/reload/save/viewport; mirror the same restyle. |
+| **App-wide look** | `GrabLookAndFeel` ([`src/gui/Theme.h`](../../src/gui/Theme.h)) | The single central hook (set in [`Main.cpp`](../../src/gui/Main.cpp)). Most of the restyle — colours, fonts, control painting — goes here and propagates app-wide. |
+| **Header** | `DeviceInfoBar` ([`DeviceInfoBar.h`](../../src/gui/DeviceInfoBar.h)) + the button row in `MainComponent` | Battery/name/fw/transport + Diagnose/Reload/Save/Autosave/Transport/device-switcher/Advanced. |
+| **Device graphic** | `KeyboardView` ([`KeyboardView.h`](../../src/gui/KeyboardView.h)) | Recently rebuilt on Fred's SVG art, adaptive height. Restyle the frame/placement; keep the art + live touch/fader sync. |
+| **Settings** | `SectionCard` ([`SectionCard.h`](../../src/gui/SectionCard.h)) + `ConfigRow` / `CurveComponent` | Titled cards in a scrolling viewport. |
+| **Footer** | `FooterBar` ([`FooterBar.h`](../../src/gui/FooterBar.h)) | Version, hover-help, update notice. |
+| **RISE/GRAND page** | `Rise2Component` ([`Rise2Component.h`](../../src/gui/Rise2Component.h)) | Its own header/reload/save/viewport — mirror the same restyle. |
 
-Two host pages share these widgets — **the BLOCKS page in `MainComponent`** and
-**`Rise2Component`**. Anything new (a shared graph, restyled cards) must drop into both.
+Two host pages share these widgets (the **BLOCKS page in `MainComponent`** and
+**`Rise2Component`**) — anything new drops into both.
 
-## Design system
-
-- **Start in `GrabLookAndFeel`.** Pull Fred's exact hex colours, font family/sizes, corner
-  radii, and spacing from the artifact into the theme tokens in `Theme.h` (current tokens:
-  `windowBg`, `panelBg`, `panelBgAlt`, `accent`, `textPrimary/Secondary`, `outline`, and
-  the 5D colours). Override the relevant `LookAndFeel_V4` paint methods (buttons, sliders,
-  combo boxes, scrollbars) so the whole app shifts at once.
-- **JUCE only** (`juce_gui_basics` / `juce_gui_extra`), no new dependencies. Keep the
-  existing dark base; FabFilter is a refinement of it, not a rewrite of the rendering.
-- Match the artifact's **panel language** (card backgrounds, borders, section headers) in
-  `SectionCard` and `ConfigRow`.
-
-## The 5D response graph (centrepiece)
-
-Replace the row of five separate curve graphs with **one large graph overlaying all five
-curves** — Strike, Glide, Slide, Press, Lift — FabFilter Pro-Q style.
-
+### The 5D overlay graph
 - **Reuse the curve math.** [`CurveComponent.h`](../../src/gui/CurveComponent.h) already maps
-  a sensitivity 0–127 to the exact shape measured from ROLI Dashboard 4.7.2 (+ min/max end
-  nodes for Strike/Press/Lift). **Extract that into a shared function** so the overlay draws
-  identical curves — the feel must match Dashboard.
-- **Dimensions / colours / params** — [`Rise2Component.cpp`](../../src/gui/Rise2Component.cpp):
-  `kStrikeSens…kLiftSens` (SysEx `0x1a/0x17/0x18/0x19/0x1b`), `*Min`/`*Max` (`0x46`–`0x4b`),
-  and the `{sensId, name, colourARGB, minId, maxId}` table. Colours (`Theme.h`): Strike
-  `#0be4f4`, Glide `#73fe91`, Slide `#ff77fd`, Press `#52d7ba`, Lift `#fbc435`.
-- **Interaction:** hovered/active dimension brightens and comes to front, others dim; drag a
-  curve vertically to set its sensitivity; Strike/Press/Lift min/max nodes stay draggable.
-- **Don't touch the write path** — dragging sets the `kXxxSens` value through the existing
-  `onItemChanged` / `CurveComponent::setSensitivity`, which already throttled-writes to the
-  device and tracks the "changed" state.
+  sensitivity 0–127 to the exact shape traced from Dashboard 4.7.2 (+ min/max nodes).
+  Extract it into a shared function so the overlay draws identical curves.
+- **Dimensions/colours/params** — [`Rise2Component.cpp`](../../src/gui/Rise2Component.cpp):
+  `kStrikeSens…kLiftSens` (`0x1a/0x17/0x18/0x19/0x1b`), `*Min`/`*Max` (`0x46`–`0x4b`), and
+  the `{sensId, name, colourARGB, minId, maxId}` table.
+- **Don't touch the write path** — a drag sets `kXxxSens` via the existing `onItemChanged`
+  / `CurveComponent::setSensitivity`, which already throttled-writes and tracks "changed".
 
-## Constraints / must-not-break
+### Guarantees we hold (must-not-break)
+- **Device I/O** unchanged — this is presentation only.
+- **Presets** (built-in + user), **Reload**, **Save / Autosave**, **live sync**, and the
+  per-field **"changed" dots** all preserved.
+- **GRAND is 4D** — no Slide/Strike; drive the dimension list from the field table
+  (`fieldShown` / `isGrandHidden`), never a hardcoded five.
+- **Device graphic + live touch/fader mirror** kept intact.
+- Verified on **Windows + macOS CI** and with the preview shortcuts (`Ctrl/⌃+Alt/⌥+Shift+`
+  `R` RISE / `G` GRAND / `L`·`P` LUMI·Piano / `B` Lightpad / `C` Control — see
+  [`docs/DEV-SHORTCUTS.md`](../DEV-SHORTCUTS.md)) and a real device where possible.
 
-- **GRAND is 4D** — no Slide, no Strike (`isGrandHidden` / `fieldShown` in `Rise2Component`);
-  drive the dimension list from the field table, never a hardcoded five.
-- Preserve **presets (built-in + user), Reload, Save/Autosave, live sync, and the per-field
-  "changed" dots**.
-- Keep the **device graphic** (`KeyboardView`) and its live touch/fader mirror intact.
-- Keep every config field and the device I/O untouched — this is presentation only.
-
-## Suggested approach
-
-1. **LookAndFeel + tokens first** — land the colour/font/control restyle in `GrabLookAndFeel`
-   and `Theme.h`; the whole app shifts with low risk.
-2. **Zone layout** — restructure `MainComponent` (and mirror in `Rise2Component`) to the
-   artifact's header / device-graphic / main-panel / footer proportions.
+### Order of work (low-risk first)
+1. **Tokens + LookAndFeel** — port colours/fonts/shape into `Theme.h` / `GrabLookAndFeel`;
+   the whole app shifts at once.
+2. **Zones** — restructure `MainComponent` (mirror in `Rise2Component`) to the artifact's
+   proportions and reflow.
 3. **Panels** — restyle `SectionCard` / `ConfigRow`.
-4. **5D overlay graph** — the new shared component, replacing the `CurveComponent` row.
+4. **5D overlay graph** — the new shared component replacing the `CurveComponent` row.
 
-Do it on a branch, behind the existing patterns; it builds on Windows + macOS CI. Verify
-devices with the preview shortcuts — `Ctrl/⌃ + Alt/⌥ + Shift + R` (RISE 5D), `… + G`
-(GRAND 4D), `… + L`/`P` (LUMI/Piano), `… + C` (Control) — see
-[`docs/DEV-SHORTCUTS.md`](../DEV-SHORTCUTS.md).
+---
+
+## Hand-off checklist
+
+- [ ] Fred: clickable prototype (full + narrow width, all zones, 5D graph, control states)
+- [ ] Fred: token sheet (colours, type, spacing/shape, zone proportions, 5D graph spec)
+- [ ] Us: port tokens → `GrabLookAndFeel` / `Theme.h`
+- [ ] Us: zones → `MainComponent` + `Rise2Component`
+- [ ] Us: restyle `SectionCard` / `ConfigRow`
+- [ ] Us: 5D overlay graph (shared curve math)
+- [ ] Us: verify I/O, presets, live sync, GRAND 4D on CI + device
