@@ -369,6 +369,10 @@ private:
 
         auto inset = (t.family == Family::lightpad || t.family == Family::control) ? nat.reduced (kBodyMargin)
                                                                                    : nat.reduced (kBodyMargin, kKeyInsetV);
+        // V2 keybed art: land the rings on the SVG's real playing rect (data-grab-active-area).
+        if (useDeviceArtV2 && t.family == Family::block)
+            if (auto* a = loadArt ("seaboard-block-24.svg"))
+                inset = activeInset (*a, nat);
         auto drawMarker = [&g, &inset] (float nx, float ny, float strike, float press, float a)
         {
             const float mx = inset.getX() + juce::jlimit (0.0f, 1.0f, nx) * inset.getWidth();
@@ -477,6 +481,17 @@ private:
     void drawKeybed (juce::Graphics& g, juce::Rectangle<float> r, Family fam, int lowNote, int keyCount,
                      juce::Colour border = grab::theme::accent.withAlpha (0.9f))
     {
+        // V2: Seaboard Block keybed from the SVG kit (24-key, fixed). RISE/GRAND still draw below
+        // (variable key counts / panels come in a later phase). Border overlaid for selection.
+        if (useDeviceArtV2 && fam == Family::block)
+            if (auto* a = loadArt ("seaboard-block-24.svg"))
+            {
+                a->drawable->drawWithin (g, r, juce::RectanglePlacement::stretchToFit, 1.0f);
+                g.setColour (border);
+                g.drawRoundedRectangle (r.reduced (1.0f), 12.0f, 1.6f);
+                return;
+            }
+
         const int   totalWhites = keybedWhiteCount (lowNote, keyCount);
         const float radius   = fam == Family::block ? 2.5f : fam == Family::rise ? 4.0f : 5.5f;
         const float crestLum = fam == Family::block ? 0.00f : fam == Family::rise ? -0.06f : -0.10f;
@@ -553,32 +568,63 @@ private:
                 g.fillEllipse (gx + xx * cell + (cell - dot) * 0.5f, gy + yy * cell + (cell - dot) * 0.5f, dot, dot);
     }
 
-    // Device art V2: the embedded control-block SVG for a subtype, parsed once and cached. Developer
-    // and generic share the Developer art. Returns nullptr if the resource is missing (caller falls
-    // back to the drawn art). Keyed by subtype; a cached null is retried on the next call.
-    juce::Drawable* controlArt (Control sub)
-    {
-        const char* file = sub == Control::live  ? "control-live.svg"
-                         : sub == Control::loop  ? "control-loop.svg"
-                         : sub == Control::touch ? "control-touch.svg"
-                                                 : "control-developer.svg";   // developer + generic
-        const int cacheKey = (int) sub;
-        auto it = artCache.find (cacheKey);
-        if (it != artCache.end() && it->second != nullptr) return it->second.get();
+    // A parsed device-art SVG: the Drawable plus its viewBox and data-grab-active-area (both in
+    // viewBox coords). Declared here so loadArt/activeInset can name it in their signatures.
+    struct Art { std::unique_ptr<juce::Drawable> drawable; juce::Rectangle<float> viewBox, active; };
 
-        std::unique_ptr<juce::Drawable> d;
+    // Device art V2: an embedded model SVG parsed into a Drawable, with its viewBox and the
+    // data-grab-active-area (the real playing rect inside the bezel, in viewBox coords). Returns
+    // nullptr if the resource is missing or unparseable (caller falls back to the drawn art).
+    // Keyed by filename; a cached failure stays cached (returns nullptr without re-parsing).
+    const Art* loadArt (const juce::String& file)
+    {
+        auto it = artCache.find (file);
+        if (it != artCache.end()) return it->second.drawable != nullptr ? &it->second : nullptr;
+
+        Art art;
         for (int i = 0; i < DeviceArtData::namedResourceListSize; ++i)
-            if (juce::String (DeviceArtData::originalFilenames[i]) == file)
+            if (file == DeviceArtData::originalFilenames[i])
             {
                 int size = 0;
                 if (const char* data = DeviceArtData::getNamedResource (DeviceArtData::namedResourceList[i], size))
                     if (auto xml = juce::XmlDocument::parse (juce::String::fromUTF8 (data, size)))
-                        d = juce::Drawable::createFromSVG (*xml);
+                    {
+                        art.drawable = juce::Drawable::createFromSVG (*xml);
+                        const auto rect = [&xml] (juce::StringRef attr, juce::Rectangle<float> fallback)
+                        {
+                            auto t = juce::StringArray::fromTokens (xml->getStringAttribute (attr), " ", "");
+                            return t.size() == 4 ? juce::Rectangle<float> (t[0].getFloatValue(), t[1].getFloatValue(),
+                                                                           t[2].getFloatValue(), t[3].getFloatValue())
+                                                 : fallback;
+                        };
+                        art.viewBox = rect ("viewBox", { 0, 0, 100, 100 });
+                        art.active  = rect ("data-grab-active-area", art.viewBox);
+                    }
                 break;
             }
-        auto* ptr = d.get();
-        artCache[cacheKey] = std::move (d);
-        return ptr;
+        auto& slot = artCache[file];   // caches the failure too (empty Art) so we don't re-parse
+        slot = std::move (art);
+        return slot.drawable != nullptr ? &slot : nullptr;
+    }
+
+    // The SVG filename for a control-block subtype (Developer and generic share the Developer art).
+    static const char* controlArtFile (Control sub)
+    {
+        return sub == Control::live  ? "control-live.svg"
+             : sub == Control::loop  ? "control-loop.svg"
+             : sub == Control::touch ? "control-touch.svg"
+                                     : "control-developer.svg";
+    }
+
+    // Map an Art's active-area (viewBox coords) onto the drawn footprint `nat`, so touch rings land
+    // where the real playing surface is drawn in the SVG rather than on a guessed inset.
+    static juce::Rectangle<float> activeInset (const Art& a, juce::Rectangle<float> nat)
+    {
+        if (a.viewBox.getWidth() <= 0 || a.viewBox.getHeight() <= 0) return nat;
+        return { nat.getX() + (a.active.getX() / a.viewBox.getWidth())  * nat.getWidth(),
+                 nat.getY() + (a.active.getY() / a.viewBox.getHeight()) * nat.getHeight(),
+                 (a.active.getWidth()  / a.viewBox.getWidth())  * nat.getWidth(),
+                 (a.active.getHeight() / a.viewBox.getHeight()) * nat.getHeight() };
     }
 
     // Control block (Live / Loop / Touch): a short dark body with a row of button discs.
@@ -591,9 +637,9 @@ private:
         // V2: draw the designer's SVG, then GRAB's accent border on top so selection highlight still
         // reads. Falls through to the hand-drawn art if the SVG isn't available.
         if (useDeviceArtV2)
-            if (auto* d = controlArt (sub))
+            if (auto* a = loadArt (controlArtFile (sub)))
             {
-                d->drawWithin (g, r, juce::RectanglePlacement::stretchToFit, 1.0f);
+                a->drawable->drawWithin (g, r, juce::RectanglePlacement::stretchToFit, 1.0f);
                 g.setColour (border);
                 g.drawRoundedRectangle (r.reduced (1.0f), 9.0f, 1.4f);
                 return;
@@ -761,10 +807,11 @@ private:
     int    legacyKeys = 0;                   // exact-range keybed: key count (0 = whole octaves)
     Family family  = Family::rise;
 
-    // Device art V2 (off by default; flipped from Advanced -> New device art). artCache holds the
-    // parsed Drawable per Control subtype so the SVG is parsed at most once.
+    // Device art V2 (off by default; flipped from Advanced -> New device art). artCache holds each
+    // parsed SVG (Drawable + viewBox + active-area) keyed by filename, so it is parsed at most once.
+    // (struct Art is declared above, next to loadArt, so its signature can name it.)
     bool   useDeviceArtV2 = false;
-    std::map<int, std::unique_ptr<juce::Drawable>> artCache;
+    std::map<juce::String, Art> artCache;
 
     std::vector<Tile> tiles;                 // the drawn arrangement (legacy keybed or real topology)
     bool   usingLayout = false;              // true once setLayout() has supplied real tiles

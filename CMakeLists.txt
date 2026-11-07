@@ -136,7 +136,8 @@ juce_add_binary_data(GRABDeviceArt
         design/device-art/art-v2/models/control-live.svg
         design/device-art/art-v2/models/control-loop.svg
         design/device-art/art-v2/models/control-touch.svg
-        design/device-art/art-v2/models/control-developer.svg)
+        design/device-art/art-v2/models/control-developer.svg
+        design/device-art/art-v2/models/seaboard-block-24.svg)
 
 target_link_libraries(GRAB PRIVATE
     sea_sysex
