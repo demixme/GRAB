@@ -387,10 +387,13 @@ private:
         // Resolve the keybed's exact key range (keyCount==0 => whole octaves from `octaves`).
         const int kc = t.keyCount > 0 ? t.keyCount : t.octaves * 12;
         const int lo = t.keyCount > 0 ? t.lowNote  : defaultLowC (t.octaves);
-        if      (t.family == Family::lumi)     drawFlatKeybed (g, nat, t.octaves, border);
-        else if (t.family == Family::lightpad) drawPad (g, nat, t.grid, border);
-        else if (t.family == Family::control)  drawControl (g, nat, t.control, border);
-        else                                   drawKeybed (g, nat, t.family, lo, kc, border);
+        // The SVG's whole-device selection-frame (teal) is shown only on the selected device in a
+        // multi-device arrangement; a single device, or an unselected block, shows no teal outline.
+        const bool frameOn = selected;
+        if      (t.family == Family::lumi)     drawFlatKeybed (g, nat, t.octaves, border, frameOn);
+        else if (t.family == Family::lightpad) drawPad (g, nat, t.grid, border, frameOn);
+        else if (t.family == Family::control)  drawControl (g, nat, t.control, border, frameOn);
+        else                                   drawKeybed (g, nat, t.family, lo, kc, border, frameOn);
 
         // Touch markers for this tile.
         std::vector<const Live*> mine;
@@ -472,7 +475,7 @@ private:
 
     // Flat, per-key coloured keyboard for LUMI / Piano (Dashboard-style), not the Seaboard keywave.
     void drawFlatKeybed (juce::Graphics& g, juce::Rectangle<float> r, int octaveCount,
-                         juce::Colour border = grab::theme::accent.withAlpha (0.9f))
+                         juce::Colour border = grab::theme::accent.withAlpha (0.9f), bool frameOn = false)
     {
         // V2: LUMI / ROLI Piano from the SVG kit, with each key recoloured live by the device's
         // colour scheme (key-w-N / key-b-N). Footprint aspect is fixed in buildLegacyLocked.
@@ -481,7 +484,7 @@ private:
                 if (auto* a = loadArt (f))
                 {
                     recolourLumiKeys (*a);
-                    recolourFrame (*a, border);
+                    frame (*a, frameOn, border);
                     a->drawable->drawWithin (g, r, juce::RectanglePlacement::stretchToFit, 1.0f);
                     return;
                 }
@@ -526,7 +529,7 @@ private:
     // Pseudo-3D moulded keywave for Seaboard / RISE / GRAND. Draws exactly `keyCount` keys from
     // `lowNote` (white keys first, then blacks on top), so a 49-key board shows all 49 keys.
     void drawKeybed (juce::Graphics& g, juce::Rectangle<float> r, Family fam, int lowNote, int keyCount,
-                     juce::Colour border = grab::theme::accent.withAlpha (0.9f))
+                     juce::Colour border = grab::theme::accent.withAlpha (0.9f), bool frameOn = false)
     {
         // V2: Seaboard Block / GRAND / RISE keybed from the SVG kit. The tile footprint is set to the
         // SVG's aspect in buildLegacyLocked, so stretchToFit doesn't distort. RISE's SVG is the whole
@@ -536,17 +539,7 @@ private:
             if (const char* f = v2FileFor (fam, keyCount))
                 if (auto* a = loadArt (f))
                 {
-                    // A single RISE/GRAND is never part of a multi-device selection, so its whole-device
-                    // selection-frame is just a decorative teal outline (its top/bottom runs read as
-                    // stray edges). Hide it there; Seaboard blocks keep it for DNA selection highlighting.
-                    if (fam == Family::rise || fam == Family::grand)
-                    {
-                        if (auto* fr = findDrawableById (a->drawable.get(), "selection-frame"))
-                            fr->setVisible (false);
-                    }
-                    else
-                        recolourFrame (*a, border);   // selection highlight via the SVG's own frame
-
+                    frame (*a, frameOn, border);   // teal frame only on the selected device
                     if (fam == Family::rise)
                         if (auto* leds = findDrawableById (a->drawable.get(), "button-leds"))
                             leds->setVisible (false);   // hide the SVG's always-on indicator LEDs (static,
@@ -613,14 +606,14 @@ private:
 
     // Lightpad: a square body with an NxN grid of dim LED dots (touch rings + ghosts draw over it).
     void drawPad (juce::Graphics& g, juce::Rectangle<float> r, int gridN,
-                  juce::Colour border = grab::theme::accent.withAlpha (0.9f))
+                  juce::Colour border = grab::theme::accent.withAlpha (0.9f), bool frameOn = false)
     {
         // V2: Lightpad body + 15x15 LED grid from the SVG kit (200x200 square == the 2x2 footprint,
         // so it maps cleanly). Touch rings draw over it via the active-area inset in drawTile.
         if (useDeviceArtV2)
             if (auto* a = loadArt ("lightpad-block.svg"))
             {
-                recolourFrame (*a, border);
+                frame (*a, frameOn, border);
                 a->drawable->drawWithin (g, r, juce::RectanglePlacement::stretchToFit, 1.0f);
                 return;   // the SVG carries its own chassis + selection-frame (correct corner radius)
             }
@@ -732,8 +725,17 @@ private:
     {
         if (auto* d = findDrawableById (a.drawable.get(), "selection-frame"))
             if (auto* s = dynamic_cast<juce::DrawableShape*> (d))
-                s->setStrokeFill (c);
+            { d->setVisible (true); s->setStrokeFill (c); }
     }
+
+    // Hide the SVG's whole-device selection-frame, so a single or unselected device shows no teal outline.
+    void hideFrame (const Art& a)
+    {
+        if (auto* d = findDrawableById (a.drawable.get(), "selection-frame"))
+            d->setVisible (false);
+    }
+
+    void frame (const Art& a, bool on, juce::Colour c) { on ? recolourFrame (a, c) : hideFrame (a); }
 
     // Recolour each LUMI/Piano key (key-w-N / key-b-N) by the live colour scheme, the way the
     // drawn flat keybed does - so the SVG keys light up with the device's scheme, not the demo art.
@@ -816,14 +818,14 @@ private:
     // - 5 round buttons on top, 3 round + a wide -/+ on the bottom, with an LED dot strip above. The
     // subtype picks the LED colour and the printed icons, drawn as our own stylised vector glyphs.
     void drawControl (juce::Graphics& g, juce::Rectangle<float> r, Control sub,
-                      juce::Colour border = grab::theme::accent.withAlpha (0.7f))
+                      juce::Colour border = grab::theme::accent.withAlpha (0.7f), bool frameOn = false)
     {
-        // V2: draw the designer's SVG, then GRAB's accent border on top so selection highlight still
-        // reads. Falls through to the hand-drawn art if the SVG isn't available.
+        // V2: draw the designer's SVG; the teal selection-frame shows only on the selected device.
+        // Falls through to the hand-drawn art if the SVG isn't available.
         if (useDeviceArtV2)
             if (auto* a = loadArt (controlArtFile (sub)))
             {
-                recolourFrame (*a, border);
+                frame (*a, frameOn, border);
                 a->drawable->drawWithin (g, r, juce::RectanglePlacement::stretchToFit, 1.0f);
                 return;   // the SVG carries its own chassis + selection-frame (correct corner radius)
             }
