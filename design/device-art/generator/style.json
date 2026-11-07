@@ -1,0 +1,50 @@
+{
+  "_about": "Design tokens for the GRAB device-art generator. Flat illustration: one shared tone ladder, crisp shadow shapes, light from the top-right at 45 degrees. Edit, run `python3 generator/build.py`, refresh art/preview.html.",
+
+  "canvas": "#1A1C27",
+  "accent": "#00B0BB",
+  "selectionFrame": { "show": true, "width": 1.6, "opacity": 0.9 },
+
+  "tones": {
+    "_about": "The whole set is drawn with these. edge = outline only; deep = shadow cores; mid = penumbra / recess floors; base = surfaces; lit = raised faces / light edges; white = printed lines and glyphs.",
+    "edge":  "#0e0e0f",
+    "deep":  "#18181a",
+    "mid":   "#222224",
+    "base":  "#2b2b2d",
+    "lit":   "#363639",
+    "white": "#e4e4e6"
+  },
+
+  "light": {
+    "_about": "Light from the top-right. cast = how far raised parts throw their shadow down-left (px at 100px/unit); inset = width of the shadow strip inside wells.",
+    "cast": 1.8,
+    "inset": 2.6
+  },
+
+  "keywave": {
+    "_about": "Seaboard keywave, from seaboard-m.png. Fractions of a white-key pitch (x) or of the key region height (y).",
+    "blackW": 0.38, "band": 0.28, "penumbra": 0.12, "jog": 0.55,
+    "railTop": 0.14, "step": 0.51, "railBottom": 0.83
+  },
+
+  "devices": {
+    "block":  { "bodyRadius": 10 },
+    "rise":   { "bodyRadius": 10,
+                "body": { "base": "#38383b", "lit": "#444448", "mid": "#2e2e31", "deep": "#232325" },
+                "keywave": { "railTop": 0.09, "step": 0.55, "railBottom": 0.88 } },
+    "grand":  { "bodyRadius": 14,
+                "_body_options": "metal (matches the photo) or wood (per the brief): swap the body tones",
+                "body": { "base": "#424347", "lit": "#55565b", "mid": "#323336", "deep": "#252628" },
+                "_wood": { "base": "#6b4a2e", "lit": "#80593a", "mid": "#553a24", "deep": "#3f2b1b" },
+                "pill": "#8c9097",
+                "keywave": { "railTop": 0.17, "step": 0.55, "railBottom": 0.88 } },
+    "lumi":   { "bodyRadius": 11, "whiteKey": "#e9ebee", "blackKey": "#15161b",
+                "keyTopWash": 0.22, "blackWash": 0.30, "castShadow": 0.34,
+                "_size": "fractions of a white-key pitch, measured from piano-m2.png",
+                "gap": 0.16, "frameW": 0.70, "faceW": 0.30, "blackH": 0.60 },
+    "lightpad": { "bodyRadius": 10, "dotOff": 0.07 },
+    "control":  { "bodyRadius": 10, "iconUseAccent": false }
+  },
+
+  "controlAccents": { "touch": "#B39CFF", "loop": "#35D0C6", "live": "#FF9A3C", "developer": "#E6E6EE" }
+}

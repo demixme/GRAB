@@ -1,0 +1,94 @@
+{
+  "_about": "GRAB device-art kit. Tiles are authored at 100 units per white-key pitch; scale each to (pitch, key-region height) and place it: whites at their left edge, blacks and gaps on the boundary between two whites. Surrounds are 3-slice: left/right fixed, mid stretched.",
+  "tileWidth": 100,
+  "families": {
+    "block": {
+      "surround": "block",
+      "left": 20,
+      "right": 20,
+      "keys": {
+        "left": 3,
+        "right": 3,
+        "top": 3,
+        "bottom": 3
+      },
+      "radius": 10,
+      "tiles": {
+        "white": "seaboard-white",
+        "gap": "seaboard-gap",
+        "black": "seaboard-black",
+        "tileHeight": 700
+      },
+      "pitch": 42.43
+    },
+    "rise": {
+      "surround": "rise",
+      "left": 150,
+      "right": 44,
+      "keys": {
+        "left": 146,
+        "right": 40,
+        "top": 31,
+        "bottom": 39
+      },
+      "radius": 10,
+      "tiles": {
+        "white": "seaboard-white",
+        "gap": "seaboard-gap",
+        "black": "seaboard-black",
+        "tileHeight": 700
+      },
+      "pitch": 35.8
+    },
+    "grand": {
+      "surround": "grand",
+      "left": 30,
+      "right": 30,
+      "keys": {
+        "left": 26,
+        "right": 26,
+        "top": 86,
+        "bottom": 28
+      },
+      "radius": 14,
+      "ornament": {
+        "file": "grand-button",
+        "centre_x": 0.5,
+        "y": 0
+      },
+      "tiles": {
+        "white": "seaboard-white",
+        "gap": "seaboard-gap",
+        "black": "grand-black",
+        "tileHeight": 700
+      },
+      "pitch": 21.75
+    },
+    "lumi": {
+      "surround": "lumi",
+      "left": 150,
+      "right": 70,
+      "keys": {
+        "left": 3,
+        "right": 3,
+        "top": 61,
+        "bottom": 4
+      },
+      "radius": 11,
+      "tiles": {
+        "white": "lumi-white",
+        "black": "lumi-black",
+        "gap": null,
+        "tileHeight": 550
+      },
+      "pitch": 42.43,
+      "pitchOverrides": {
+        "ROLI Piano 49": 36.5
+      }
+    }
+  },
+  "fixed": {
+    "lightpad": "lightpad-block",
+    "control": "control-block + icons-<variant>"
+  }
+}
