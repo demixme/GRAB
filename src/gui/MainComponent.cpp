@@ -338,6 +338,24 @@ MainComponent::MainComponent()
 
     addAndMakeVisible (diagnoseBtn);
     diagnoseBtn.onClick = [this] { openDialog (new DiagnosePanel(), "Diagnose connection"); };
+
+    // Bento "Tools..." menu - one button folding the three tool actions so the controls tile stays
+    // tidy. It drives the existing buttons (triggerClick), which stay as the logic owners (hidden).
+    addAndMakeVisible (toolsBtn);
+    toolsBtn.onClick = [this]
+    {
+        juce::PopupMenu m;
+        m.addItem (1, "Diagnose connection...");
+        m.addItem (2, "Advanced...");
+        m.addItem (3, "Contribute...");
+        m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (toolsBtn),
+            [this] (int r)
+            {
+                if (r == 1) diagnoseBtn.triggerClick();
+                else if (r == 2) advancedBtn.triggerClick();
+                else if (r == 3) contributeBtn.triggerClick();
+            });
+    };
     addAndMakeVisible (reloadButton);
     addAndMakeVisible (saveButton);
     addAndMakeVisible (autosaveToggle);
@@ -717,7 +735,7 @@ void MainComponent::setBlocksControlsVisible (bool visible)
     // Note: blockLabel/blockBox (the "ROLI device:" switcher) are NOT here - they're shown in both
     // BLOCKS and RISE modes and their visibility is driven by fillDeviceBox() (hidden for one device).
     for (auto* c : std::initializer_list<juce::Component*> { &reloadButton, &saveButton, &autosaveToggle,
-                                                            &presetBox, &contributeBtn, &viewport })
+                                                            &presetBox, &contributeBtn, &toolsBtn, &viewport })
         c->setVisible (visible);
 }
 
@@ -2953,14 +2971,8 @@ void MainComponent::forceLightpadPreview()
 void MainComponent::resized()
 {
     footer.setBounds (getLocalBounds().removeFromBottom (26));   // full-width strip at the very bottom
-    auto r = getLocalBounds().withTrimmedBottom (26).reduced (8);
-    // Shared top strip (both pages): persistent device bar on the left, transient status filling the
-    // rest on the right. One home for device/battery info; no more per-page duplicates.
-    auto topRow = r.removeFromTop (28);
-    deviceInfo.setBounds (topRow.removeFromLeft (juce::jmin (600, topRow.getWidth() * 3 / 5)));
-    topRow.removeFromLeft (12);
-    statusLabel.setBounds (topRow);
-    r.removeFromTop (4);
+    auto r = getLocalBounds().withTrimmedBottom (26).reduced (grab::theme::space::gutter);
+    drawTileR = dashTileR = ctrlTileR = {};   // cleared unless the three-tile band is built (BLOCKS)
 
     // The keyboard graphic (keyboard devices only) sits above the config content.
     auto placeKeyboard = [this] (juce::Rectangle<int>& area)
@@ -2984,6 +2996,14 @@ void MainComponent::resized()
     // rest of the window. (The BLOCKS-only controls are hidden by setBlocksControlsVisible.)
     if (rise2Page != nullptr)
     {
+        // The RISE page keeps the single-line device strip + status above its own controls.
+        deviceInfo.setStyle (DeviceInfoBar::Style::strip);
+        auto topRow = r.removeFromTop (28);
+        deviceInfo.setBounds (topRow.removeFromLeft (juce::jmin (600, topRow.getWidth() * 3 / 5)));
+        topRow.removeFromLeft (12);
+        statusLabel.setBounds (topRow);
+        r.removeFromTop (4);
+
         auto row = r.removeFromTop (30);
         diagnoseBtn.setBounds (row.removeFromLeft (100).reduced (2, 0));
         row.removeFromLeft (8);
@@ -3005,29 +3025,58 @@ void MainComponent::resized()
         return;
     }
 
-    auto buttons = r.removeFromTop (30);
-    const int bw = 165;
-    reloadButton.setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
-    saveButton  .setBounds (buttons.removeFromLeft (150).reduced (2, 0));
-    autosaveToggle.setBounds (buttons.removeFromLeft (90).reduced (2, 0));
-    buttons.removeFromLeft (8);
-    presetBox.setBounds (buttons.removeFromLeft (190).reduced (2, 0));
-    r.removeFromTop (6);
+    // --- Bento top row: three tiles, device drawing | dashboard | controls ---------------------
+    deviceInfo.setStyle (DeviceInfoBar::Style::dashboard);
+    // These three live in the Tools menu now; keep them as hidden logic owners on this page.
+    advancedBtn.setBounds ({}); diagnoseBtn.setBounds ({}); contributeBtn.setBounds ({});
+    transportLabel.setBounds ({}); blockLabel.setBounds ({});
 
-    auto trow = r.removeFromTop (26);
-    contributeBtn.setBounds (trow.removeFromRight (100).reduced (2, 0));
-    advancedBtn.setBounds (trow.removeFromRight (92).reduced (2, 0));
-    trow.removeFromRight (10);
-    transportLabel.setBounds (trow.removeFromLeft (130));
-    transportBox.setBounds (trow.removeFromLeft (92).reduced (2, 0));
-    trow.removeFromLeft (8);
-    diagnoseBtn.setBounds (trow.removeFromLeft (100).reduced (2, 0));
-    trow.removeFromLeft (10);
-    blockLabel.setBounds (trow.removeFromLeft (84));
-    blockBox.setBounds (trow.reduced (2, 0));
-    r.removeFromTop (6);
+    const int gutter = grab::theme::space::gutter;   // 12
+    const int padX   = grab::theme::space::tilePadX;  // 16
+    const int padY   = grab::theme::space::tilePadY;  // 12
+    const int bandH  = 196;   // fits the controls stack / dashboard; the 96px art centres within it
+    auto band = r.removeFromTop (bandH);
+    r.removeFromTop (gutter);
 
-    placeKeyboard (r);
+    const int ctrlW = juce::jlimit (200, 260, band.getWidth() / 4);
+    const int dashW = juce::jlimit (200, 300, band.getWidth() / 4);
+    ctrlTileR = band.removeFromRight (ctrlW);  band.removeFromRight (gutter);
+    dashTileR = band.removeFromRight (dashW);  band.removeFromRight (gutter);
+    drawTileR = band;   // the device drawing takes the remaining (widest) space
+
+    // Drawing tile: the device art at its fixed scale, centred by KeyboardView.
+    if (keyboardView.isVisible())
+        keyboardView.setBounds (drawTileR.reduced (padX, padY));
+
+    // Dashboard tile: vertical device info, with the ROLI-device switcher below it when present.
+    {
+        auto d = dashTileR.reduced (padX, padY);
+        if (blockBox.isVisible())
+            blockBox.setBounds (d.removeFromBottom (30));
+        deviceInfo.setBounds (d);
+    }
+
+    // Controls tile: preset; read + save; autosave + tools; connection type; transient status.
+    {
+        auto c = ctrlTileR.reduced (padX, padY);
+        const int rowH = 30, gap = 8;
+        presetBox.setBounds (c.removeFromTop (rowH));
+        c.removeFromTop (gap);
+        auto rs = c.removeFromTop (rowH);
+        reloadButton.setBounds (rs.removeFromLeft ((rs.getWidth() - gap) / 2));
+        rs.removeFromLeft (gap);
+        saveButton.setBounds (rs);
+        c.removeFromTop (gap);
+        auto at = c.removeFromTop (rowH);
+        autosaveToggle.setBounds (at.removeFromLeft ((at.getWidth() - gap) / 2));
+        at.removeFromLeft (gap);
+        toolsBtn.setBounds (at);
+        c.removeFromTop (gap);
+        transportBox.setBounds (c.removeFromTop (rowH));
+        c.removeFromTop (gap);
+        statusLabel.setBounds (c.removeFromTop (18));
+    }
+
     viewport.setBounds (r);
     busyLabel.setBounds (r);   // overlay centred over the content area (shown during a reset)
 
@@ -3045,4 +3094,10 @@ void MainComponent::resized()
 void MainComponent::paint (juce::Graphics& g)
 {
     g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
+
+    // The bento top-row tiles (BLOCKS page). Empty rects on the RISE page / when there's no art.
+    g.setColour (grab::theme::panel);
+    for (auto t : { drawTileR, dashTileR, ctrlTileR })
+        if (! t.isEmpty())
+            g.fillRoundedRectangle (t.toFloat(), grab::theme::radius::tile);
 }

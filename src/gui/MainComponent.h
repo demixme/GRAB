@@ -259,6 +259,10 @@ private:
     juce::ComboBox     blockBox;
     juce::TextButton   advancedBtn   { "Advanced..." };
     juce::TextButton   contributeBtn { "Contribute..." };
+    juce::TextButton   toolsBtn      { "Tools..." };    // bento: one menu for Diagnose / Advanced / Contribute
+    // Top-row bento tiles (BLOCKS page): device drawing | dashboard | controls. Painted by paint(),
+    // positioned by resized(); empty when the three-tile band isn't in use (RISE page / no device art).
+    juce::Rectangle<int> drawTileR, dashTileR, ctrlTileR;
     juce::TextButton   reloadButton  { "Reload from device" };
     juce::TextButton   diagnoseBtn   { "Diagnose..." };
     juce::TextButton   saveButton    { "Save to device" };
