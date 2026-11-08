@@ -68,35 +68,41 @@ public:
         g.setColour (well);
         g.fillRoundedRectangle (full.toFloat(), radius::tile);
 
-        auto keysR = full.reduced (compact ? 12 : 18, compact ? 10 : 14);
+        auto full2 = full.reduced (compact ? 12 : 18, compact ? 10 : 14);
+        // Cap the keybed to a stable height (centred) so the slide/vertical axis reads the same
+        // whatever the window height; the component still fills the area it replaces.
+        auto keysR = compact ? full2 : full2.withHeight (juce::jmin (full2.getHeight(), 260))
+                                             .withY (full2.getY() + juce::jmax (0, (full2.getHeight() - 260) / 3));
         const float x0 = (float) keysR.getX(), w = (float) keysR.getWidth();
         const float top = (float) keysR.getY(), h = (float) keysR.getHeight();
         const float tickH = h * (compact ? 0.42f : 0.5f);
-        const int   whites = whiteCount();
 
-        // Black keys as short ticks from the top; a label under each physical C (name shifted).
+        // Piano layout, matching the device graphic: a touch's nx maps linearly across the (piano-
+        // proportioned) keybed, so the ring lands exactly where the device shows it. White keys are
+        // faint dividers, black keys short ticks, and each key that *sounds* as a C (physical + octave
+        // + transpose) is labelled - so labels, the ring and the readout all agree and track octave.
         g.setFont (grab::theme::type::font (compact ? grab::theme::type::Role::caption
                                                     : grab::theme::type::Role::body));
-        int wIdx = 0;
-        for (int n = low; n < low + count; ++n)
+        for (int s = 0; s < count; ++s)
         {
+            const int   n  = low + s;
+            const float fx = x0 + w * pianoX (s);
             if (isBlack (n))
             {
-                const float fx = x0 + w * whiteFraction (wIdx, whites);
                 g.setColour (grid);
                 g.fillRect (juce::Rectangle<float> (fx - (compact ? 0.5f : 1.0f), top, compact ? 1.0f : 2.0f, tickH));
                 continue;
             }
-            if (n % 12 == 0)   // physical C: a fixed C-grid reference (C3/C4/C5); octave/transpose show
-            {                   // in the readout note, not here, so the grid stays stable.
-                const float fx = x0 + w * (float) wIdx / (float) whites;
+            g.setColour (grid.withAlpha (compact ? 0.35f : 0.5f));
+            g.drawVerticalLine (juce::roundToInt (fx), top, top + h);
+            if (posMod (n + shift, 12) == 0)   // a key that sounds as a C
+            {
                 g.setColour (label);
-                g.drawText (noteName (n),
+                g.drawText (noteName (n + shift),
                             juce::Rectangle<float> (fx + 2.0f, top + h - (compact ? 14.0f : 18.0f),
                                                     42.0f, 18.0f),
                             juce::Justification::centredLeft);
             }
-            ++wIdx;
         }
 
         // Touch rings: a Press-hue ring (grows with pressure), a Strike-red centre dot (its initial
@@ -133,7 +139,7 @@ private:
     void paintTouchReadout (juce::Graphics& g, const Live& t, float cx, float cy, float rad, float bottom, float a)
     {
         using namespace grab::theme;
-        const int note = juce::roundToInt (low + t.dx * (count - 1)) + shift;
+        const int note = noteAtX (t.dx) + shift;
         const int vals[4] = { juce::roundToInt (t.strike * 127), juce::roundToInt (t.dz * 127),
                               juce::roundToInt (t.glide * 127),  juce::roundToInt (t.dy * 127) };
         const juce::Colour cols[4] = { strike, press, glide, slide };
@@ -158,18 +164,34 @@ private:
         }
     }
 
+    static int posMod (int a, int m) { return ((a % m) + m) % m; }
     static bool isBlack (int note)
     {
-        switch (((note % 12) + 12) % 12) { case 1: case 3: case 6: case 8: case 10: return true; default: return false; }
+        switch (posMod (note, 12)) { case 1: case 3: case 6: case 8: case 10: return true; default: return false; }
     }
     int whiteCount() const
     {
-        int w = 0;
-        for (int n = low; n < low + count; ++n) if (! isBlack (n)) ++w;
-        return juce::jmax (1, w);
+        int c = 0;
+        for (int i = 0; i < count; ++i) if (! isBlack (low + i)) ++c;
+        return juce::jmax (2, c);
     }
-    // The x fraction of a black key: midway between the surrounding white indices.
-    static float whiteFraction (int wIdx, int whites) { return (wIdx - 0.5f) / (float) whites; }
+    // x fraction (0..1) of semitone s (0-based from low) in a piano layout: whites evenly spaced,
+    // each black midway to the next white. This is the same proportion the device art uses, so a
+    // touch's nx (linear across the keybed) and this agree.
+    float pianoX (int s) const
+    {
+        int wi = 0;
+        for (int i = 0; i < s; ++i) if (! isBlack (low + i)) ++wi;
+        const float x = isBlack (low + s) ? (float) wi - 0.5f : (float) wi;
+        return x / (float) (whiteCount() - 1);
+    }
+    // The note under an nx (0..1 across the keybed): the semitone whose piano-x is nearest.
+    int noteAtX (float f) const
+    {
+        int best = 0; float bd = 1.0e9f;
+        for (int s = 0; s < count; ++s) { const float d = std::abs (pianoX (s) - f); if (d < bd) { bd = d; best = s; } }
+        return low + best;
+    }
 
     static juce::String noteName (int midi)
     {

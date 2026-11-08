@@ -1938,6 +1938,7 @@ void MainComponent::applyLiveConfigChange (const roli::Block::ConfigMetaData& me
     updateSaveEnabled();
     updateLumiKeyboardColours();   // a device-reported change (scale/key/colour/mode) re-lights the graphic
     pushChordGhosts();             // ...and a Chord-mode change re-aims the touch ghosts
+    if (liveKeys) updateLiveStripRange();   // Octave/Transpose from the device move the Live-keys labels
 }
 
 void MainComponent::rebuildRows()
@@ -3363,7 +3364,7 @@ void MainComponent::resized()
         backToSettingsBtn.setBounds (head.removeFromRight (150));
         liveKeysLabel.setBounds (head);
         r.removeFromTop (8);
-        liveStrip.setBounds (r);
+        liveStrip.setBounds (r);   // fills the replaced settings area; the keybed caps its own height inside
         busyLabel.setBounds (r);
         return;
     }
