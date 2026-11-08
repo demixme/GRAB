@@ -43,8 +43,8 @@ def required(root):
         n = int(root.get("data-grab-grid", 15))
         req += ["grid-leds"] + [f"led-{r}-{c}" for r in range(n) for c in range(n)]
     if fam == "control":
-        req += ["led-strip", "buttons", "button-leds", "icons", "btn-pill"]
-        req += [f"led-{i}" for i in range(13)] + [f"btn-{i}" for i in range(8)] + [f"btnled-{i}" for i in range(10)]
+        req += ["led-strip", "buttons", "icons", "btn-pill"]
+        req += [f"led-{i}" for i in range(13)] + [f"btn-{i}" for i in range(8)]
     return fam, req
 
 
