@@ -324,12 +324,42 @@ static constexpr int rowHeight = 30;
 static constexpr int buttonRowHeight = 74;   // Control-block button rows: CC+behaviour over default/min/max, two lines of captions
 static constexpr int sectionHeaderHeight = 30;
 
-// Order config sections roughly like ROLI Dashboard (Sensitivity / 5D first).
+// Fred's section + order for a BLOCKS field, by name (the real device's ids differ from the sim, so
+// name is the robust key). Unmatched names keep their original group. See template.html device tiles.
+static juce::String fredGroupBlocks (const juce::String& n, const juce::String& fallback)
+{
+    if (fallback == "Sensitivity") return "Sensitivity";   // 5D curves + fixed velocity stay put
+    if (n == "MIDI Mode") return "MIDI output";
+    if (n.containsIgnoreCase ("MIDI Channel") || n == "No. MIDI Channels" || n.containsIgnoreCase ("Member")) return "MIDI output";
+    if (n == "Pitch Bend Range") return "MIDI output";
+    if (n == "Octave" || n == "Transpose" || n == "Semitone Legato" || n == "Scale" || n == "Key"
+        || n == "Active Mode" || n == "Key Pitch Bend Amount") return "Keyboard";
+    if (n.containsIgnoreCase ("Press") || n.containsIgnoreCase ("Glide") || n.containsIgnoreCase ("Slide")
+        || n == "Pitch Bend Tracking") return "Expression";
+    if (n.containsIgnoreCase ("Pedal")) return "Controller CCs";
+    if (n.containsIgnoreCase ("Port") || n.containsIgnoreCase ("Sleep")) return "Ports & power";
+    if (n.containsIgnoreCase ("Colour") || n.containsIgnoreCase ("Color") || n == "Brightness") return "Colors";
+    return fallback;   // Buttons, Mode N, Rhythm, etc.
+}
+static int fredOrderBlocks (const juce::String& n)
+{
+    if (n == "MIDI Mode") return 0;
+    if (n.containsIgnoreCase ("MIDI Channel") || n == "No. MIDI Channels" || n.containsIgnoreCase ("Member")) return 3;
+    if (n == "Pitch Bend Range") return 4;
+    if (n == "Octave") return 0; if (n == "Transpose") return 1; if (n == "Semitone Legato") return 2;
+    if (n == "Scale") return 3; if (n == "Key") return 4; if (n == "Active Mode") return 5; if (n == "Key Pitch Bend Amount") return 6;
+    if (n.containsIgnoreCase ("Slide Mode")) return 2; if (n.containsIgnoreCase ("Slide CC")) return 3;
+    if (n.containsIgnoreCase ("Glide")) return 0; if (n.containsIgnoreCase ("Press") || n == "Pitch Bend Tracking") return 1;
+    if (n.containsIgnoreCase ("Port Forward")) return 0; if (n.containsIgnoreCase ("Throttle")) return 1; if (n.containsIgnoreCase ("Sleep")) return 2;
+    return 0;
+}
+
+// Order config sections like Fred's layout (Sensitivity graph first, then the job-based groups).
 static int groupRank (const juce::String& g)
 {
     static const char* order[] = {
-        "Sensitivity", "MIDI Settings", "Pitch", "Keybed State", "Play mode",
-        "Pedal", "Colors", "Rhythm", "Mode 1", "Mode 2", "Mode 3", "Mode 4"
+        "Sensitivity", "MIDI output", "Expression", "Keyboard", "Controller CCs", "Colors",
+        "Ports & power", "Pedal", "Rhythm", "Mode 1", "Mode 2", "Mode 3", "Mode 4", "Buttons"
     };
     for (int i = 0; i < (int) (sizeof (order) / sizeof (order[0])); ++i)
         if (g == order[i])
@@ -1844,6 +1874,8 @@ void MainComponent::rebuildRows()
 
         grab::applyLearnedNames (meta, learnedNames);  // names pulled from the store (user renames win)
 
+        meta.group = fredGroupBlocks (meta.name, meta.group);   // regroup into Fred's job-based sections
+
         deviceValues[meta.item] = value;
         pendingValues[meta.item] = value;
 
@@ -1869,14 +1901,10 @@ void MainComponent::rebuildRows()
     std::stable_sort (groupOrder.begin(), groupOrder.end(),
                       [] (const juce::String& a, const juce::String& b) { return groupRank (a) < groupRank (b); });
 
-    // Lead fields within a card: MIDI Mode sits at the top of its group (Fred's MIDI output), the
-    // rest keep their device id order.
+    // Order fields within each card to Fred's tile order (MIDI Mode first in MIDI output, etc.).
     for (auto& kv : groups)
         std::stable_sort (kv.second.begin(), kv.second.end(), [] (const Item& a, const Item& b)
-        {
-            auto lead = [] (const Item& it) { return it.meta.name == "MIDI Mode" ? 0 : 1; };
-            return lead (a) < lead (b);
-        });
+        { return fredOrderBlocks (a.meta.name) < fredOrderBlocks (b.meta.name); });
 
     // The 5D sensitivity config ids -> curve panels (Strike/Glide/Slide/Press/Lift).
     struct Dim { juce::uint32 id; const char* label; juce::uint32 colour; int minId; int maxId; };

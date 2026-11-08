@@ -177,6 +177,37 @@ bool isGrandField (juce::uint32 id)
         || id == kOctave || id == kGlideTracking || id == kPressTracking;
 }
 
+// Fred's section + order for a RISE/GRAND field (design/ui/prototype/template.html device tiles).
+// Unmapped ids (the 5D sensitivities, fixed velocity) stay in "Sensitivity".
+juce::String fredGroupRise (juce::uint32 id)
+{
+    switch (id)
+    {
+        case kMode: case kZone: case kChannel: case kMembers: case kBend:                return "MIDI output";
+        case kGlideTracking: case kPressTracking: case kSlideMode: case kSlideCc:         return "Expression";
+        case kOctave: case kTranspose: case kSemitoneLegato:                              return "Keyboard";
+        case kFaderLeftCc: case kFaderMiddleCc: case kFaderRightCc:
+        case kXyXCc: case kXyYCc: case kPedalCc:                                          return "Controller CCs";
+        case kPortForwarding: case kPortThrottle:                                         return "Ports & power";
+        case kPedal1Cc: case kPedal2Cc: case kPedal3Cc:                                   return "Pedals";
+        default:                                                                          return "Sensitivity";
+    }
+}
+int fredOrderRise (juce::uint32 id)
+{
+    switch (id)
+    {
+        case kMode: return 0; case kZone: return 1; case kChannel: return 2; case kMembers: return 3; case kBend: return 4;
+        case kGlideTracking: return 0; case kPressTracking: return 1; case kSlideMode: return 2; case kSlideCc: return 3;
+        case kOctave: return 0; case kTranspose: return 1; case kSemitoneLegato: return 2;
+        case kFaderLeftCc: return 0; case kFaderMiddleCc: return 1; case kFaderRightCc: return 2;
+        case kXyXCc: return 3; case kXyYCc: return 4; case kPedalCc: return 5;
+        case kPortForwarding: return 0; case kPortThrottle: return 1;
+        case kPedal1Cc: return 0; case kPedal2Cc: return 1; case kPedal3Cc: return 2;
+        default: return 0;
+    }
+}
+
 const Field* findField (juce::uint32 id)
 {
     for (auto& f : fields())
@@ -778,7 +809,8 @@ void Rise2Component::rebuildRows()
     const auto include = [this] (juce::uint32 id)
     { return grand ? isGrandField (id) : ! isGrandOnlyField (id); };
 
-    const char* groupOrder[] = { "Sensitivity", "MIDI Settings", "Play mode", "MIDI CC Assignments", "Pedals", "Power" };
+    const char* groupOrder[] = { "Sensitivity", "MIDI output", "Expression", "Keyboard",
+                                 "Controller CCs", "Pedals", "Ports & power" };
     for (auto* g : groupOrder)
     {
         const juce::String group (g);
@@ -820,13 +852,13 @@ void Rise2Component::rebuildRows()
             }
         }
 
-        if (group == "MIDI CC Assignments")
+        if (group == "Controller CCs")
         {
             // Three touch faders as vertical faders + the XY pad as a 2D control; pedal is a row.
             // Each shows a live meter of its assigned CC (animated from the device's MIDI).
             faderPanel = std::make_unique<FaderPanel>();
             for (auto& f : fields())
-                if (juce::String (f.group) == group && isFaderField (f.id) && include (f.id)
+                if (fredGroupRise (f.id) == group && isFaderField (f.id) && include (f.id)
                     && f.id != kXyXCc && f.id != kXyYCc)
                 {
                     auto* fader = faderPanel->add (std::make_unique<Fader> (
@@ -849,14 +881,20 @@ void Rise2Component::rebuildRows()
                 card->addItem (*faderPanel, 150);
 
             for (auto& f : fields())
-                if (juce::String (f.group) == group && ! isFaderField (f.id) && ! isCurve (f.id) && include (f.id))
+                if (fredGroupRise (f.id) == group && ! isFaderField (f.id) && ! isCurve (f.id) && include (f.id))
                     addRow (f);
         }
         else
         {
+            // Collect this section's fields and lay them in Fred's order.
+            std::vector<const Field*> inGroup;
             for (auto& f : fields())
-                if (juce::String (f.group) == group && ! isCurve (f.id) && ! isCurveMinMax (f.id) && include (f.id))
-                    addRow (f);
+                if (fredGroupRise (f.id) == group && ! isCurve (f.id) && ! isCurveMinMax (f.id) && include (f.id))
+                    inGroup.push_back (&f);
+            std::stable_sort (inGroup.begin(), inGroup.end(),
+                              [] (const Field* a, const Field* b) { return fredOrderRise (a->id) < fredOrderRise (b->id); });
+            for (auto* f : inGroup)
+                addRow (*f);
         }
 
         if (! card->isEmpty())   // skip a section with no fields for this device (e.g. Pedals on a RISE)
