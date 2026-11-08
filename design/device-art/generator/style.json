@@ -193,8 +193,8 @@
           "base": "#28272c",
           "lip": "#3e3d42",
           "trayRim": "#101014",
-          "trayInset": "#212327",
-          "tray": "#2f3135",
+          "trayInset": "#1e1d22",
+          "tray": "#262529",
           "buttonRing": "#2b2b2e",
           "buttonFace": "#242328",
           "buttonMark": "#7d7c80"
@@ -235,7 +235,8 @@
           "haloY": 0.02
         },
         "flat": true,
-        "_simplified": "flat body (no lit front lip), plain button, pills without halos or toes"
+        "_simplified": "flat body (no lit front lip), plain button, pills without halos or toes",
+        "face": "#2a292e"
       }
     },
     "lumi": {
