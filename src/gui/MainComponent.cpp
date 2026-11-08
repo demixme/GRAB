@@ -140,8 +140,26 @@ ConfigRow::ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value
                     names.add (meta.optionNames[i]);
 
             // Compact labels for segments: drop a redundant " Channel" suffix (Multi Channel -> Multi).
+            // segVals[i] is the device value the label maps to (range.start + name index), so the
+            // display order can differ from the firmware's value order.
             juce::StringArray shortNames;
-            for (auto& n : names) shortNames.add (n.endsWith (" Channel") ? n.dropLastCharacters (8) : n);
+            juce::Array<int>  segVals;
+            for (int i = 0; i < names.size(); ++i)
+            {
+                auto& n = names[i];
+                shortNames.add (n.endsWith (" Channel") ? n.dropLastCharacters (8) : n);
+                segVals.add (range.getStart() + i);
+            }
+
+            // MIDI mode reads MPE first everywhere (Fred's design), whatever value the firmware gives
+            // it: the real Block reports Multi/MPE/Single, RISE reports MPE/Multi/Single. Move the MPE
+            // segment to the front, keeping the value map intact so we still write the firmware's value.
+            const int mpeIdx = shortNames.indexOf ("MPE");
+            if (mpeIdx > 0)
+            {
+                shortNames.move (mpeIdx, 0);
+                segVals.move    (mpeIdx, 0);
+            }
 
             // A few short labels -> segmented buttons (MIDI mode, zone, pedal type); otherwise a
             // dropdown (long labels, or many options like the 19 scales).
@@ -149,15 +167,19 @@ ConfigRow::ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value
             useSegmented = names.size() >= 2 && names.size() <= 3 && maxLen <= 10;
             if (useSegmented)
             {
-                segmented.setItems (shortNames);
-                segmented.setSelectedIndex (value - range.getStart(), false);
+                segmented.setItems (shortNames, segVals);
+                segmented.setSelectedValue (value, false);
                 segmented.onChange = [this] { fireChange(); };
                 control = &segmented;
             }
             else
             {
                 for (int i = 0; i < names.size(); ++i) combo.addItem (names[i], i + 1);   // itemId = index + 1
-                combo.setSelectedId ((value - range.getStart()) + 1, juce::dontSendNotification);
+                // Clamp into the valid set: some devices report an out-of-range option value (the GRAND
+                // sends 0 for Glide & Slide Tracking, range 1-4, so it never reports it) - show the first
+                // option rather than a blank box.
+                combo.setSelectedId (juce::jlimit (0, names.size() - 1, value - range.getStart()) + 1,
+                                     juce::dontSendNotification);
                 combo.onChange = [this] { fireChange(); };
                 control = &combo;
             }
@@ -234,8 +256,8 @@ juce::int32 ConfigRow::getValue() const
     switch (type)
     {
         case ConfigType::boolean: return toggle.getToggleState() ? 1 : 0;
-        case ConfigType::options: return range.getStart() + (useSegmented ? segmented.getSelectedIndex()
-                                                                          : combo.getSelectedId() - 1);
+        case ConfigType::options: return useSegmented ? segmented.getSelectedValue()
+                                                      : range.getStart() + combo.getSelectedId() - 1;
         case ConfigType::integer: return (juce::int32) juce::roundToInt (slider.getValue());
         case ConfigType::colour:  return (juce::int32) colourWell.getSwatchColour().getARGB();
         default:                  return readOnly.getText().getIntValue();
@@ -257,7 +279,7 @@ void ConfigRow::setValue (juce::int32 v)
     {
         case ConfigType::boolean: toggle.setToggleState (v != 0, juce::dontSendNotification); break;
         case ConfigType::options:
-            if (useSegmented) segmented.setSelectedIndex (v - range.getStart(), false);
+            if (useSegmented) segmented.setSelectedValue (v, false);
             else              combo.setSelectedId ((v - range.getStart()) + 1, juce::dontSendNotification);
             break;
         case ConfigType::integer: slider.setValue ((double) v, juce::dontSendNotification); break;
