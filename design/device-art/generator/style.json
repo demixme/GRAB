@@ -39,9 +39,9 @@
       "colour": {
         "body": "#282828",
         "face": "#282828",
-        "ridge": "#2b2b2b",
-        "cap": "#2d2d2d",
-        "litEdge": "#2b2b2b",
+        "ridge": "#282828",
+        "cap": "#282828",
+        "litEdge": "#282828",
         "shoulder": "#242424",
         "soft": "#1f1f1f",
         "deep": "#181818",
