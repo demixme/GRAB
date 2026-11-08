@@ -104,14 +104,58 @@ Two host pages share these widgets (the **BLOCKS page in `MainComponent`** and
 3. **Panels** — restyle `SectionCard` / `ConfigRow`.
 4. **5D overlay graph** — the new shared component replacing the `CurveComponent` row.
 
+Plus the four behaviour changes settled below — fold each into the step it belongs to
+(settings `group` field with the panels step; title bar and resize limits with the zones
+step; sentence case is independent and can land any time).
+
+---
+
+## Settled questions (from PR #23 review, 2026-11-08)
+
+Fred's prototype (`design/ui/`) raised seven open points in `design/ui/README.md`. Resolved:
+
+**Confirmed from the code / no work:**
+- **GRAND dimensions — Glide-only is correct.** "4D" means the four *performance*
+  dimensions the GRAND responds to (Strike, Glide, Press, Lift — no Slide). The only
+  *editable sensitivity curve* its firmware exposes is **Glide**; it also has glide tracking
+  (CC73) and press mode (CC75), but no Strike/Press/Lift sensitivity fields. Confirmed in
+  `isGrandField` ([`Rise2Component.cpp`](../../src/gui/Rise2Component.cpp)) against
+  BabeleDunnit's real GRAND captures (issue #6). The 5D graph correctly collapses to one
+  Glide curve for a GRAND — drive it from `fieldShown` / `isGrandField`, never a hardcoded
+  five.
+- **Live view / keystroke map data source — fine as proposed.** GRAB already reads note
+  on/off, pitch bend (glide), CC74 (slide) and pressure for live sync, plus BLOCKS touch
+  data for Lightpads in a cluster. Wire straight to it.
+- **Cluster-demo placeholders** (button names, scale options, sleep-time units) are prototype
+  stand-ins; they get real device data when wired. No action.
+
+**Decisions — all YES (become the Track B work items below):**
+- **Regroup settings by job.** Add a `group` field to the field table; adopt MIDI output /
+  Expression / Keyboard / Controller CCs / Ports & power, and move Slide CC next to Slide mode.
+- **Sentence case everywhere.** Rewrite English strings to sentence case and update their
+  `TRANS` keys + the four translation files (fr/it/de/es).
+- **Custom title-bar chrome.** macOS: transparent full-size-content title bar with native
+  traffic lights (Obj-C++ on the peer `NSWindow` — `titlebarAppearsTransparent`,
+  `NSWindowStyleMaskFullSizeContentView`, hidden title, ~78 px left inset). Windows/Linux:
+  `setUsingNativeTitleBar(false)` + a `GrabLookAndFeel`-drawn bar with min/max/close on the right.
+- **Minimum window 600×700** via `setResizeLimits` (GRAB has none today).
+
+Posted back to Fred on PR #23. Device-art follow-up (his ask): trim the dropped
+`button-leds`/`btnled-*` from the generator's validator id list (Control Blocks now light the
+icon, not a ring).
+
 ---
 
 ## Hand-off checklist
 
-- [ ] Fred: clickable prototype (full + narrow width, all zones, 5D graph, control states)
-- [ ] Fred: token sheet (colours, type, spacing/shape, zone proportions, 5D graph spec)
+- [x] Fred: clickable prototype (full + narrow width, all zones, 5D graph, control states) — PR #23
+- [x] Fred: token sheet (colours, type, spacing/shape, zone proportions, 5D graph spec) — PR #23
 - [ ] Us: port tokens → `GrabLookAndFeel` / `Theme.h`
 - [ ] Us: zones → `MainComponent` + `Rise2Component`
 - [ ] Us: restyle `SectionCard` / `ConfigRow`
 - [ ] Us: 5D overlay graph (shared curve math)
-- [ ] Us: verify I/O, presets, live sync, GRAND 4D on CI + device
+- [ ] Us: settings `group` field in the field table → by-job grouping (Slide CC by Slide mode)
+- [ ] Us: sentence-case strings + `TRANS` keys + fr/it/de/es translation files
+- [ ] Us: custom title-bar chrome (macOS peer Obj-C++ + Win/Linux `GrabLookAndFeel` bar)
+- [ ] Us: `setResizeLimits(600, 700, …)` minimum window
+- [ ] Us: verify I/O, presets, live sync, GRAND 4D (Glide-only) on CI + device
