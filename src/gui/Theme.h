@@ -154,11 +154,15 @@ namespace grab::theme
             }
         }
 
-        // Fred's design sizes are CSS px (20 readouts, 13 names, 12 values, 11 captions). JUCE's
-        // withHeight on Windows renders those SMALLER than the browser does (height counts the em's
-        // ascent+descent, so the visible glyphs end up below the CSS px), so we scale up to land on
-        // the web-intended size. One knob to tune the whole type ramp if it reads large or small.
-        inline constexpr float sizeScale = 1.18f;
+        // Fred's design sizes are CSS px (20 readouts, 13 names, 12 values, 11 captions). On Windows
+        // JUCE's withHeight counts the em's leading, so the visible glyphs land ~1.33x smaller than the
+        // browser's CSS px; macOS (CoreText) already matches the design, so the bump is Windows-only.
+        // One knob per platform to tune the whole type ramp if it reads large or small.
+       #if JUCE_WINDOWS
+        inline constexpr float sizeScale = 1.33f;
+       #else
+        inline constexpr float sizeScale = 1.0f;
+       #endif
 
         inline juce::Font font (Role r)
         {

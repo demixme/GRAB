@@ -3319,16 +3319,20 @@ void MainComponent::resized()
     const auto tb = splitTopBand (r);
     drawTileR = tb.draw; dashTileR = tb.dash; ctrlTileR = tb.ctrl;
 
-    // Drawing tile: the device art at its fixed scale, centred by KeyboardView, with the Device|Keys
-    // view toggle pinned to its top-right corner.
+    // Drawing tile: the device art centred by KeyboardView, with the Device|Keys view toggle in a
+    // reserved column on the right so it sits beside the art rather than over it.
     const bool showToggle = keyboardView.isVisible();
     viewToggle.setVisible (showToggle);
-    if (showToggle)
     {
-        keyboardView.setBounds (tb.draw.reduced (padX, padY));
-        viewToggle.setBounds (tb.draw.getRight() - padX - viewToggle.preferredWidth(),
-                              tb.draw.getY() + padY,
-                              viewToggle.preferredWidth(), viewToggle.preferredHeight());
+        auto drawArea = tb.draw.reduced (padX, padY);
+        if (showToggle)
+        {
+            auto col = drawArea.removeFromRight (viewToggle.preferredWidth());
+            viewToggle.setBounds (col.removeFromTop (viewToggle.preferredHeight()));
+            drawArea.removeFromRight (grab::theme::space::gutter);   // gap between art and toggle
+        }
+        if (keyboardView.isVisible())
+            keyboardView.setBounds (drawArea);
     }
 
     // Dashboard tile: vertical device info, with the ROLI-device switcher below it when present.
