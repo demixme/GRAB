@@ -28,6 +28,10 @@ public:
     explicit SensitivityGraph (ChangeFn onChangeToUse) : change (std::move (onChangeToUse)) {}
     ~SensitivityGraph() override { stopTimer(); }
 
+    // Mark Lift as not reported by this device (e.g. the Seaboard Block sends a fixed note-off): the
+    // Lift chip dims and its inspector says so, instead of silently showing no live data.
+    void setLiftUnsupported (bool b) { if (liftUnsupported != b) { liftUnsupported = b; repaint(); } }
+
     // A release: show a fading dot on the Lift curve at the release velocity (0..1). Lift is an event,
     // not a held value, so it pulses rather than tracking.
     void setLiftPulse (float velocity)
@@ -389,11 +393,12 @@ private:
             auto& d = dims[i];
             auto r = chipR[i];
             const bool on = (int) i == selected;
+            const bool dimmed = d.name == "Lift" && liftUnsupported;   // device doesn't report lift
             g.setColour (on ? segmentOn : raised);
             g.fillRoundedRectangle (r, 13.0f);
-            g.setColour (d.colour);
+            g.setColour (dimmed ? d.colour.withAlpha (0.4f) : d.colour);
             g.fillEllipse (r.getX() + 9.0f, r.getCentreY() - 4.0f, 8.0f, 8.0f);
-            g.setColour (on ? ink : ink2);
+            g.setColour (dimmed ? disabled : (on ? ink : ink2));
             g.setFont (cf);
             auto tr = r.withTrimmedLeft (22).withTrimmedRight (8);
             g.drawText (on ? d.name + "  " + juce::String (d.sens) : d.name, tr, juce::Justification::centredLeft);
@@ -425,6 +430,14 @@ private:
         g.setColour (ink2);
         g.setFont (grab::theme::type::font (grab::theme::type::Role::body));
         g.drawFittedText (d.desc, b.removeFromTop (54), juce::Justification::topLeft, 3);
+
+        // Lift on a device that doesn't report it: say so under the description.
+        if (d.name == "Lift" && liftUnsupported)
+        {
+            g.setColour (disabled);
+            g.setFont (grab::theme::type::font (grab::theme::type::Role::caption));
+            g.drawFittedText ("Not sent by this device.", b.removeFromTop (28), juce::Justification::topLeft, 2);
+        }
 
         // knobs
         for (auto& k : knobR)
@@ -569,6 +582,7 @@ private:
     std::vector<LiveInput> liveInputs;   // live finger inputs plotted on the selected curve
     float liftValue = 0.0f;              // last release velocity (for the Lift pulse)
     juce::uint32 liftStartMs = 0;        // when the lift pulse started (0 = none)
+    bool liftUnsupported = false;        // device doesn't report lift (fixed note-off)
     int selected = -1;
     Drag drag = Drag::none;
     int  dragStart = 0;

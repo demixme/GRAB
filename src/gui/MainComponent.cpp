@@ -1577,8 +1577,15 @@ void MainComponent::touchChanged (roli::TouchSurface&, const roli::TouchSurface:
         sensGraph->setLiveInputs (std::move (v));
 
         // Lift = release speed: on note-off the surface reports a negative zVelocity (pressing out).
+        // Some devices (Seaboard Block) send a fixed note-off / no release velocity - detect that
+        // (a release observed but never any velocity) and mark Lift unsupported.
         if (t.isTouchEnd)
-            sensGraph->setLiftPulse (juce::jlimit (0.0f, 1.0f, -t.zVelocity));
+        {
+            const float lift = juce::jlimit (0.0f, 1.0f, -t.zVelocity);
+            liftObserved = true;
+            if (lift > 0.02f) { liftReported = true; sensGraph->setLiftPulse (lift); }
+            sensGraph->setLiftUnsupported (liftObserved && ! liftReported);
+        }
     }
 }
 
@@ -1970,6 +1977,7 @@ void MainComponent::rebuildRows()
     rows.clear();
     sensGraph.reset();
     sensitivityCard = nullptr;
+    liftObserved = liftReported = false;   // re-assess lift support for the (possibly new) device
     rowHolder.removeAllChildren();
     deviceValues.clear();
     pendingValues.clear();

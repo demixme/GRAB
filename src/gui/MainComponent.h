@@ -240,6 +240,8 @@ private:
     std::map<juce::uint32, juce::int32> deviceValues;  // last values read from device
     std::map<juce::uint32, juce::int32> pendingValues; // edited values, rows + curves
     std::map<int, SensitivityGraph::LiveInput> liveInputs;  // per-finger input, plotted live on the 5D graph
+    bool liftObserved = false;   // we've seen at least one release on this device
+    bool liftReported = false;   // ...and at least one carried a real release velocity (device has lift)
     // Live-write: ids the user edited interactively, pending a throttled write to the device.
     // Preset-staged values are NOT in here — those still wait for an explicit Save.
     std::set<juce::uint32> dirtyWrites;

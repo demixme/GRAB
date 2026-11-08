@@ -105,25 +105,23 @@ public:
             }
         }
 
-        // Touch rings: a Press-hue ring (grows with pressure), a Strike-red centre dot (its initial
-        // impact) - matching the device graphic's markers. x follows glide; y follows slide the same
-        // way the device graphic does (slide 0 at the top, 1 at the bottom). The live 5D values ride
-        // with each finger, in their dimension hues - no static key.
-        const float ringMax = compact ? 20.0f : 46.0f, ringMin = compact ? 6.0f : 14.0f;
+        // Touch markers: identical in style/behaviour to the device graphic (KeyboardView). A Press-hue
+        // ring grows with pressure (outer), a Strike-hue disc grows with the initial strike and is
+        // clamped inside the ring so the ring is always visible around it. x follows glide, y follows
+        // slide (same orientation as the device graphic). Scaled up for the big view.
         for (auto& kv : touches)
         {
             auto& t = kv.second;
             const float cx = x0 + t.dx * w;
             const float cy = top + juce::jlimit (0.0f, 1.0f, t.dy) * h * 0.78f + h * 0.11f;
-            const float rad = ringMin + t.dz * ringMax;
-            const float a = t.releasing ? juce::jlimit (0.0f, 1.0f, t.fade) : 1.0f;
-            g.setColour (press.withAlpha (0.14f * a));
-            g.fillEllipse (cx - rad, cy - rad, rad * 2.0f, rad * 2.0f);
-            g.setColour (press.withAlpha (a));
-            g.drawEllipse (cx - rad, cy - rad, rad * 2.0f, rad * 2.0f, compact ? 1.5f : 2.5f);
-            g.setColour (strike.withAlpha (a));
-            const float dot = (compact ? 1.5f : 3.0f) + (compact ? 4.0f : 18.0f) * t.strike;   // grows with strike
-            g.fillEllipse (cx - dot, cy - dot, dot * 2.0f, dot * 2.0f);
+            const float a  = t.releasing ? juce::jlimit (0.0f, 1.0f, t.fade) : 1.0f;
+
+            const float strikeR = (compact ? 2.0f : 4.0f)  + juce::jlimit (0.0f, 1.0f, t.strike) * (compact ? 7.0f : 24.0f);
+            const float outer   = (compact ? 5.0f : 12.0f) + juce::jlimit (0.0f, 1.0f, t.dz)     * (compact ? 16.0f : 48.0f);
+            const float inner   = juce::jmin (strikeR, outer - 2.0f);
+            g.setColour (press.withAlpha  (0.12f * a)); g.fillEllipse (juce::Rectangle<float> (outer * 2, outer * 2).withCentre ({ cx, cy }));
+            g.setColour (strike.withAlpha (0.90f * a)); g.fillEllipse (juce::Rectangle<float> (inner * 2, inner * 2).withCentre ({ cx, cy }));
+            g.setColour (press.withAlpha  (0.95f * a)); g.drawEllipse (juce::Rectangle<float> (outer * 2, outer * 2).withCentre ({ cx, cy }), compact ? 1.5f : 2.5f);
         }
 
         // One readout only - the active/latest key (several sets at once is overwhelming). Prefer the
