@@ -496,6 +496,13 @@ MainComponent::MainComponent()
     checkForUpdate();   // ask GitHub for the latest release; lights up the footer if newer
     addChildComponent (keyboardView);   // shown only for keyboard devices
     keyboardView.onTileClicked = [this] (juce::uint64 uid) { selectBlockByUid (uid); }; // Dashboard-style click-to-select
+    keyboardView.onDeviceClicked = [this] { enterLiveKeys (! liveKeys); };   // click the device -> Live keys
+    addChildComponent (liveStrip);
+    addChildComponent (liveKeysLabel);
+    liveKeysLabel.setText ("Live keys", juce::dontSendNotification);
+    liveKeysLabel.setFont (grab::theme::type::font (grab::theme::type::Role::title));
+    addChildComponent (backToSettingsBtn);
+    backToSettingsBtn.onClick = [this] { enterLiveKeys (false); };
     {   // restore the device-art V2 preference (Advanced -> New device art)
         juce::PropertiesFile::Options po; po.millisecondsBeforeSaving = 0;
         juce::PropertiesFile props (grab::dataDir().getChildFile ("settings.properties"), po);
@@ -594,6 +601,15 @@ void MainComponent::connect (seaprobe::Transport transport)
     requestedTransport = transport;
     simConfig.clear();        // leave any dev preview
     grandPreview = false;
+
+    if (liveKeys)             // a reconnect while playing drops back to the settings view
+    {
+        liveKeys = false;
+        viewport.setVisible (true);
+        liveStrip.setVisible (false);
+        liveKeysLabel.setVisible (false);
+        backToSettingsBtn.setVisible (false);
+    }
 
     // Tear down any existing session.
     stopTimer();
@@ -1353,6 +1369,8 @@ void MainComponent::touchChanged (roli::TouchSurface&, const roli::TouchSurface:
     }
 
     keyboardView.setTouch ((juce::uint64) t.blockUID, (int) t.index, nx, ny, z, strike, t.isTouchEnd);
+    liveStrip.setTouch ((int) (((juce::uint32) t.blockUID * 131u) ^ (juce::uint32) t.index),
+                        nx, ny, z, t.isTouchEnd);
 }
 
 void MainComponent::selectBlock (roli::Block::UID uid)
@@ -2959,6 +2977,28 @@ void MainComponent::forceLightpadPreview()
     resized();
 }
 
+void MainComponent::enterLiveKeys (bool on)
+{
+    if (liveKeys == on || rise2Page != nullptr)   // BLOCKS keyboard page only (for now)
+        return;
+    if (on && ! keyboardView.isVisible())          // only a keyboard device can be "played"
+        return;
+    liveKeys = on;
+
+    // The top band (incl. the small device graphic) stays; only the settings area below is replaced
+    // by the Live-keys strip.
+    viewport.setVisible (! on);
+    liveStrip.setVisible (on);
+    liveKeysLabel.setVisible (on);
+    backToSettingsBtn.setVisible (on);
+    if (on) liveStrip.clearTouches();
+
+    setTransient (on ? "Live keys: play the device to see where and how hard you press."
+                     : "Back to the settings.", ! on);
+    resized();
+    repaint();
+}
+
 namespace
 {
     // The bento top band: three tiles (device drawing | dashboard | controls). Shared by the BLOCKS
@@ -3077,6 +3117,18 @@ void MainComponent::resized()
         toolsBtn.setBounds (s.tools);
         transportBox.setBounds (s.conn);
         statusLabel.setBounds (s.status);
+    }
+
+    // Live keys replaces the settings area below the band (band + small device stay visible).
+    if (liveKeys)
+    {
+        auto head = r.removeFromTop (22);
+        backToSettingsBtn.setBounds (head.removeFromRight (150));
+        liveKeysLabel.setBounds (head);
+        r.removeFromTop (8);
+        liveStrip.setBounds (r);
+        busyLabel.setBounds (r);
+        return;
     }
 
     viewport.setBounds (r);

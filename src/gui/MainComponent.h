@@ -19,6 +19,7 @@
 #include "SectionCard.h"
 #include "FooterBar.h"
 #include "KeyboardView.h"
+#include "LiveKeysStrip.h"
 #include "Rise2Component.h"
 #include "ThrottledWriter.h"
 #include "CapturePanel.h"
@@ -290,6 +291,11 @@ private:
 
     FooterBar footer;                           // hover-help strip along the bottom
     KeyboardView keyboardView;                  // stylised keywave at the top (keyboard devices)
+    LiveKeysStrip    liveStrip;                 // Live keys: a big keyboard strip over the settings area
+    juce::Label      liveKeysLabel;             // the "Live keys" heading above the strip
+    juce::TextButton backToSettingsBtn { "Back to settings" };
+    bool liveKeys = false;                      // Live keys view active (settings area replaced by the strip)
+    void enterLiveKeys (bool on);               // toggle the Live-keys view (keeps the top band visible)
     bool deviceArtV2 = false;                   // Advanced -> New device art (preview); persisted in settings
     juce::Label  busyLabel;                     // centred overlay shown while the device reboots
     double resettingSinceMs = 0.0;              // >0 while a factory reset's reboot is expected
