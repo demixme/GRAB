@@ -90,6 +90,13 @@ target_sources(GRAB PRIVATE
     src/gui/Rise2Component.cpp
     src/gui/AppPreview.cpp)
 
+# Native title bar theming (src/gui/TitleBar.h): Cocoa on macOS, DWM on Windows, no-op on Linux.
+if(APPLE)
+    target_sources(GRAB PRIVATE src/gui/TitleBar.mm)
+else()
+    target_sources(GRAB PRIVATE src/gui/TitleBar.cpp)
+endif()
+
 target_include_directories(GRAB PRIVATE src/common src/gui)
 
 target_compile_definitions(GRAB PRIVATE

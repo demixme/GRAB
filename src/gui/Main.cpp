@@ -2,21 +2,9 @@
 
 #include <juce_gui_extra/juce_gui_extra.h>
 
-#if JUCE_WINDOWS
- #ifndef NOMINMAX
-  #define NOMINMAX                 // keep windows.h's min/max macros from poisoning JUCE headers
- #endif
- #ifndef WIN32_LEAN_AND_MEAN
-  #define WIN32_LEAN_AND_MEAN
- #endif
- #include <windows.h>
- #include <dwmapi.h>
- #pragma comment (lib, "dwmapi.lib")
- #undef small                      // rpcndr.h (pulled by windows.h) defines 'small'; JUCE uses it as a name
-#endif
-
 #include "MainComponent.h"
 #include "Theme.h"
+#include "TitleBar.h"
 #include "GrabPaths.h"    // grab::dataDir() + one-time macOS data-folder migration
 #include "BinaryData.h"   // embedded translation files (see CMakeLists / localization/)
 
@@ -83,25 +71,9 @@ public:
             setResizeLimits (600, 700, 4000, 3000);   // narrow-width design folds at 600; never smaller
             centreWithSize (getWidth(), getHeight());
             setVisible (true);
-            themeTitleBar();   // dark caption matching the app chrome (Windows 11), per Fred's design
-        }
-
-        // Paint the native Windows 11 caption in the app's chrome colour (keeps native min/max/close),
-        // so the title bar reads as one surface with the window instead of the default light bar.
-        void themeTitleBar()
-        {
-           #if JUCE_WINDOWS
-            if (auto* peer = getPeer())
-            {
-                auto toRef = [] (juce::Colour c) -> COLORREF
-                    { return RGB (c.getRed(), c.getGreen(), c.getBlue()); };
-                auto hwnd = (HWND) peer->getNativeHandle();
-                COLORREF caption = toRef (grab::theme::chrome);
-                COLORREF text    = toRef (grab::theme::ink);
-                DwmSetWindowAttribute (hwnd, 35 /*DWMWA_CAPTION_COLOR*/, &caption, sizeof (caption));
-                DwmSetWindowAttribute (hwnd, 36 /*DWMWA_TEXT_COLOR*/,    &text,    sizeof (text));
-            }
-           #endif
+            // Per Fred's design the native caption is the window colour with the title text only
+            // (no icon), so it reads as one surface with the window. Native min/max/close stay.
+            grab::themeNativeTitleBar (getPeer(), grab::theme::window, grab::theme::ink);
         }
 
         void closeButtonPressed() override
