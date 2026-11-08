@@ -72,11 +72,7 @@ public:
         g.setColour (well);
         g.fillRoundedRectangle (full.toFloat(), radius::tile);
 
-        auto full2 = full.reduced (compact ? 12 : 18, compact ? 10 : 14);
-        // Cap the keybed to a stable height (centred) so the slide/vertical axis reads the same
-        // whatever the window height; the component still fills the area it replaces.
-        auto keysR = compact ? full2 : full2.withHeight (juce::jmin (full2.getHeight(), 260))
-                                             .withY (full2.getY() + juce::jmax (0, (full2.getHeight() - 260) / 3));
+        auto keysR = full.reduced (compact ? 12 : 18, compact ? 10 : 14);   // fills the space below the curves
         const float x0 = (float) keysR.getX(), w = (float) keysR.getWidth();
         const float top = (float) keysR.getY(), h = (float) keysR.getHeight();
         const float tickH = h * (compact ? 0.42f : 0.5f);

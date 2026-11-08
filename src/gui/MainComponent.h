@@ -304,6 +304,7 @@ private:
     LiveKeysStrip    liveStrip;                 // Live keys: a big keyboard strip over the settings area
     juce::Label      liveKeysLabel;             // the "Live keys" heading above the strip
     juce::TextButton backToSettingsBtn { "Back to settings" };
+    juce::Component* sensitivityCard = nullptr; // the 5D card (kept visible above Live keys); owned by `cards`
     grab::ViewToggle viewToggle;                // drawing-tile switch: Device drawing | Keystroke map
     LiveKeysStrip    keystrokeMap;              // compact keystroke map shown in the drawing tile (toggle=map)
     bool drawingIsMap = false;                  // drawing tile shows the keystroke map (vs the device art)

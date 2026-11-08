@@ -1965,6 +1965,7 @@ void MainComponent::rebuildRows()
     cards.clear();          // un-parents the rows/curves it holds
     rows.clear();
     sensGraph.reset();
+    sensitivityCard = nullptr;
     rowHolder.removeAllChildren();
     deviceValues.clear();
     pendingValues.clear();
@@ -2135,6 +2136,7 @@ void MainComponent::rebuildRows()
                 emitRow (item);
         }
 
+        if (g == "Sensitivity") sensitivityCard = card.get();   // kept visible above Live keys
         rowHolder.addAndMakeVisible (*card);
         cards.push_back (std::move (card));
     }
@@ -3238,9 +3240,9 @@ void MainComponent::enterLiveKeys (bool on)
         return;
     liveKeys = on;
 
-    // The top band (incl. the small device graphic) stays; only the settings area below is replaced
-    // by the Live-keys strip.
-    viewport.setVisible (! on);
+    // Fred's layout: the sensitivity curves stay (the viewport is clipped to just that card) and the
+    // Live-keys strip fills the space below, replacing only the control cards. The top band stays too.
+    viewport.setScrollBarsShown (! on, false);   // no scrolling while clipped to the sensitivity card
     liveStrip.setVisible (on);
     liveKeysLabel.setVisible (on);
     backToSettingsBtn.setVisible (on);
@@ -3387,15 +3389,24 @@ void MainComponent::resized()
         statusLabel.setBounds (s.status);
     }
 
-    // Live keys replaces the settings area below the band (band + small device stay visible).
+    // Live keys: keep the sensitivity curves (viewport clipped to that card), dock the strip below.
     if (liveKeys)
     {
-        auto head = r.removeFromTop (22);
+        viewport.setBounds (r);                               // full width so the grid lays out correctly
+        layoutCardGrid (viewport, rowHolder, cards, "Sensitivity");   // positions the sensitivity card at the top
+        const int sensH = sensitivityCard != nullptr ? sensitivityCard->getBottom() : 240;
+
+        auto area = r;
+        viewport.setBounds (area.removeFromTop (juce::jmin (sensH, area.getHeight())));   // show just the sensitivity
+        viewport.setViewPosition (0, 0);
+        area.removeFromTop (grab::theme::space::gutter);
+
+        auto head = area.removeFromTop (22);
         backToSettingsBtn.setBounds (head.removeFromRight (150));
         liveKeysLabel.setBounds (head);
-        r.removeFromTop (8);
-        liveStrip.setBounds (r);   // fills the replaced settings area; the keybed caps its own height inside
-        busyLabel.setBounds (r);
+        area.removeFromTop (8);
+        liveStrip.setBounds (area);          // fills the rest of the window below the curves
+        busyLabel.setBounds (area);
         return;
     }
 
