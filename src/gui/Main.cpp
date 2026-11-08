@@ -2,6 +2,19 @@
 
 #include <juce_gui_extra/juce_gui_extra.h>
 
+#if JUCE_WINDOWS
+ #ifndef NOMINMAX
+  #define NOMINMAX                 // keep windows.h's min/max macros from poisoning JUCE headers
+ #endif
+ #ifndef WIN32_LEAN_AND_MEAN
+  #define WIN32_LEAN_AND_MEAN
+ #endif
+ #include <windows.h>
+ #include <dwmapi.h>
+ #pragma comment (lib, "dwmapi.lib")
+ #undef small                      // rpcndr.h (pulled by windows.h) defines 'small'; JUCE uses it as a name
+#endif
+
 #include "MainComponent.h"
 #include "Theme.h"
 #include "GrabPaths.h"    // grab::dataDir() + one-time macOS data-folder migration
@@ -42,8 +55,8 @@ public:
         grab::migrateLegacyDataDir();   // before anything reads GRAB's data folder (mac: move ~/Library/GRAB)
         setupLocalisation();   // before any UI is built, so TRANS() in constructors resolves
         juce::LookAndFeel::setDefaultLookAndFeel (&lookAndFeel);   // before the window, so it picks up the dark bg
-        // Show the version in the title bar so a user reporting a bug can read off their build.
-        mainWindow = std::make_unique<MainWindow> (getApplicationName() + " " + getApplicationVersion());
+        // Title is just "GRAB" - the version is read off the footer (bottom-right), per Fred's design.
+        mainWindow = std::make_unique<MainWindow> (getApplicationName());
     }
 
     void shutdown() override
@@ -70,6 +83,25 @@ public:
             setResizeLimits (600, 700, 4000, 3000);   // narrow-width design folds at 600; never smaller
             centreWithSize (getWidth(), getHeight());
             setVisible (true);
+            themeTitleBar();   // dark caption matching the app chrome (Windows 11), per Fred's design
+        }
+
+        // Paint the native Windows 11 caption in the app's chrome colour (keeps native min/max/close),
+        // so the title bar reads as one surface with the window instead of the default light bar.
+        void themeTitleBar()
+        {
+           #if JUCE_WINDOWS
+            if (auto* peer = getPeer())
+            {
+                auto toRef = [] (juce::Colour c) -> COLORREF
+                    { return RGB (c.getRed(), c.getGreen(), c.getBlue()); };
+                auto hwnd = (HWND) peer->getNativeHandle();
+                COLORREF caption = toRef (grab::theme::chrome);
+                COLORREF text    = toRef (grab::theme::ink);
+                DwmSetWindowAttribute (hwnd, 35 /*DWMWA_CAPTION_COLOR*/, &caption, sizeof (caption));
+                DwmSetWindowAttribute (hwnd, 36 /*DWMWA_TEXT_COLOR*/,    &text,    sizeof (text));
+            }
+           #endif
         }
 
         void closeButtonPressed() override

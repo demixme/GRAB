@@ -2141,6 +2141,7 @@ void MainComponent::onItemChanged (juce::uint32 id, juce::int32 value)
     updateSaveEnabled();
     updateLumiKeyboardColours();   // live-light the keyboard as scale/key/colours/mode are edited
     pushChordGhosts();             // live-update the chord ghosts as Chord mode is edited
+    if (liveKeys) updateLiveStripRange();   // Octave/Transpose edits move the Live-keys C labels
 
     // Live-write, Dashboard-style: queue this edit and let the throttle flush it to the
     // device within ~75 ms. A drag coalesces into one burst per window instead of a write
@@ -3166,6 +3167,30 @@ void MainComponent::forceLightpadPreview()
     resized();
 }
 
+// Feed the Live-keys strip the physical key span and the octave/transpose shift so its C labels read
+// correctly. Called when Live keys opens and whenever Octave/Transpose change.
+void MainComponent::updateLiveStripRange()
+{
+    liveStrip.setRange (48, 25);   // Seaboard Block: 2 octaves from C3 (RISE/GRAND live on their own page)
+
+    int oct = 0, trans = 0;
+    if (block != nullptr)
+    {
+        const auto maxId = block->getMaxConfigIndex();
+        for (juce::uint32 id = 0; id < maxId; ++id)
+        {
+            auto meta = block->getLocalConfigMetaData (id);
+            const juce::String nm (meta.name);
+            if (nm != "Octave" && nm != "Transpose") continue;
+            auto pv = pendingValues.find (meta.item);
+            const int val = pv != pendingValues.end() ? (int) pv->second : (int) block->getLocalConfigValue (id);
+            if (nm == "Octave")    oct   = val;
+            else                   trans = val;
+        }
+    }
+    liveStrip.setLabelShift (oct * 12 + trans);
+}
+
 void MainComponent::enterLiveKeys (bool on)
 {
     if (liveKeys == on || rise2Page != nullptr)   // BLOCKS keyboard page only (for now)
@@ -3180,7 +3205,7 @@ void MainComponent::enterLiveKeys (bool on)
     liveStrip.setVisible (on);
     liveKeysLabel.setVisible (on);
     backToSettingsBtn.setVisible (on);
-    if (on) liveStrip.clearTouches();
+    if (on) { liveStrip.clearTouches(); updateLiveStripRange(); }
 
     setTransient (on ? "Live keys: play the device to see where and how hard you press."
                      : "Back to the settings.", ! on);

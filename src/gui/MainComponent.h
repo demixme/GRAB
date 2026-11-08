@@ -266,6 +266,7 @@ private:
     juce::TextButton   deviceMenuBtn;   // dashboard-tile pill: shows the current device, opens the rich menu
     void showDeviceMenu();              // open Fred's DeviceMenu callout (devices + connection type)
     juce::Array<grab::DeviceMenu::Item> buildDeviceMenuItems() const;
+    void updateLiveStripRange();        // feed the Live-keys strip the key span + octave/transpose shift
     juce::TextButton   advancedBtn   { "Advanced..." };
     juce::TextButton   contributeBtn { "Contribute..." };
     juce::TextButton   toolsBtn      { "Tools..." };    // bento: one menu for Diagnose / Advanced / Contribute
