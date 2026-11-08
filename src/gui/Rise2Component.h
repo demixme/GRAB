@@ -66,6 +66,14 @@ public:
 
     void resized() override;
 
+    /** Bento mode: MainComponent owns the three-tile top band and places the drawing / dashboard /
+        Tools / Connection / status itself, then hands this page the control-slot rects (in THIS
+        component's local coordinates) for its own Preset / Read / Save / Autosave, plus the Y at
+        which its settings viewport should start (below the band). Pass viewportTop < 0 to fall back
+        to the legacy single-row layout. */
+    void setBentoControls (juce::Rectangle<int> preset, juce::Rectangle<int> reload,
+                           juce::Rectangle<int> save, juce::Rectangle<int> autosave, int viewportTop);
+
     /** Live keyboard touch, synthesised from the device's performance MIDI and forwarded to the
         keyboard graphic. Set by MainComponent. Args: MIDI channel 1-16, note, pressure 0-1,
         pitch bend -1..1, slide 0-1 (vertical finger position, from the device's Slide CC; 0.5 =
@@ -148,6 +156,11 @@ private:
     // ~75 ms throttle. Preset-staged values aren't here — they still wait for an explicit Save.
     std::set<juce::uint32> dirtyWrites;
     ThrottledWriter        liveWriter;
+    // Bento top-band control slots (local coords), set by MainComponent via setBentoControls.
+    // bentoViewportTop >= 0 means the bento layout is active; < 0 uses the legacy row.
+    juce::Rectangle<int> bentoPreset, bentoReload, bentoSave, bentoAutosave;
+    int  bentoViewportTop = -1;
+
     bool awaitingState = false;
     int  stateRetries = 0;
     bool minMaxReliable = true;   // false on the original RISE: min/max read back as zeros, so hidden

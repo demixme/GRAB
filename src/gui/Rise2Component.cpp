@@ -284,6 +284,11 @@ Rise2Component::Rise2Component (seaprobe::RawLogger& loggerToUse, juce::String p
     liveCc.fill (-1);   // no CC data yet
     touchNote.fill (-1); touchZ.fill (0.0f); touchBend.fill (0.0f); touchStrike.fill (0.0f);
     touchSlide.fill (0.5f);   // Slide centred until the device reports a position
+
+    // Bento: this page fills the whole content area but lets clicks fall through to the drawing /
+    // dashboard / Tools / Connection that MainComponent overlays on the top band; our own children
+    // (buttons, combos, viewport) still receive mouse normally.
+    setInterceptsMouseClicks (false, true);
     // statusLabel / infoLabel are no longer shown here - status + device info are routed up to
     // MainComponent's shared top bar (onStatus / onDeviceInfo). The members stay as harmless
     // fallbacks for the rare pre-wiring call.
@@ -1259,11 +1264,34 @@ void Rise2Component::setStatus (const juce::String& s)
     else          statusLabel.setText (s, juce::dontSendNotification);
 }
 
+void Rise2Component::setBentoControls (juce::Rectangle<int> preset, juce::Rectangle<int> reload,
+                                       juce::Rectangle<int> save, juce::Rectangle<int> autosave,
+                                       int viewportTop)
+{
+    bentoPreset = preset; bentoReload = reload; bentoSave = save; bentoAutosave = autosave;
+    bentoViewportTop = viewportTop;
+    resized();
+}
+
 void Rise2Component::resized()
 {
     auto r = getLocalBounds();
-    // Status + device info now live in MainComponent's shared top bar, so the RISE page starts
-    // straight at its controls (no local status/info row here any more).
+
+    if (bentoViewportTop >= 0)
+    {
+        // Bento: MainComponent placed the drawing / dashboard / Tools / Connection on the top band
+        // and handed us the control slots; we just drop our four controls in and start the viewport
+        // below the band.
+        presetBox.setBounds (bentoPreset);
+        reloadButton.setBounds (bentoReload);
+        saveButton.setBounds (bentoSave);
+        autosaveToggle.setBounds (bentoAutosave);
+        viewport.setBounds (r.withTop (bentoViewportTop));
+        layoutCardGrid (viewport, rowHolder, cards, "Sensitivity");
+        return;
+    }
+
+    // Legacy single-row layout (no bento band).
     auto buttons = r.removeFromTop (30);
     reloadButton.setBounds (buttons.removeFromLeft (165).reduced (2, 0));
     saveButton  .setBounds (buttons.removeFromLeft (150).reduced (2, 0));

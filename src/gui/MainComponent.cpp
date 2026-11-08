@@ -2968,60 +2968,89 @@ void MainComponent::forceLightpadPreview()
     resized();
 }
 
+namespace
+{
+    // The bento top band: three tiles (device drawing | dashboard | controls). Shared by the BLOCKS
+    // and RISE pages so they stay identical. splitTopBand removes the band (+ its gutter) from r.
+    struct TopBand  { juce::Rectangle<int> band, draw, dash, ctrl; };
+    struct CtrlSlots { juce::Rectangle<int> preset, reload, save, autosave, tools, conn, status; };
+
+    TopBand splitTopBand (juce::Rectangle<int>& r)
+    {
+        const int gutter = grab::theme::space::gutter;
+        TopBand tb;
+        tb.band = r.removeFromTop (196);   // fits the controls stack / dashboard; the 96px art centres
+        r.removeFromTop (gutter);
+        auto band = tb.band;
+        const int ctrlW = juce::jlimit (200, 260, band.getWidth() / 4);
+        const int dashW = juce::jlimit (200, 300, band.getWidth() / 4);
+        tb.ctrl = band.removeFromRight (ctrlW); band.removeFromRight (gutter);
+        tb.dash = band.removeFromRight (dashW); band.removeFromRight (gutter);
+        tb.draw = band;   // the device drawing takes the remaining (widest) space
+        return tb;
+    }
+
+    CtrlSlots splitCtrlSlots (juce::Rectangle<int> ctrlTile)
+    {
+        const int padX = grab::theme::space::tilePadX, padY = grab::theme::space::tilePadY;
+        const int rowH = 30, gap = 8;
+        auto c = ctrlTile.reduced (padX, padY);
+        CtrlSlots s;
+        s.preset = c.removeFromTop (rowH); c.removeFromTop (gap);
+        auto rs = c.removeFromTop (rowH);
+        s.reload = rs.removeFromLeft ((rs.getWidth() - gap) / 2); rs.removeFromLeft (gap); s.save = rs;
+        c.removeFromTop (gap);
+        auto at = c.removeFromTop (rowH);
+        s.autosave = at.removeFromLeft ((at.getWidth() - gap) / 2); at.removeFromLeft (gap); s.tools = at;
+        c.removeFromTop (gap);
+        s.conn = c.removeFromTop (rowH); c.removeFromTop (gap);
+        s.status = c.removeFromTop (18);
+        return s;
+    }
+}
+
 void MainComponent::resized()
 {
     footer.setBounds (getLocalBounds().removeFromBottom (26));   // full-width strip at the very bottom
     auto r = getLocalBounds().withTrimmedBottom (26).reduced (grab::theme::space::gutter);
-    drawTileR = dashTileR = ctrlTileR = {};   // cleared unless the three-tile band is built (BLOCKS)
-
-    // The keyboard graphic (keyboard devices only) sits above the config content.
-    auto placeKeyboard = [this] (juce::Rectangle<int>& area)
-    {
-        if (keyboardView.isVisible())
-        {
-            // Size the keyboard to fill the width at the device's own aspect, capped at a max height
-            // (and a share of the available space), so wide devices (GRAND, with its surround) aren't
-            // crushed into a thin strip and smaller devices can show larger. The view centres its art.
-            const float aspect = juce::jmax (0.1f, keyboardView.contentAspect());
-            const int   maxH   = juce::jmin (210, juce::roundToInt (area.getHeight() * 0.42f));
-            const int   h      = juce::jlimit (96, juce::jmax (96, maxH),
-                                               juce::roundToInt (area.getWidth() / aspect));
-            keyboardView.setBounds (area.removeFromTop (h));
-            area.removeFromTop (8);
-        }
-    };
+    drawTileR = dashTileR = ctrlTileR = {};   // cleared unless the three-tile band is built below
 
     // The RISE page owns its own reload/save/info/viewport, so when it's shown lay out
     // only the controls that still apply (Diagnose, Transport, Advanced) and hand it the
     // rest of the window. (The BLOCKS-only controls are hidden by setBlocksControlsVisible.)
     if (rise2Page != nullptr)
     {
-        // The RISE page keeps the single-line device strip + status above its own controls.
-        deviceInfo.setStyle (DeviceInfoBar::Style::strip);
-        auto topRow = r.removeFromTop (28);
-        deviceInfo.setBounds (topRow.removeFromLeft (juce::jmin (600, topRow.getWidth() * 3 / 5)));
-        topRow.removeFromLeft (12);
-        statusLabel.setBounds (topRow);
-        r.removeFromTop (4);
+        // Same three-tile bento as the BLOCKS page. The RISE page fills the whole content area (and
+        // passes clicks through to this band); MainComponent owns the drawing / dashboard / Tools /
+        // Connection / status, and hands Rise2 the slots for its own Preset / Read / Save / Autosave.
+        deviceInfo.setStyle (DeviceInfoBar::Style::dashboard);
+        toolsBtn.setVisible (true);   // re-shown here (setBlocksControlsVisible hid it for this page)
+        advancedBtn.setBounds ({}); diagnoseBtn.setBounds ({}); contributeBtn.setBounds ({});
+        transportLabel.setBounds ({}); blockLabel.setBounds ({});
 
-        auto row = r.removeFromTop (30);
-        diagnoseBtn.setBounds (row.removeFromLeft (100).reduced (2, 0));
-        row.removeFromLeft (8);
-        advancedBtn.setBounds (row.removeFromRight (92).reduced (2, 0));
-        row.removeFromRight (10);
-        transportLabel.setBounds (row.removeFromLeft (130));
-        transportBox.setBounds (row.removeFromLeft (92).reduced (2, 0));
-        // The "ROLI device:" switcher also appears here so you can switch away from the RISE/GRAND
-        // without restarting (fillDeviceBox hides it when there's nothing to switch to).
-        if (blockBox.isVisible())
+        const auto full = r;            // the page covers the whole content area
+        rise2Page->setBounds (full);
+
+        auto work = full;               // compute the band within a copy; work -> below-band area
+        const auto tb = splitTopBand (work);
+        drawTileR = tb.draw; dashTileR = tb.dash; ctrlTileR = tb.ctrl;
+        const int padX = grab::theme::space::tilePadX, padY = grab::theme::space::tilePadY;
+
+        if (keyboardView.isVisible())
+            keyboardView.setBounds (tb.draw.reduced (padX, padY));
         {
-            row.removeFromLeft (10);
-            blockLabel.setBounds (row.removeFromLeft (84));
-            blockBox.setBounds (row.reduced (2, 0));
+            auto d = tb.dash.reduced (padX, padY);
+            if (blockBox.isVisible()) blockBox.setBounds (d.removeFromBottom (30));
+            deviceInfo.setBounds (d);
         }
-        r.removeFromTop (6);
-        placeKeyboard (r);
-        rise2Page->setBounds (r);
+        const auto s = splitCtrlSlots (tb.ctrl);
+        toolsBtn.setBounds (s.tools);
+        transportBox.setBounds (s.conn);
+        statusLabel.setBounds (s.status);
+
+        const auto off = full.getPosition();   // Rise2 children are in its local coords
+        rise2Page->setBentoControls (s.preset - off, s.reload - off, s.save - off, s.autosave - off,
+                                     work.getY() - full.getY());
         return;
     }
 
@@ -3031,26 +3060,17 @@ void MainComponent::resized()
     advancedBtn.setBounds ({}); diagnoseBtn.setBounds ({}); contributeBtn.setBounds ({});
     transportLabel.setBounds ({}); blockLabel.setBounds ({});
 
-    const int gutter = grab::theme::space::gutter;   // 12
-    const int padX   = grab::theme::space::tilePadX;  // 16
-    const int padY   = grab::theme::space::tilePadY;  // 12
-    const int bandH  = 196;   // fits the controls stack / dashboard; the 96px art centres within it
-    auto band = r.removeFromTop (bandH);
-    r.removeFromTop (gutter);
-
-    const int ctrlW = juce::jlimit (200, 260, band.getWidth() / 4);
-    const int dashW = juce::jlimit (200, 300, band.getWidth() / 4);
-    ctrlTileR = band.removeFromRight (ctrlW);  band.removeFromRight (gutter);
-    dashTileR = band.removeFromRight (dashW);  band.removeFromRight (gutter);
-    drawTileR = band;   // the device drawing takes the remaining (widest) space
+    const int padX = grab::theme::space::tilePadX, padY = grab::theme::space::tilePadY;
+    const auto tb = splitTopBand (r);
+    drawTileR = tb.draw; dashTileR = tb.dash; ctrlTileR = tb.ctrl;
 
     // Drawing tile: the device art at its fixed scale, centred by KeyboardView.
     if (keyboardView.isVisible())
-        keyboardView.setBounds (drawTileR.reduced (padX, padY));
+        keyboardView.setBounds (tb.draw.reduced (padX, padY));
 
     // Dashboard tile: vertical device info, with the ROLI-device switcher below it when present.
     {
-        auto d = dashTileR.reduced (padX, padY);
+        auto d = tb.dash.reduced (padX, padY);
         if (blockBox.isVisible())
             blockBox.setBounds (d.removeFromBottom (30));
         deviceInfo.setBounds (d);
@@ -3058,23 +3078,14 @@ void MainComponent::resized()
 
     // Controls tile: preset; read + save; autosave + tools; connection type; transient status.
     {
-        auto c = ctrlTileR.reduced (padX, padY);
-        const int rowH = 30, gap = 8;
-        presetBox.setBounds (c.removeFromTop (rowH));
-        c.removeFromTop (gap);
-        auto rs = c.removeFromTop (rowH);
-        reloadButton.setBounds (rs.removeFromLeft ((rs.getWidth() - gap) / 2));
-        rs.removeFromLeft (gap);
-        saveButton.setBounds (rs);
-        c.removeFromTop (gap);
-        auto at = c.removeFromTop (rowH);
-        autosaveToggle.setBounds (at.removeFromLeft ((at.getWidth() - gap) / 2));
-        at.removeFromLeft (gap);
-        toolsBtn.setBounds (at);
-        c.removeFromTop (gap);
-        transportBox.setBounds (c.removeFromTop (rowH));
-        c.removeFromTop (gap);
-        statusLabel.setBounds (c.removeFromTop (18));
+        const auto s = splitCtrlSlots (tb.ctrl);
+        presetBox.setBounds (s.preset);
+        reloadButton.setBounds (s.reload);
+        saveButton.setBounds (s.save);
+        autosaveToggle.setBounds (s.autosave);
+        toolsBtn.setBounds (s.tools);
+        transportBox.setBounds (s.conn);
+        statusLabel.setBounds (s.status);
     }
 
     viewport.setBounds (r);
