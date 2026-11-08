@@ -18,6 +18,8 @@
 
 #include <juce_gui_extra/juce_gui_extra.h>
 
+#include "GRABFonts.h"   // embedded Red Hat Display weights (FontData namespace; see CMakeLists.txt)
+
 namespace grab::theme
 {
     // ---- Surfaces (tone ladder, darkest to lightest) --------------------------------------
@@ -127,22 +129,46 @@ namespace grab::theme
     {
         enum class Role { readout, title, body, control, caption };
 
+        // The three embedded Red Hat Display weights, loaded once each (lazy function-local
+        // statics, so merely including this header pulls in no font data until a face is asked for).
+        namespace detail
+        {
+            inline juce::Typeface::Ptr make (const void* data, int size)
+            {
+                return juce::Typeface::createSystemTypefaceFor (data, (size_t) size);
+            }
+            inline juce::Typeface::Ptr regular()
+            {
+                static juce::Typeface::Ptr t = make (FontData::RedHatDisplayRegular_ttf,  FontData::RedHatDisplayRegular_ttfSize);
+                return t;
+            }
+            inline juce::Typeface::Ptr medium()
+            {
+                static juce::Typeface::Ptr t = make (FontData::RedHatDisplayMedium_ttf,   FontData::RedHatDisplayMedium_ttfSize);
+                return t;
+            }
+            inline juce::Typeface::Ptr semibold()
+            {
+                static juce::Typeface::Ptr t = make (FontData::RedHatDisplaySemiBold_ttf, FontData::RedHatDisplaySemiBold_ttfSize);
+                return t;
+            }
+        }
+
         inline juce::Font font (Role r)
         {
-            float  h    = 13.0f;
-            bool   bold = false;   // 600 titles -> bold; medium/regular -> plain until the real face lands
+            float h = 13.0f;
+            juce::Typeface::Ptr tf = detail::regular();
 
             switch (r)
             {
-                case Role::readout: h = 20.0f; break;  // knob readouts, the only large numbers (weight 500)
-                case Role::title:   h = 13.0f; bold = true;  break;  // tile titles, device name (weight 600)
-                case Role::body:    h = 13.0f; break;  // row names, buttons, menus, chips
+                case Role::readout: h = 20.0f; tf = detail::medium();   break;  // knob readouts (weight 500)
+                case Role::title:   h = 13.0f; tf = detail::semibold(); break;  // tile titles, device name (weight 600)
+                case Role::body:    h = 13.0f; break;  // row names, buttons, menus, chips (weight 400)
                 case Role::control: h = 12.0f; break;  // values inside controls
                 case Role::caption: h = 11.0f; break;  // device facts, units, axis labels, status bar
             }
 
-            juce::Font f { juce::FontOptions().withHeight (h) };
-            return bold ? f.boldened() : f;
+            return juce::Font { juce::FontOptions().withTypeface (tf).withHeight (h) };
         }
     }
 
@@ -224,6 +250,19 @@ public:
 
         setColour (juce::ScrollBar::thumbColourId,      divider.brighter (0.25f));
         setColour (juce::CaretComponent::caretColourId, ink);
+    }
+
+    // Every font without an explicit typeface resolves to Red Hat Display, weight chosen from
+    // the font's style - so the whole app adopts the family, including call sites not yet moved
+    // to theme::type::font(). Fonts built with an explicit typeface (theme::type::font) keep it.
+    juce::Typeface::Ptr getTypefaceForFont (const juce::Font& f) override
+    {
+        const auto style = f.getTypefaceStyle();
+        if (style.containsIgnoreCase ("semi") || style.containsIgnoreCase ("bold"))
+            return grab::theme::type::detail::semibold();
+        if (style.containsIgnoreCase ("medium"))
+            return grab::theme::type::detail::medium();
+        return grab::theme::type::detail::regular();
     }
 
     // Buttons: raised grey by default, a brighter grey on hover, and the selected (toggled-on)

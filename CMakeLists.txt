@@ -129,6 +129,19 @@ juce_add_binary_data(GRABTranslations SOURCES
 # wired in. A distinct namespace/header keeps it from colliding with
 # GRABTranslations' default BinaryData namespace.
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# UI font: Red Hat Display (SIL OFL 1.1, fonts/OFL.txt). The redesign's type
+# family; three static weights are embedded and wired in GrabLookAndFeel. A
+# distinct namespace keeps it off the default BinaryData namespace.
+# ---------------------------------------------------------------------------
+juce_add_binary_data(GRABFonts
+    NAMESPACE FontData
+    HEADER_NAME GRABFonts.h
+    SOURCES
+        fonts/RedHatDisplayRegular.ttf
+        fonts/RedHatDisplayMedium.ttf
+        fonts/RedHatDisplaySemiBold.ttf)
+
 juce_add_binary_data(GRABDeviceArt
     NAMESPACE DeviceArtData
     HEADER_NAME DeviceArtData.h
@@ -152,6 +165,7 @@ target_link_libraries(GRAB PRIVATE
     roli_blocks_basics
     GRABTranslations
     GRABDeviceArt
+    GRABFonts
     juce::juce_gui_extra
     juce::juce_audio_devices
     juce::juce_cryptography
