@@ -93,8 +93,6 @@ public:
                 g.fillRect (juce::Rectangle<float> (fx - (compact ? 0.5f : 1.0f), top, compact ? 1.0f : 2.0f, tickH));
                 continue;
             }
-            g.setColour (grid.withAlpha (compact ? 0.35f : 0.5f));
-            g.drawVerticalLine (juce::roundToInt (fx), top, top + h);
             if (posMod (n + shift, 12) == 0)   // a key that sounds as a C
             {
                 g.setColour (label);
