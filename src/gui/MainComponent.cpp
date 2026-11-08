@@ -3182,22 +3182,23 @@ void MainComponent::updateLiveStripRange()
 {
     liveStrip.setRange (48, 24);   // Seaboard Block: 24 keys C3..B4 (matches the device art's keys)
 
-    int oct = 0, trans = 0;
+    // Live keys shows the physical key you're on, octave-adjusted - so the labels stay on C and track
+    // the Octave setting. Transpose is a MIDI-output transform (it doesn't move which key you press),
+    // so it's deliberately NOT applied here: a C key reads C6, not A#5, whatever the transpose.
+    int oct = 0;
     if (block != nullptr)
     {
         const auto maxId = block->getMaxConfigIndex();
         for (juce::uint32 id = 0; id < maxId; ++id)
         {
             auto meta = block->getLocalConfigMetaData (id);
-            const juce::String nm (meta.name);
-            if (nm != "Octave" && nm != "Transpose") continue;
+            if (juce::String (meta.name) != "Octave") continue;
             auto pv = pendingValues.find (meta.item);
-            const int val = pv != pendingValues.end() ? (int) pv->second : (int) block->getLocalConfigValue (id);
-            if (nm == "Octave")    oct   = val;
-            else                   trans = val;
+            oct = pv != pendingValues.end() ? (int) pv->second : (int) block->getLocalConfigValue (id);
+            break;
         }
     }
-    liveStrip.setLabelShift (oct * 12 + trans);
+    liveStrip.setLabelShift (oct * 12);
 }
 
 void MainComponent::enterLiveKeys (bool on)
