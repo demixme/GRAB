@@ -74,6 +74,17 @@ public:
         return ids;
     }
 
+    // One live finger's input across the 5D axes (all 0..1; glide pre-mapped to 0..1 around 0.5). The
+    // graph plots a dot per finger on the selected dimension's curve - so a chord shows a dot per note.
+    // The last entry is treated as the latest (it gets the dotted value guides).
+    struct LiveInput { float strike = 0, glide = 0.5f, slide = 0.5f, press = 0; };
+    void setLiveInputs (std::vector<LiveInput> in)
+    {
+        if (in.empty() && liveInputs.empty()) return;
+        liveInputs = std::move (in);
+        repaint();
+    }
+
     void paint (juce::Graphics& g) override
     {
         if (dims.empty()) return;
@@ -144,6 +155,30 @@ private:
     };
 
     struct Knob { juce::Rectangle<float> area; Drag target; };
+
+    // The input axis value (0..1) a finger contributes to a given dimension's curve.
+    static float inputFor (const LiveInput& li, const juce::String& name)
+    {
+        if (name == "Press")  return li.press;
+        if (name == "Slide")  return li.slide;
+        if (name == "Glide")  return li.glide;
+        return li.strike;   // Strike, Lift (release not tracked live)
+    }
+    // Sample a unit-space curve path's y at x (the curves are monotonic in x).
+    static float yAtX (const juce::Path& path, float x)
+    {
+        juce::PathFlatteningIterator it (path, {}, 0.002f);
+        float y = 0.0f;
+        while (it.next())
+            if ((x >= it.x1 && x <= it.x2) || (x >= it.x2 && x <= it.x1))
+                y = it.x2 == it.x1 ? it.y2 : it.y1 + (it.y2 - it.y1) * (x - it.x1) / (it.x2 - it.x1);
+        return y;
+    }
+    static void dashedLine (juce::Graphics& g, juce::Point<float> a, juce::Point<float> b)
+    {
+        const float dashes[] = { 3.0f, 3.0f };
+        g.drawDashedLine (juce::Line<float> (a, b), dashes, 2, 1.0f);
+    }
 
     // "Edited" = the selected dimension differs from the value read when the page was built (its
     // baseline). Drives the persistent chip dot and the context Reset - independent of autosave, so
@@ -258,6 +293,30 @@ private:
         }
         g.setColour (sel.colour);
         g.strokePath (path, juce::PathStrokeType (4.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded), xform);
+
+        // Live input dots: one per held finger, riding the selected curve at that finger's input for
+        // this dimension. The latest (last) also gets dotted guides to the axes with its values.
+        for (size_t i = 0; i < liveInputs.size(); ++i)
+        {
+            const float ix = juce::jlimit (0.0f, 1.0f, inputFor (liveInputs[i], sel.name));
+            const float iy = juce::jlimit (0.0f, 1.0f, yAtX (path, ix));
+            const auto p = toPlot ({ ix, iy });
+            const bool latest = (i + 1 == liveInputs.size());
+            if (latest)
+            {
+                g.setColour (sel.colour.withAlpha (0.45f));
+                dashedLine (g, p, { p.x, pr.getBottom() });   // down to the input axis
+                dashedLine (g, p, { pr.getX(), p.y });        // across to the output axis
+                g.setColour (label);
+                g.setFont (grab::theme::type::font (grab::theme::type::Role::caption));
+                g.drawText (juce::String (juce::roundToInt (iy * 127.0f)),
+                            juce::Rectangle<float> (pr.getX() - 52.0f, p.y - 7.0f, 46.0f, 14.0f), juce::Justification::centredRight);
+                g.drawText (juce::String (juce::roundToInt (ix * 127.0f)),
+                            juce::Rectangle<float> (p.x - 18.0f, pr.getBottom() + 4.0f, 36.0f, 14.0f), juce::Justification::centred);
+            }
+            g.setColour (display);    g.fillEllipse (juce::Rectangle<float> (14.0f, 14.0f).withCentre (p));
+            g.setColour (sel.colour); g.fillEllipse (juce::Rectangle<float> (9.0f, 9.0f).withCentre (p));
+        }
 
         // end nodes for the selected dimension
         if (sel.hasNodes() && sel.sens > 0)
@@ -468,6 +527,7 @@ private:
 
     ChangeFn change;
     std::vector<Dim> dims;
+    std::vector<LiveInput> liveInputs;   // live finger inputs plotted on the selected curve
     int selected = -1;
     Drag drag = Drag::none;
     int  dragStart = 0;

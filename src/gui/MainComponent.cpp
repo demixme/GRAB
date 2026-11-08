@@ -1565,6 +1565,17 @@ void MainComponent::touchChanged (roli::TouchSurface&, const roli::TouchSurface:
     keyboardView.setTouch ((juce::uint64) t.blockUID, (int) t.index, nx, ny, z, strike, t.isTouchEnd);
     keystrokeMap.setTouch (fingerId, nx, ny, z, strike, glide, t.isTouchEnd);
     liveStrip.setTouch    (fingerId, nx, ny, z, strike, glide, t.isTouchEnd);
+
+    // Live dots on the 5D graph: one per held finger, latest last (it gets the value guides).
+    if (t.isTouchEnd) liveInputs.erase (fingerId);
+    else              liveInputs[fingerId] = { strike, juce::jlimit (0.0f, 1.0f, 0.5f + glide), ny, z };
+    if (sensGraph != nullptr)
+    {
+        std::vector<SensitivityGraph::LiveInput> v;
+        for (auto& kv : liveInputs) if (kv.first != fingerId) v.push_back (kv.second);
+        if (! t.isTouchEnd) v.push_back (liveInputs[fingerId]);
+        sensGraph->setLiveInputs (std::move (v));
+    }
 }
 
 void MainComponent::selectBlock (roli::Block::UID uid)

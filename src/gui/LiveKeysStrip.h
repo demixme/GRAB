@@ -59,7 +59,7 @@ public:
         t.z = juce::jlimit (0.0f, 1.0f, z);
         t.glide = juce::jlimit (-1.0f, 1.0f, glide);
         t.releasing = false;
-        if (! t.seen) { t.dx = t.x; t.dy = t.y; t.dz = t.z; t.seen = true; }
+        if (! t.seen) { t.dx = t.x; t.dy = t.y; t.dz = t.z; t.seen = true; latestId = fingerId; }
         t.strike = strike;   // held for the note's life (captured at contact upstream)
     }
 
@@ -125,9 +125,22 @@ public:
             g.setColour (strike.withAlpha (a));
             const float dot = (compact ? 2.0f : 5.0f) + (compact ? 2.0f : 6.0f) * t.strike;
             g.fillEllipse (cx - dot, cy - dot, dot * 2.0f, dot * 2.0f);
+        }
 
-            if (! compact)
-                paintTouchReadout (g, t, cx, cy, rad, (float) keysR.getBottom(), a);
+        // One readout only - the active/latest key (several sets at once is overwhelming). Prefer the
+        // last-pressed finger; fall back to any still-held one.
+        if (! compact)
+        {
+            const Live* sel = nullptr;
+            if (auto it = touches.find (latestId); it != touches.end() && ! it->second.releasing) sel = &it->second;
+            if (sel == nullptr)
+                for (auto& kv : touches) if (! kv.second.releasing) { sel = &kv.second; break; }
+            if (sel != nullptr)
+            {
+                const float cx = x0 + sel->dx * w;
+                const float cy = top + juce::jlimit (0.0f, 1.0f, sel->dy) * h * 0.78f + h * 0.11f;
+                paintTouchReadout (g, *sel, cx, cy, ringMin + sel->dz * ringMax, (float) keysR.getBottom(), 1.0f);
+            }
         }
     }
 
@@ -222,6 +235,7 @@ private:
     bool compact = false;
     int  low = 48, count = 25;   // C3, two octaves (sensible default until setRange)
     int  shift = 0;              // octave*12 + transpose, added to displayed note names
+    int  latestId = -1;          // the most recently pressed finger (its readout is the one shown)
     std::map<int, Live> touches;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LiveKeysStrip)
