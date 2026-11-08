@@ -354,6 +354,13 @@ private:
         g.setColour (knobTrack); g.strokePath (track, juce::PathStrokeType (4.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
         g.setColour (c);         g.strokePath (val,   juce::PathStrokeType (4.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
+        // White index mark at the pointer (Fred's design): a short radial tick straddling the arc.
+        const float sn = std::sin (ang), cs = std::cos (ang);
+        juce::Line<float> tick (centre.x + sn * (radius - 4.5f), centre.y - cs * (radius - 4.5f),
+                                centre.x + sn * (radius + 3.0f), centre.y - cs * (radius + 3.0f));
+        g.setColour (ink);
+        g.drawLine (tick, 2.0f);
+
         g.setColour (ink);
         g.setFont (grab::theme::type::font (grab::theme::type::Role::readout));
         g.drawText (juce::String (v), face, juce::Justification::centred);

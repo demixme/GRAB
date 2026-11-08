@@ -351,8 +351,9 @@ static constexpr int sectionHeaderHeight = 30;
 static juce::String fredGroupBlocks (const juce::String& n, const juce::String& fallback)
 {
     if (fallback == "Sensitivity") return "Sensitivity";   // 5D curves + fixed velocity stay put
-    if (n == "MIDI Mode") return "MIDI output";
-    if (n.containsIgnoreCase ("MIDI Channel") || n == "No. MIDI Channels" || n.containsIgnoreCase ("Member")) return "MIDI output";
+    if (n == "MIDI Mode" || n.containsIgnoreCase ("MPE Zone")) return "MIDI output";
+    // Channel fields: "MIDI Channel", "MIDI Start/End Channel", "No. MIDI Channels", "Member channels".
+    if (n.containsIgnoreCase ("Channel") || n.containsIgnoreCase ("Member")) return "MIDI output";
     if (n == "Pitch Bend Range") return "MIDI output";
     if (n == "Octave" || n == "Transpose" || n == "Semitone Legato" || n == "Scale" || n == "Key"
         || n == "Active Mode" || n == "Key Pitch Bend Amount") return "Keyboard";
@@ -366,7 +367,9 @@ static juce::String fredGroupBlocks (const juce::String& n, const juce::String& 
 static int fredOrderBlocks (const juce::String& n)
 {
     if (n == "MIDI Mode") return 0;
-    if (n.containsIgnoreCase ("MIDI Channel") || n == "No. MIDI Channels" || n.containsIgnoreCase ("Member")) return 3;
+    if (n.containsIgnoreCase ("MPE Zone")) return 1;
+    if (n.containsIgnoreCase ("Start Channel") || n == "MIDI Channel") return 2;
+    if (n.containsIgnoreCase ("End Channel") || n == "No. MIDI Channels" || n.containsIgnoreCase ("Member")) return 3;
     if (n == "Pitch Bend Range") return 4;
     if (n == "Octave") return 0; if (n == "Transpose") return 1; if (n == "Semitone Legato") return 2;
     if (n == "Scale") return 3; if (n == "Key") return 4; if (n == "Active Mode") return 5; if (n == "Key Pitch Bend Amount") return 6;
