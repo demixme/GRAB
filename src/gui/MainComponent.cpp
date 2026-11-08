@@ -3180,7 +3180,7 @@ void MainComponent::forceLightpadPreview()
 // correctly. Called when Live keys opens and whenever Octave/Transpose change.
 void MainComponent::updateLiveStripRange()
 {
-    liveStrip.setRange (48, 25);   // Seaboard Block: 2 octaves from C3 (RISE/GRAND live on their own page)
+    liveStrip.setRange (48, 24);   // Seaboard Block: 24 keys C3..B4 (matches the device art's keys)
 
     int oct = 0, trans = 0;
     if (block != nullptr)

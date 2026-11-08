@@ -175,15 +175,17 @@ private:
         for (int i = 0; i < count; ++i) if (! isBlack (low + i)) ++c;
         return juce::jmax (2, c);
     }
-    // x fraction (0..1) of semitone s (0-based from low) in a piano layout: whites evenly spaced,
-    // each black midway to the next white. This is the same proportion the device art uses, so a
-    // touch's nx (linear across the keybed) and this agree.
+    // x fraction (0..1) of semitone s (0-based from low), matching the device art's cell layout: the
+    // keybed is W equal white cells, each white key centred in its cell at (wBelow+0.5)/W and each
+    // black key on the cell boundary at wBelow/W. The device reports a touch's nx the same way (it
+    // lands the ring on the art's keys), so the ring, dividers, labels and readout all agree.
     float pianoX (int s) const
     {
-        int wi = 0;
-        for (int i = 0; i < s; ++i) if (! isBlack (low + i)) ++wi;
-        const float x = isBlack (low + s) ? (float) wi - 0.5f : (float) wi;
-        return x / (float) (whiteCount() - 1);
+        const int W = whiteCount();
+        int wBelow = 0;
+        for (int i = 0; i < s; ++i) if (! isBlack (low + i)) ++wBelow;
+        const float x = isBlack (low + s) ? (float) wBelow : (float) wBelow + 0.5f;
+        return x / (float) W;
     }
     // The note under an nx (0..1 across the keybed): the semitone whose piano-x is nearest.
     int noteAtX (float f) const
