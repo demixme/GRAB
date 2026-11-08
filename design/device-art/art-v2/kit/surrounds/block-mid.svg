@@ -4,5 +4,5 @@
 <title>Seaboard Block - mid</title>
 <path d="M0 2H10V298H0V2Z" fill="#151515"/>
 <path d="M0 3H10V297H0V3Z" fill="#282828"/>
-<path d="M0 4H10" stroke="#2d2d2d" stroke-width="1" fill="none"/>
+<path d="M0 4H10" stroke="#282828" stroke-width="1" fill="none"/>
 </svg>
