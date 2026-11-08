@@ -237,24 +237,27 @@ private:
         gr.removeFromTop (6);
         plotR = gr.withTrimmedLeft (54).withTrimmedBottom (34).withTrimmedRight (8).withTrimmedTop (4);
 
-        // Chip rects (measured with the body font).
+        // Chip rects (measured with the body font): room for the dot, the name, its value and the
+        // changed dot, so a long name like "Strike" never truncates.
         chipR.clear();
         juce::Font cf = grab::theme::type::font (grab::theme::type::Role::body);
+        const int valW = juce::GlyphArrangement::getStringWidthInt (cf, "127");
         int x = chipRow.getX();
         for (auto& d : dims)
         {
-            const int w = 22 + juce::GlyphArrangement::getStringWidthInt (cf, d.name) + 16;
+            const int w = 20 + juce::GlyphArrangement::getStringWidthInt (cf, d.name) + 6 + valW + 16;
             chipR.push_back (juce::Rectangle<float> ((float) x, (float) chipRow.getY() + 2.0f, (float) w, 26.0f));
             x += w + 8;
         }
 
-        // Knob rects in the inspector (Min / Sensitivity / Max, or just Sensitivity).
+        // Knob rects in the inspector (Min / Sensitivity / Max, or just Sensitivity), inside a card.
         knobR.clear();
         if (! dims.empty())
         {
             auto& d = dims[(size_t) selected];
-            auto row = inspR.reduced (16, 0).removeFromBottom (78).withTrimmedBottom (6);
-            const int kw = 56;
+            knobCardR = inspR.reduced (12, 0).removeFromBottom (108).withTrimmedBottom (10);
+            auto row = knobCardR.reduced (14, 12);
+            const int kw = 54;
             if (d.hasNodes())
             {
                 const int gap = juce::jmax (6, (row.getWidth() - kw * 3) / 2);
@@ -386,7 +389,7 @@ private:
                         juce::Justification::centred);
         }
 
-        // chips
+        // chips: name + value always; only the selected one gets a lozenge background (Fred's design).
         juce::Font cf = grab::theme::type::font (grab::theme::type::Role::body);
         for (size_t i = 0; i < chipR.size(); ++i)
         {
@@ -394,16 +397,22 @@ private:
             auto r = chipR[i];
             const bool on = (int) i == selected;
             const bool dimmed = d.name == "Lift" && liftUnsupported;   // device doesn't report lift
-            g.setColour (on ? segmentOn : raised);
-            g.fillRoundedRectangle (r, 13.0f);
+            if (on) { g.setColour (segmentOn); g.fillRoundedRectangle (r, r.getHeight() * 0.5f); }
+
             g.setColour (dimmed ? d.colour.withAlpha (0.4f) : d.colour);
             g.fillEllipse (r.getX() + 9.0f, r.getCentreY() - 4.0f, 8.0f, 8.0f);
-            g.setColour (dimmed ? disabled : (on ? ink : ink2));
+
             g.setFont (cf);
-            auto tr = r.withTrimmedLeft (22).withTrimmedRight (8);
-            g.drawText (on ? d.name + "  " + juce::String (d.sens) : d.name, tr, juce::Justification::centredLeft);
-            if (edited (d))   // persistent dot: this dimension differs from its page-load value
-            { g.setColour (ink); g.fillEllipse (r.getRight() - 10.0f, r.getY() + 4.0f, 5.0f, 5.0f); }
+            float tx = r.getX() + 20.0f;
+            const float nameW = (float) juce::GlyphArrangement::getStringWidthInt (cf, d.name);
+            g.setColour (dimmed ? disabled : (on ? ink : ink2));
+            g.drawText (d.name, juce::Rectangle<float> (tx, r.getY(), nameW + 2.0f, r.getHeight()), juce::Justification::centredLeft);
+            tx += nameW + 6.0f;
+            g.setColour (dimmed ? disabled : ink2);
+            g.drawText (juce::String (d.sens), juce::Rectangle<float> (tx, r.getY(), 30.0f, r.getHeight()), juce::Justification::centredLeft);
+
+            if (edited (d))   // persistent dot (vertically centred): differs from its page-load value
+            { g.setColour (ink); g.fillEllipse (r.getRight() - 12.0f, r.getCentreY() - 2.5f, 5.0f, 5.0f); }
         }
     }
 
@@ -439,7 +448,9 @@ private:
             g.drawFittedText ("Not sent by this device.", b.removeFromTop (28), juce::Justification::topLeft, 2);
         }
 
-        // knobs
+        // knobs, in their own recessed card (Fred's design)
+        g.setColour (panel);
+        g.fillRoundedRectangle (knobCardR.toFloat(), radius::control);
         for (auto& k : knobR)
         {
             const int v = valueFor (d, k.target);
@@ -458,11 +469,15 @@ private:
         const float a1 = juce::MathConstants<float>::pi * 2.75f;
         const float ang = a0 + (a1 - a0) * (float) v / 127.0f;
 
+        // Dark knob face behind the arcs (Fred's design), then the track + value arcs around it.
+        g.setColour (knobFace);
+        g.fillEllipse (face.reduced (1.0f));
+
         juce::Path track, val;
         track.addCentredArc (centre.x, centre.y, radius, radius, 0.0f, a0, a1, true);
         val.addCentredArc   (centre.x, centre.y, radius, radius, 0.0f, a0, ang, true);
-        g.setColour (knobTrack); g.strokePath (track, juce::PathStrokeType (4.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-        g.setColour (c);         g.strokePath (val,   juce::PathStrokeType (4.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        g.setColour (knobTrack); g.strokePath (track, juce::PathStrokeType (3.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        g.setColour (c);         g.strokePath (val,   juce::PathStrokeType (3.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
         // White index mark at the pointer (Fred's design): a short radial tick straddling the arc.
         const float sn = std::sin (ang), cs = std::cos (ang);
@@ -590,6 +605,7 @@ private:
     juce::Rectangle<int> graphR, inspR, chipRow, plotR;
     std::vector<juce::Rectangle<float>> chipR;
     std::vector<Knob> knobR;
+    juce::Rectangle<int> knobCardR;   // the recessed card the Min/Sensitivity/Max knobs sit in
     juce::Rectangle<float> resetR;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SensitivityGraph)
