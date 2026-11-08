@@ -98,10 +98,9 @@ public:
             if (posMod (n + shift, 12) == 0)   // a key that sounds as a C
             {
                 g.setColour (label);
-                g.drawText (noteName (n + shift),
-                            juce::Rectangle<float> (fx + 2.0f, top + h - (compact ? 14.0f : 18.0f),
-                                                    42.0f, 18.0f),
-                            juce::Justification::centredLeft);
+                g.drawText (noteName (n + shift),      // centred on the key line, so it aligns with the ring
+                            juce::Rectangle<float> (fx - 21.0f, top + h - (compact ? 14.0f : 18.0f), 42.0f, 18.0f),
+                            juce::Justification::centred);
             }
         }
 
