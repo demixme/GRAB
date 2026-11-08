@@ -174,6 +174,13 @@ public:
         repaint();
     }
 
+    // Drop all live markers (e.g. when Live keys takes over the touch stream).
+    void clearTouches()
+    {
+        { const juce::ScopedLock sl (touchLock); touches.clear(); }
+        dirty = true; repaint();
+    }
+
     // nx/ny are 0..1 within the tile's own (unrotated) surface. tileUid picks the tile.
     void setTouch (juce::uint64 tileUid, int fingerId, float nx, float ny, float z, float strike, bool end)
     {

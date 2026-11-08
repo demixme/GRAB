@@ -22,6 +22,7 @@
 #include "FooterBar.h"
 #include "KeyboardView.h"
 #include "LiveKeysStrip.h"
+#include "ViewToggle.h"
 #include "Rise2Component.h"
 #include "ThrottledWriter.h"
 #include "CapturePanel.h"
@@ -302,6 +303,7 @@ private:
     LiveKeysStrip    liveStrip;                 // Live keys: a big keyboard strip over the settings area
     juce::Label      liveKeysLabel;             // the "Live keys" heading above the strip
     juce::TextButton backToSettingsBtn { "Back to settings" };
+    grab::ViewToggle viewToggle;                // drawing-tile switch: Device drawing | Live keys
     bool liveKeys = false;                      // Live keys view active (settings area replaced by the strip)
     void enterLiveKeys (bool on);               // toggle the Live-keys view (keeps the top band visible)
     bool deviceArtV2 = false;                   // Advanced -> New device art (preview); persisted in settings

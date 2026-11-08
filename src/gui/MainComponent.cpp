@@ -590,6 +590,8 @@ MainComponent::MainComponent()
     liveKeysLabel.setFont (grab::theme::type::font (grab::theme::type::Role::title));
     addChildComponent (backToSettingsBtn);
     backToSettingsBtn.onClick = [this] { enterLiveKeys (false); };
+    addChildComponent (viewToggle);   // drawing-tile Device | Keys switch (shown when a keyboard device is present)
+    viewToggle.onChange = [this] (int i) { enterLiveKeys (i == 1); };
     {   // restore the device-art V2 preference (Advanced -> New device art)
         juce::PropertiesFile::Options po; po.millisecondsBeforeSaving = 0;
         juce::PropertiesFile props (grab::dataDir().getChildFile ("settings.properties"), po);
@@ -1554,7 +1556,9 @@ void MainComponent::touchChanged (roli::TouchSurface&, const roli::TouchSurface:
     const float startNx = juce::jlimit (0.0f, 1.0f, t.startX / g.w);
     const float glide    = juce::jlimit (-1.0f, 1.0f, nx - startNx);
 
-    keyboardView.setTouch ((juce::uint64) t.blockUID, (int) t.index, nx, ny, z, strike, t.isTouchEnd);
+    // While Live keys is up, the big strip owns the touch stream - the device graphic stops echoing.
+    if (! liveKeys)
+        keyboardView.setTouch ((juce::uint64) t.blockUID, (int) t.index, nx, ny, z, strike, t.isTouchEnd);
     liveStrip.setTouch ((int) (((juce::uint32) t.blockUID * 131u) ^ (juce::uint32) t.index),
                         nx, ny, z, strike, glide, t.isTouchEnd);
 }
@@ -3209,6 +3213,8 @@ void MainComponent::enterLiveKeys (bool on)
     liveStrip.setVisible (on);
     liveKeysLabel.setVisible (on);
     backToSettingsBtn.setVisible (on);
+    viewToggle.setIndex (on ? 1 : 0, false);
+    keyboardView.clearTouches();   // the device graphic stops echoing presses while Live keys is up
     if (on) { liveStrip.clearTouches(); updateLiveStripRange(); }
 
     setTransient (on ? "Live keys: play the device to see where and how hard you press."
@@ -3313,9 +3319,17 @@ void MainComponent::resized()
     const auto tb = splitTopBand (r);
     drawTileR = tb.draw; dashTileR = tb.dash; ctrlTileR = tb.ctrl;
 
-    // Drawing tile: the device art at its fixed scale, centred by KeyboardView.
-    if (keyboardView.isVisible())
+    // Drawing tile: the device art at its fixed scale, centred by KeyboardView, with the Device|Keys
+    // view toggle pinned to its top-right corner.
+    const bool showToggle = keyboardView.isVisible();
+    viewToggle.setVisible (showToggle);
+    if (showToggle)
+    {
         keyboardView.setBounds (tb.draw.reduced (padX, padY));
+        viewToggle.setBounds (tb.draw.getRight() - padX - viewToggle.preferredWidth(),
+                              tb.draw.getY() + padY,
+                              viewToggle.preferredWidth(), viewToggle.preferredHeight());
+    }
 
     // Dashboard tile: vertical device info, with the ROLI-device switcher below it when present.
     {

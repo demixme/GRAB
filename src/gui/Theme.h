@@ -154,6 +154,12 @@ namespace grab::theme
             }
         }
 
+        // Fred's design sizes are CSS px (20 readouts, 13 names, 12 values, 11 captions). JUCE's
+        // withHeight on Windows renders those heavier/larger than the browser does (height counts
+        // ascent+descent+leading, not the em), so we scale down to land on the web-intended size.
+        // One knob to tune the whole type ramp if it still reads a touch large or small.
+        inline constexpr float sizeScale = 0.82f;
+
         inline juce::Font font (Role r)
         {
             float h = 13.0f;
@@ -168,7 +174,7 @@ namespace grab::theme
                 case Role::caption: h = 11.0f; break;  // device facts, units, axis labels, status bar
             }
 
-            return juce::Font { juce::FontOptions().withTypeface (tf).withHeight (h) };
+            return juce::Font { juce::FontOptions().withTypeface (tf).withHeight (h * sizeScale) };
         }
     }
 
