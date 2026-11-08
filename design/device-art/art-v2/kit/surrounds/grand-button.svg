@@ -3,7 +3,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 84" width="60" height="84" >
 <title>GRAND - master button (centred ornament)</title>
 <circle cx="30" cy="44" r="26" fill="#101014"/>
-<circle cx="30" cy="44" r="25" fill="#2b2b2e"/>
-<circle cx="31" cy="45" r="22" fill="#242328"/>
-<circle cx="32" cy="44" r="1.8" fill="#7d7c80"/>
+<circle cx="30" cy="44" r="25" fill="#242328"/>
+<circle cx="30" cy="44" r="1.8" fill="#7d7c80"/>
 </svg>

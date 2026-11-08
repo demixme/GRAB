@@ -1,100 +1,363 @@
 {
-  "_about": "Design tokens for the GRAB device-art generator. Flat illustration: one shared tone ladder, crisp shadow shapes, light from the top-right at 45 degrees. Edit, run `python3 generator/build.py`, refresh art/preview.html.",
-
-  "canvas": "#1A1C27",
-  "accent": "#00B0BB",
-  "selectionFrame": { "show": true, "width": 1.6, "opacity": 0.9 },
-
-  "tones": {
-    "_about": "The whole set is drawn with these. edge = outline only; deep = shadow cores; mid = penumbra / recess floors; base = surfaces; lit = raised faces / light edges; white = printed lines and glyphs.",
-    "edge":  "#0e0e0f",
-    "deep":  "#18181a",
-    "mid":   "#222224",
-    "base":  "#2b2b2d",
-    "lit":   "#363639",
-    "white": "#e4e4e6"
+ "_about": "Design tokens for the GRAB device-art generator. Flat illustration: one shared tone ladder, crisp shadow shapes, light from the top-right at 45 degrees. Edit, run `python3 generator/build.py`, refresh art/preview.html.",
+ "canvas": "#1A1C27",
+ "accent": "#00B0BB",
+ "selectionFrame": {
+  "show": true,
+  "width": 1.6,
+  "opacity": 0.9
+ },
+ "tones": {
+  "_about": "The whole set is drawn with these. edge = outline only; deep = shadow cores; mid = penumbra / recess floors; base = surfaces; lit = raised faces / light edges; white = printed lines and glyphs.",
+  "edge": "#0e0e0f",
+  "deep": "#18181a",
+  "mid": "#222224",
+  "base": "#2b2b2d",
+  "lit": "#363639",
+  "white": "#e4e4e6"
+ },
+ "light": {
+  "_about": "Light from the top-right. cast = how far raised parts throw their shadow down-left (px at 100px/unit); inset = width of the shadow strip inside wells.",
+  "cast": 1.8,
+  "inset": 2.6
+ },
+ "keywave": {
+  "_about": "Seaboard keywave, from seaboard-m.png. Fractions of a white-key pitch (x) or of the key region height (y).",
+  "blackW": 0.38,
+  "band": 0.28,
+  "penumbra": 0.12,
+  "jog": 0.55,
+  "railTop": 0.14,
+  "step": 0.51,
+  "railBottom": 0.83,
+  "_round": "Black-key ridge + S-shadow corners. caps: 1 = fully round ends (0 = square). bend: radius of the S-step bends, as a fraction of a white-key pitch.",
+  "caps": 1.0,
+  "bend": 0.2,
+  "look": "trace",
+  "trace": {
+   "_about": "Clean keywave measured from the Illustrator trace of seaboard-m.png (product-photos/seaboard-m.svg). x = fractions of a white-key pitch from the black key's boundary; y = fractions of the key region. Colours are the trace's own neutral greys.",
+   "colour": {
+    "body": "#282828",
+    "face": "#2a2a2a",
+    "ridge": "#2d2d2d",
+    "cap": "#313131",
+    "litEdge": "#303030",
+    "shoulder": "#242424",
+    "soft": "#1f1f1f",
+    "deep": "#181818",
+    "edge": "#151515",
+    "crest": "#bdbdbd"
+   },
+   "ridge": {
+    "x": [
+     -0.15,
+     0.5
+    ],
+    "y": [
+     0.125,
+     0.505
+    ],
+    "capTo": 0.2,
+    "shoulderTo": -0.03,
+    "litFrom": 0.35,
+    "litY": 0.24
+   },
+   "crest": {
+    "w": 0.05,
+    "y": [
+     0.22,
+     0.485
+    ]
+   },
+   "valley": {
+    "upper": [
+     -0.35,
+     -0.14
+    ],
+    "lower": [
+     0.09,
+     0.38
+    ],
+    "top": 0.165,
+    "stepTop": [
+     0.49,
+     0.535
+    ],
+    "stepBottom": [
+     0.525,
+     0.56
+    ],
+    "bottom": 0.82,
+    "softUpper": -0.45,
+    "softLower": [
+     0.01,
+     0.5
+    ]
+   },
+   "lowerLit": {
+    "x": [
+     -0.33,
+     0.0
+    ],
+    "y": [
+     0.57,
+     0.78
+    ]
+   },
+   "gap": {
+    "deep": [
+     0.09,
+     0.36
+    ],
+    "soft": [
+     -0.01,
+     0.5
+    ],
+    "y": [
+     0.16,
+     0.83
+    ]
+   }
+  }
+ },
+ "devices": {
+  "block": {
+   "bodyRadius": 10,
+   "body": {
+    "edge": "#151515",
+    "deep": "#181818",
+    "mid": "#1f1f1f",
+    "base": "#282828",
+    "lit": "#2d2d2d",
+    "white": "#bdbdbd"
+   }
   },
-
-  "light": {
-    "_about": "Light from the top-right. cast = how far raised parts throw their shadow down-left (px at 100px/unit); inset = width of the shadow strip inside wells.",
-    "cast": 1.8,
-    "inset": 2.6
+  "rise": {
+   "bodyRadius": 10,
+   "body": {
+    "base": "#38383b",
+    "lit": "#444448",
+    "mid": "#2e2e31",
+    "deep": "#232325"
+   },
+   "keywave": {
+    "railTop": 0.09,
+    "step": 0.55,
+    "railBottom": 0.88
+   },
+   "look": "trace",
+   "trace": {
+    "_about": "Casing and control panel from the Illustrator trace of the RISE 2 photo (seaboard-2-black.svg). Keys stay the Block's tiles, for coherence.",
+    "body": {
+     "outline": "#2c2c2c",
+     "base": "#3f3f3f",
+     "front": "#303030",
+     "lip": "#6b6b6b",
+     "trayRim": "#0b0b0b",
+     "trayInset": "#1f1f1f",
+     "tray": "#262626"
+    },
+    "panel": {
+     "edge": "#191919",
+     "deep": "#212121",
+     "mid": "#282828",
+     "white": "#e5e6e8",
+     "faderLine": "#f7f7f8",
+     "faderLineOpacity": 1,
+     "faderLineW": 1.5,
+     "faderLineEnd": 22
+    },
+    "flat": true
+   }
   },
-
-  "keywave": {
-    "_about": "Seaboard keywave, from seaboard-m.png. Fractions of a white-key pitch (x) or of the key region height (y).",
-    "blackW": 0.38, "band": 0.28, "penumbra": 0.12, "jog": 0.55,
-    "railTop": 0.14, "step": 0.51, "railBottom": 0.83,
-    "_round": "Black-key ridge + S-shadow corners. caps: 1 = fully round ends (0 = square). bend: radius of the S-step bends, as a fraction of a white-key pitch.",
-    "caps": 1.0, "bend": 0.20,
-    "look": "trace",
-    "trace": {
-      "_about": "Clean keywave measured from the Illustrator trace of seaboard-m.png (product-photos/seaboard-m.svg). x = fractions of a white-key pitch from the black key's boundary; y = fractions of the key region. Colours are the trace's own neutral greys.",
-      "colour": { "body": "#282828", "face": "#2a2a2a", "ridge": "#2d2d2d", "cap": "#313131", "litEdge": "#303030",
-                  "shoulder": "#242424", "soft": "#1f1f1f", "deep": "#181818", "edge": "#151515", "crest": "#bdbdbd" },
-      "ridge":  { "x": [-0.15, 0.50], "y": [0.125, 0.505], "capTo": 0.20, "shoulderTo": -0.03, "litFrom": 0.35, "litY": 0.24 },
-      "crest":  { "w": 0.05, "y": [0.22, 0.485] },
-      "valley": { "upper": [-0.35, -0.14], "lower": [0.09, 0.38], "top": 0.165, "stepTop": [0.49, 0.535], "stepBottom": [0.525, 0.56], "bottom": 0.82,
-                  "softUpper": -0.45, "softLower": [0.01, 0.50] },
-      "lowerLit": { "x": [-0.33, 0.0], "y": [0.57, 0.78] },
-      "gap":    { "deep": [0.09, 0.36], "soft": [-0.01, 0.50], "y": [0.16, 0.83] }
+  "grand": {
+   "bodyRadius": 14,
+   "_body": "matte black, as in the Studio and Stage photos",
+   "body": {
+    "base": "#2c2c2f",
+    "lit": "#38383c",
+    "mid": "#232326",
+    "deep": "#19191b"
+   },
+   "pill": "#8c9097",
+   "keywave": {
+    "railTop": 0.17,
+    "step": 0.55,
+    "railBottom": 0.88
+   },
+   "look": "trace",
+   "trace": {
+    "_about": "From the Illustrator trace of the GRAND Stage photo. Overrides keywave.trace (same units: x = pitch fractions, y = key-region fractions).",
+    "body": {
+     "outline": "#101014",
+     "base": "#28272c",
+     "lip": "#3e3d42",
+     "trayRim": "#101014",
+     "trayInset": "#212327",
+     "tray": "#2f3135",
+     "buttonRing": "#2b2b2e",
+     "buttonFace": "#242328",
+     "buttonMark": "#7d7c80"
+    },
+    "colour": {
+     "face": "#2f3135",
+     "soft": "#2a2b30",
+     "deep": "#222227",
+     "toe": "#393a3f",
+     "halo": "#2f3135",
+     "pill": "#7e8891"
+    },
+    "valley": {
+     "top": 0.14,
+     "stepTop": [
+      0.58,
+      0.61
+     ],
+     "stepBottom": [
+      0.61,
+      0.64
+     ],
+     "bottom": 0.8
+    },
+    "gap": {
+     "y": [
+      0.14,
+      0.8
+     ]
+    },
+    "pill": {
+     "half": 0.18,
+     "halo": 0.24,
+     "y": [
+      0.12,
+      0.56
+     ],
+     "haloY": 0.02
+    },
+    "flat": true,
+    "_simplified": "flat body (no lit front lip), plain button, pills without halos or toes"
+   }
+  },
+  "lumi": {
+   "bodyRadius": 11,
+   "whiteKey": "#e9ebee",
+   "blackKey": "#15161b",
+   "keyTopWash": 0.22,
+   "blackWash": 0.3,
+   "castShadow": 0.34,
+   "_size": "fractions of a white-key pitch, measured from piano-m2.png",
+   "gap": 0.16,
+   "frameW": 0.7,
+   "faceW": 0.3,
+   "blackH": 0.6,
+   "look": "trace",
+   "trace": {
+    "_about": "Measured from the Illustrator trace of piano-m2.png (product-photos/piano-m2.svg), then simplified. x = fractions of a white-key pitch, y = fractions of the key region (bar bottom to key bottom). Colours are the trace's own.",
+    "body": {
+     "outline": "#151515",
+     "bar": "#292929",
+     "barLit": "#353535",
+     "keybed": "#0b0b0b",
+     "lip": "#6b6b6b",
+     "lipShade": "#2c2c2c",
+     "control": "#373838",
+     "controlRim": "#141414",
+     "glyph": "#babdbb",
+     "led": "#30ef30"
+    },
+    "barH": 0.21,
+    "white": {
+     "gap": 0.22,
+     "radius": 0.08,
+     "topShade": 0.018
+    },
+    "black": {
+     "rim": 0.4,
+     "frame": 0.335,
+     "bevel": 0.16,
+     "face": 0.125,
+     "faceBottom": 0.544,
+     "bevelBottom": 0.56,
+     "frameBottom": 0.605,
+     "rimBottom": 0.615,
+     "radius": 0.12,
+     "colour": {
+      "rim": "#2a2a2a",
+      "frame": "#111111",
+      "bevel": "#333333"
+     }
+    },
+    "blackOffsets": {
+     "_about": "black-key centre offset from its boundary, by pitch class (C#=1 ... A#=10), as on a real keyboard",
+     "1": -0.1,
+     "3": 0.1,
+     "6": -0.12,
+     "8": 0.0,
+     "10": 0.12
+    },
+    "keyColours": "rainbow",
+    "rainbow": {
+     "0": "#fe6f6f",
+     "1": "#fc9a6c",
+     "2": "#fe8a55",
+     "3": "#fcd856",
+     "4": "#f2ee4a",
+     "5": "#8fd24f",
+     "6": "#5efdb0",
+     "7": "#56e7fe",
+     "8": "#8fbcfe",
+     "9": "#9b7ffe",
+     "10": "#fb9cfb",
+     "11": "#fe64d5"
+    },
+    "controls": {
+     "button": [
+      45.4,
+      30.4,
+      13.2
+     ],
+     "pill": [
+      71.7,
+      16.9,
+      67.4,
+      26.8
+     ],
+     "arrows": [
+      83.1,
+      128.6,
+      30.2,
+      2.6
+     ],
+     "bars": {
+      "x": [
+       8.2,
+       14.6,
+       24.8,
+       31.1,
+       37.6
+      ],
+      "y": [
+       21.5,
+       38.8
+      ],
+      "w": 2.5
+     }
     }
+   }
   },
-
-  "devices": {
-    "block":  { "bodyRadius": 10,
-                "body": { "edge": "#151515", "deep": "#181818", "mid": "#1f1f1f", "base": "#282828", "lit": "#2d2d2d", "white": "#bdbdbd" } },
-    "rise":   { "bodyRadius": 10,
-                "body": { "base": "#38383b", "lit": "#444448", "mid": "#2e2e31", "deep": "#232325" },
-                "keywave": { "railTop": 0.09, "step": 0.55, "railBottom": 0.88 },
-                "look": "trace",
-                "trace": {
-                  "_about": "Casing and control panel from the Illustrator trace of the RISE 2 photo (seaboard-2-black.svg). Keys stay the Block's tiles, for coherence.",
-                  "body":  { "outline": "#2c2c2c", "base": "#3f3f3f", "front": "#303030", "lip": "#6b6b6b",
-                             "trayRim": "#0b0b0b", "trayInset": "#1f1f1f", "tray": "#262626" },
-                  "panel": { "edge": "#191919", "deep": "#212121", "mid": "#282828", "white": "#e5e6e8",
-                             "faderLine": "#f7f7f8", "faderLineOpacity": 1, "faderLineW": 1.5, "faderLineEnd": 22 }
-                } },
-    "grand":  { "bodyRadius": 14,
-                "_body": "matte black, as in the Studio and Stage photos",
-                "body": { "base": "#2c2c2f", "lit": "#38383c", "mid": "#232326", "deep": "#19191b" },
-                "pill": "#8c9097",
-                "keywave": { "railTop": 0.17, "step": 0.55, "railBottom": 0.88 },
-                "look": "trace",
-                "trace": {
-                  "_about": "From the Illustrator trace of the GRAND Stage photo. Overrides keywave.trace (same units: x = pitch fractions, y = key-region fractions).",
-                  "body":   { "outline": "#101014", "base": "#28272c", "lip": "#3e3d42", "trayRim": "#101014", "trayInset": "#212327", "tray": "#2f3135",
-                              "buttonRing": "#2b2b2e", "buttonFace": "#242328", "buttonMark": "#7d7c80" },
-                  "colour": { "face": "#2f3135", "soft": "#2a2b30", "deep": "#222227", "toe": "#393a3f", "halo": "#3b3e49", "pill": "#7e8891" },
-                  "valley": { "top": 0.14, "stepTop": [0.58, 0.61], "stepBottom": [0.61, 0.64], "bottom": 0.80 },
-                  "gap":    { "y": [0.14, 0.80] },
-                  "pill":   { "half": 0.18, "halo": 0.24, "y": [0.12, 0.56], "haloY": 0.02 },
-                  "toe":    { "x": [0.27, 0.73], "y": [0.815, 0.87] }
-                } },
-    "lumi":   { "bodyRadius": 11, "whiteKey": "#e9ebee", "blackKey": "#15161b",
-                "keyTopWash": 0.22, "blackWash": 0.30, "castShadow": 0.34,
-                "_size": "fractions of a white-key pitch, measured from piano-m2.png",
-                "gap": 0.16, "frameW": 0.70, "faceW": 0.30, "blackH": 0.60,
-                "look": "trace",
-                "trace": {
-                  "_about": "Measured from the Illustrator trace of piano-m2.png (product-photos/piano-m2.svg), then simplified. x = fractions of a white-key pitch, y = fractions of the key region (bar bottom to key bottom). Colours are the trace's own.",
-                  "body": { "outline": "#151515", "bar": "#292929", "barLit": "#353535", "keybed": "#0b0b0b", "lip": "#6b6b6b", "lipShade": "#2c2c2c",
-                            "control": "#373838", "controlRim": "#141414", "glyph": "#babdbb", "led": "#30ef30" },
-                  "barH": 0.21,
-                  "white": { "gap": 0.22, "radius": 0.08, "topShade": 0.018 },
-                  "black": { "rim": 0.40, "frame": 0.335, "bevel": 0.16, "face": 0.125, "faceBottom": 0.544, "bevelBottom": 0.56,
-                             "frameBottom": 0.605, "rimBottom": 0.615, "radius": 0.12,
-                             "colour": { "rim": "#2a2a2a", "frame": "#111111", "bevel": "#333333" } },
-                  "blackOffsets": { "_about": "black-key centre offset from its boundary, by pitch class (C#=1 ... A#=10), as on a real keyboard", "1": -0.10, "3": 0.10, "6": -0.12, "8": 0.0, "10": 0.12 },
-                  "keyColours": "rainbow",
-                  "rainbow": { "0": "#fe6f6f", "1": "#fc9a6c", "2": "#fe8a55", "3": "#fcd856", "4": "#f2ee4a", "5": "#8fd24f",
-                               "6": "#5efdb0", "7": "#56e7fe", "8": "#8fbcfe", "9": "#9b7ffe", "10": "#fb9cfb", "11": "#fe64d5" },
-                  "controls": { "button": [45.4, 30.4, 13.2], "pill": [71.7, 16.9, 67.4, 26.8], "arrows": [83.1, 128.6, 30.2, 2.6],
-                                "bars": { "x": [8.2, 14.6, 24.8, 31.1, 37.6], "y": [21.5, 38.8], "w": 2.5 } }
-                } },
-    "lightpad": { "bodyRadius": 10, "dotOff": 0.07 },
-    "control":  { "bodyRadius": 10, "iconUseAccent": false }
+  "lightpad": {
+   "bodyRadius": 10,
+   "dotOff": 0.07
   },
-
-  "controlAccents": { "touch": "#B39CFF", "loop": "#35D0C6", "live": "#FF9A3C", "developer": "#E6E6EE" }
+  "control": {
+   "bodyRadius": 10,
+   "iconUseAccent": false
+  }
+ },
+ "controlAccents": {
+  "touch": "#B39CFF",
+  "loop": "#35D0C6",
+  "live": "#FF9A3C",
+  "developer": "#E6E6EE"
+ }
 }

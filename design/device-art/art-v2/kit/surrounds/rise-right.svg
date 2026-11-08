@@ -3,9 +3,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 300" width="44" height="300" >
 <title>RISE - right cap</title>
 <path d="M0 2H31A11 11 0 0 1 42 13V287A11 11 0 0 1 31 298H0V2ZM0 3H31A10 10 0 0 1 41 13V287A10 10 0 0 1 31 297H0V3Z" fill="#2c2c2c" fill-rule="evenodd"/>
-<path d="M0 3H31A10 10 0 0 1 41 13V287A10 10 0 0 1 31 297H0V3ZM0 3H28.5A10 10 0 0 1 38.5 13V267H0V3ZM0 267H38.5V284.5A10 10 0 0 1 28.5 294.5H0V267Z" fill="#6b6b6b" fill-rule="evenodd"/>
-<path d="M0 267H38.5V284.5A10 10 0 0 1 28.5 294.5H0V267Z" fill="#303030"/>
-<path d="M0 3H28.5A10 10 0 0 1 38.5 13V267H0V3ZM0 28H1A6 6 0 0 1 7 34V258A6 6 0 0 1 1 264H0V28Z" fill="#3f3f3f" fill-rule="evenodd"/>
+<path d="M0 3H31A10 10 0 0 1 41 13V287A10 10 0 0 1 31 297H0V3ZM0 28H1A6 6 0 0 1 7 34V258A6 6 0 0 1 1 264H0V28Z" fill="#3f3f3f" fill-rule="evenodd"/>
 <path d="M0 28H1A6 6 0 0 1 7 34V258A6 6 0 0 1 1 264H0V28ZM0 29H1A5 5 0 0 1 6 34V258A5 5 0 0 1 1 263H0V29Z" fill="#0b0b0b" fill-rule="evenodd"/>
 <path d="M0 29H1A5 5 0 0 1 6 34V258A5 5 0 0 1 1 263H0V29ZM0 32H2.5A3.5 3.5 0 0 1 6 35.5V259.5A3.5 3.5 0 0 1 2.5 263H0V32Z" fill="#1f1f1f" fill-rule="evenodd"/>
 <path d="M0 32H2.5A3.5 3.5 0 0 1 6 35.5V259.5A3.5 3.5 0 0 1 2.5 263H0V32Z" fill="#262626"/>

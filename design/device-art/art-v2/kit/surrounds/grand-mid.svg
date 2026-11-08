@@ -3,8 +3,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 300" width="10" height="300" >
 <title>GRAND - mid</title>
 <path d="M0 2H10V298H0V2ZM0 3H10V297H0V3Z" fill="#101014" fill-rule="evenodd"/>
-<path d="M0 3H10V297H0V3ZM0 3H10V283H0V3Z" fill="#3e3d42" fill-rule="evenodd"/>
-<path d="M0 3H10V283H0V3ZM0 83H10V275H0V83Z" fill="#28272c" fill-rule="evenodd"/>
+<path d="M0 3H10V297H0V3ZM0 83H10V275H0V83Z" fill="#28272c" fill-rule="evenodd"/>
 <path d="M0 83H10V275H0V83ZM0 84H10V274H0V84Z" fill="#101014" fill-rule="evenodd"/>
 <path d="M0 84H10V274H0V84ZM0 88.5H10V274H0V88.5Z" fill="#212327" fill-rule="evenodd"/>
 <path d="M0 88.5H10V274H0V88.5Z" fill="#2f3135"/>
