@@ -129,17 +129,40 @@ ConfigRow::ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value
             break;
 
         case ConfigType::options:
+        {
             // Only offer options that map to an in-range value. optionNames[i] maps to
             // value range.start + i, so valid i is 0..range.getLength(). Some items
             // (e.g. Glide/Slide Tracking: range 1..4) carry a trailing name ("Disabled")
             // beyond max; showing it would let the user write an out-of-range value.
+            juce::StringArray names;
             for (int i = 0; i <= range.getLength() && i < roli::Block::ConfigMetaData::numOptionNames; ++i)
                 if (meta.optionNames[i].isNotEmpty())
-                    combo.addItem (meta.optionNames[i], i + 1); // itemId = optionIndex + 1
-            combo.setSelectedId ((value - range.getStart()) + 1, juce::dontSendNotification);
-            combo.onChange = [this] { fireChange(); };
-            control = &combo;
+                    names.add (meta.optionNames[i]);
+
+            // Compact labels for segments: drop a redundant " Channel" suffix (Multi Channel -> Multi).
+            juce::StringArray shortNames;
+            for (auto& n : names) shortNames.add (n.endsWith (" Channel") ? n.dropLastCharacters (8) : n);
+
+            // A few short labels -> segmented buttons (MIDI mode, zone, pedal type); otherwise a
+            // dropdown (long labels, or many options like the 19 scales).
+            int maxLen = 0; for (auto& n : shortNames) maxLen = juce::jmax (maxLen, n.length());
+            useSegmented = names.size() >= 2 && names.size() <= 3 && maxLen <= 10;
+            if (useSegmented)
+            {
+                segmented.setItems (shortNames);
+                segmented.setSelectedIndex (value - range.getStart(), false);
+                segmented.onChange = [this] { fireChange(); };
+                control = &segmented;
+            }
+            else
+            {
+                for (int i = 0; i < names.size(); ++i) combo.addItem (names[i], i + 1);   // itemId = index + 1
+                combo.setSelectedId ((value - range.getStart()) + 1, juce::dontSendNotification);
+                combo.onChange = [this] { fireChange(); };
+                control = &combo;
+            }
             break;
+        }
 
         case ConfigType::integer:
             slider.setSliderStyle (juce::Slider::LinearHorizontal);
@@ -211,7 +234,8 @@ juce::int32 ConfigRow::getValue() const
     switch (type)
     {
         case ConfigType::boolean: return toggle.getToggleState() ? 1 : 0;
-        case ConfigType::options: return range.getStart() + (combo.getSelectedId() - 1);
+        case ConfigType::options: return range.getStart() + (useSegmented ? segmented.getSelectedIndex()
+                                                                          : combo.getSelectedId() - 1);
         case ConfigType::integer: return (juce::int32) juce::roundToInt (slider.getValue());
         case ConfigType::colour:  return (juce::int32) colourWell.getSwatchColour().getARGB();
         default:                  return readOnly.getText().getIntValue();
@@ -232,7 +256,10 @@ void ConfigRow::setValue (juce::int32 v)
     switch (type)
     {
         case ConfigType::boolean: toggle.setToggleState (v != 0, juce::dontSendNotification); break;
-        case ConfigType::options: combo.setSelectedId ((v - range.getStart()) + 1, juce::dontSendNotification); break;
+        case ConfigType::options:
+            if (useSegmented) segmented.setSelectedIndex (v - range.getStart(), false);
+            else              combo.setSelectedId ((v - range.getStart()) + 1, juce::dontSendNotification);
+            break;
         case ConfigType::integer: slider.setValue ((double) v, juce::dontSendNotification); break;
         case ConfigType::colour:  colourWell.setSwatchColour (juce::Colour ((juce::uint32) v)); break;
         default:                  readOnly.setText (juce::String (v) + "  (read-only)", juce::dontSendNotification); break;
@@ -1841,6 +1868,15 @@ void MainComponent::rebuildRows()
     // Order sections roughly like ROLI Dashboard.
     std::stable_sort (groupOrder.begin(), groupOrder.end(),
                       [] (const juce::String& a, const juce::String& b) { return groupRank (a) < groupRank (b); });
+
+    // Lead fields within a card: MIDI Mode sits at the top of its group (Fred's MIDI output), the
+    // rest keep their device id order.
+    for (auto& kv : groups)
+        std::stable_sort (kv.second.begin(), kv.second.end(), [] (const Item& a, const Item& b)
+        {
+            auto lead = [] (const Item& it) { return it.meta.name == "MIDI Mode" ? 0 : 1; };
+            return lead (a) < lead (b);
+        });
 
     // The 5D sensitivity config ids -> curve panels (Strike/Glide/Slide/Press/Lift).
     struct Dim { juce::uint32 id; const char* label; juce::uint32 colour; int minId; int maxId; };

@@ -14,6 +14,7 @@
 #include "LearnedNames.h"
 #include "CurveComponent.h"
 #include "SensitivityGraph.h"
+#include "SegmentedControl.h"
 #include "ColourWell.h"
 #include "DeviceInfoBar.h"
 #include "SectionCard.h"
@@ -82,7 +83,9 @@ private:
     juce::Label      nameLabel;
     juce::Slider     slider;     // integer
     juce::ToggleButton toggle;   // boolean
-    juce::ComboBox   combo;      // options (combo index = value - range start)
+    juce::ComboBox   combo;      // options (combo index = value - range start): long/many-option sets
+    grab::SegmentedControl segmented;   // options with a few short labels (MIDI mode, zone, ...)
+    bool             useSegmented = false;
     grab::ColourWell colourWell; // colour (ARGB)
     juce::Label      readOnly;   // float — shown, not edited
 
