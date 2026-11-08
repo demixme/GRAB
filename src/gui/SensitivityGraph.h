@@ -58,6 +58,24 @@ public:
 
     bool isEmpty() const { return dims.empty(); }
 
+    // Fixed velocity lives at the bottom of the inspector panel (Fred's design): a toggle, plus a
+    // draggable value when it's on. The owner passes the two config ids so the graph can emit edits.
+    void setFixedVelocity (juce::uint32 toggleId, bool on, juce::uint32 valueId, int value)
+    {
+        hasFixedVel = true; fvToggleId = toggleId; fvOn = on; fvValueId = valueId;
+        fvValue = juce::jlimit (0, 127, value);
+        repaint();
+    }
+    void setFixedVelocityOn (bool on)    { if (fvOn != on) { fvOn = on; repaint(); } }
+    void setFixedVelocityValue (int v)   { v = juce::jlimit (0, 127, v); if (fvValue != v) { fvValue = v; repaint(); } }
+    bool ownsFixedVel (juce::uint32 id) const { return hasFixedVel && (id == fvToggleId || id == fvValueId); }
+    void updateFixedVel (juce::uint32 id, int value)   // a device-reported change to either fv id
+    {
+        if (! hasFixedVel) return;
+        if (id == fvToggleId)      setFixedVelocityOn (value != 0);
+        else if (id == fvValueId)  setFixedVelocityValue (value);
+    }
+
     // --- by-id interface for the owner's live-update / changed / reset sites -------------------
     bool owns (juce::uint32 id) const
     {
@@ -132,6 +150,12 @@ public:
         // Reset link in the inspector (only when there's something to revert).
         if (edited (d) && resetR.contains (e.position)) { resetSelected(); return; }
 
+        // Fixed-velocity switch / value.
+        if (hasFixedVel && fvSwitchR.contains (e.position))
+        { fvOn = ! fvOn; if (change) change (fvToggleId, fvOn ? 1 : 0); repaint(); return; }
+        if (hasFixedVel && fvOn && fvValueR.contains (e.position))
+        { draggingFvValue = true; dragStart = fvValue; return; }
+
         // Knobs.
         for (auto& k : knobR)
             if (k.area.contains (e.position)) { drag = k.target; dragStart = valueFor (d, k.target); applyKnob (e); return; }
@@ -155,10 +179,18 @@ public:
 
     void mouseDrag (const juce::MouseEvent& e) override
     {
+        if (draggingFvValue)
+        {
+            const int v = juce::jlimit (0, 127, dragStart - juce::roundToInt ((float) e.getDistanceFromDragStartY() * 0.6f));
+            if (v != fvValue) { fvValue = v; if (change) change (fvValueId, v); repaint(); }
+            return;
+        }
         if (drag == Drag::none) return;
         if (drag == Drag::sens || drag == Drag::minNode || drag == Drag::maxNode) applyPlot (e);
         else applyKnob (e);
     }
+
+    void mouseUp (const juce::MouseEvent&) override { draggingFvValue = false; drag = Drag::none; }
 
 private:
     enum class Drag { none, sens, minNode, maxNode, knobMin, knobSens, knobMax };
@@ -255,7 +287,19 @@ private:
         if (! dims.empty())
         {
             auto& d = dims[(size_t) selected];
-            knobCardR = inspR.reduced (12, 0).removeFromBottom (108).withTrimmedBottom (10);
+            auto innerB = inspR.reduced (12, 0);
+            innerB.removeFromBottom (12);
+            if (hasFixedVel)       // fixed-velocity row at the very bottom of the panel
+            {
+                auto fvRow = innerB.removeFromBottom (24);
+                fvSwitchR = fvRow.removeFromRight (40).withSizeKeepingCentre (40, 20).toFloat();
+                fvRow.removeFromRight (8);
+                if (fvOn) { fvValueR = fvRow.removeFromRight (32).toFloat(); fvRow.removeFromRight (4); }
+                else        fvValueR = {};
+                fvLabelR = fvRow.toFloat();
+                innerB.removeFromBottom (10);
+            }
+            knobCardR = innerB.removeFromBottom (100);
             auto row = knobCardR.reduced (14, 12);
             const int kw = 54;
             if (d.hasNodes())
@@ -421,13 +465,25 @@ private:
         using namespace grab::theme;
         if (dims.empty()) return;
         auto& d = dims[(size_t) selected];
-        auto b = inspR.reduced (16, 12);
 
-        // name + Reset
+        // The inspector is its own full-height panel (Fred's design): everything sits inside it.
+        g.setColour (panel);
+        g.fillRoundedRectangle (inspR.toFloat(), radius::tile);
+
+        auto b = inspR.reduced (16, 14);
+
+        // name (+ a changed dot) + Reset
         auto head = b.removeFromTop (22);
+        auto titleR = head.removeFromLeft (head.getWidth() - 56);
         g.setColour (d.colour);
         g.setFont (grab::theme::type::font (grab::theme::type::Role::title));
-        g.drawText (d.name, head.removeFromLeft (head.getWidth() - 56), juce::Justification::centredLeft);
+        g.drawText (d.name, titleR, juce::Justification::centredLeft);
+        if (edited (d))
+        {
+            const int nameW = juce::GlyphArrangement::getStringWidthInt (g.getCurrentFont(), d.name);
+            g.setColour (ink);
+            g.fillEllipse ((float) (titleR.getX() + nameW + 8), (float) titleR.getCentreY() - 2.5f, 5.0f, 5.0f);
+        }
         // Reset: always present (context button), lit only when the dimension has been edited.
         resetR = head.toFloat();
         g.setColour (edited (d) ? ink2 : disabled);
@@ -448,14 +504,35 @@ private:
             g.drawFittedText ("Not sent by this device.", b.removeFromTop (28), juce::Justification::topLeft, 2);
         }
 
-        // knobs, in their own recessed card (Fred's design)
-        g.setColour (panel);
+        // knobs, in their own recessed card within the inspector panel (Fred's design)
+        g.setColour (well);
         g.fillRoundedRectangle (knobCardR.toFloat(), radius::control);
         for (auto& k : knobR)
         {
             const int v = valueFor (d, k.target);
             const char* lab = k.target == Drag::knobMin ? "Min" : k.target == Drag::knobMax ? "Max" : "Sensitivity";
             paintKnob (g, k.area, d.colour, v, lab);
+        }
+
+        // Fixed velocity: label, optional value, and a switch - at the bottom of the panel.
+        if (hasFixedVel)
+        {
+            g.setColour (ink2);
+            g.setFont (grab::theme::type::font (grab::theme::type::Role::body));
+            g.drawText ("Fixed velocity", fvLabelR, juce::Justification::centredLeft);
+            if (fvOn && ! fvValueR.isEmpty())
+            {
+                g.setColour (ink);
+                g.setFont (grab::theme::type::font (grab::theme::type::Role::control));
+                g.drawText (juce::String (fvValue), fvValueR, juce::Justification::centredRight);
+            }
+            // switch
+            g.setColour (fvOn ? primaryFill : switchOff);
+            g.fillRoundedRectangle (fvSwitchR, fvSwitchR.getHeight() * 0.5f);
+            const float kr = fvSwitchR.getHeight() - 6.0f;
+            const float kx = fvOn ? fvSwitchR.getRight() - kr - 3.0f : fvSwitchR.getX() + 3.0f;
+            g.setColour (fvOn ? primaryText : ink);
+            g.fillEllipse (kx, fvSwitchR.getY() + 3.0f, kr, kr);
         }
     }
 
@@ -606,6 +683,12 @@ private:
     std::vector<juce::Rectangle<float>> chipR;
     std::vector<Knob> knobR;
     juce::Rectangle<int> knobCardR;   // the recessed card the Min/Sensitivity/Max knobs sit in
+    // Fixed velocity (optional), at the bottom of the inspector panel.
+    bool hasFixedVel = false;
+    juce::uint32 fvToggleId = 0, fvValueId = 0;
+    bool fvOn = false; int fvValue = 0;
+    juce::Rectangle<float> fvSwitchR, fvValueR, fvLabelR;
+    bool draggingFvValue = false;
     juce::Rectangle<float> resetR;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SensitivityGraph)

@@ -1952,7 +1952,7 @@ void MainComponent::applyLiveConfigChange (const roli::Block::ConfigMetaData& me
     {
         pendingValues[index] = v;
         for (auto& r : rows)   if (r->getId() == index) { r->setValue (v); r->setChangedFromDevice (false); }
-        if (sensGraph != nullptr) { sensGraph->setValue (index, v); sensGraph->setMinMax (index, v); sensGraph->setChanged (index, false); }
+        if (sensGraph != nullptr) { sensGraph->setValue (index, v); sensGraph->setMinMax (index, v); sensGraph->setChanged (index, false); sensGraph->updateFixedVel (index, v); }
     }
     else
     {
@@ -2106,9 +2106,20 @@ void MainComponent::rebuildRows()
             }
             if (! sg->isEmpty())
             {
-                card->addItem (*sg, 240);
+                card->addItem (*sg, 280);   // tall enough for the inspector panel (knobs + fixed velocity)
                 sensGraph = std::move (sg);
             }
+
+            // Fixed velocity moves into the inspector panel (Fred's design): hand its two config ids
+            // to the graph and don't emit them as separate rows.
+            juce::uint32 fvToggle = 0, fvValue = 0; bool fvOn = false; int fvVal = 100;
+            for (const auto& item : groups[g])
+            {
+                if (item.meta.name == juce::String ("Fixed Velocity"))            { fvToggle = item.meta.item; fvOn = item.value != 0; }
+                else if (item.meta.name == juce::String ("Fixed Velocity Value")) { fvValue  = item.meta.item; fvVal = item.value; }
+            }
+            if (sensGraph != nullptr && fvToggle != 0)
+                sensGraph->setFixedVelocity (fvToggle, fvOn, fvValue, fvVal);
 
             // Min/max are now set by dragging the curve end-nodes, so skip their rows.
             auto isCurveMinMax = [&] (juce::uint32 itemId)
@@ -2119,7 +2130,8 @@ void MainComponent::rebuildRows()
                 return false;
             };
             for (const auto& item : groups[g])
-                if ((item.meta.item < 10 || item.meta.item > 14) && ! isCurveMinMax (item.meta.item))
+                if ((item.meta.item < 10 || item.meta.item > 14) && ! isCurveMinMax (item.meta.item)
+                    && item.meta.item != fvToggle && item.meta.item != fvValue)
                     emitRow (item);
         }
         else if (g == "Buttons")
