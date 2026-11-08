@@ -590,8 +590,11 @@ MainComponent::MainComponent()
     liveKeysLabel.setFont (grab::theme::type::font (grab::theme::type::Role::title));
     addChildComponent (backToSettingsBtn);
     backToSettingsBtn.onClick = [this] { enterLiveKeys (false); };
-    addChildComponent (viewToggle);   // drawing-tile Device | Keys switch (shown when a keyboard device is present)
-    viewToggle.onChange = [this] (int i) { enterLiveKeys (i == 1); };
+    addChildComponent (viewToggle);   // drawing-tile Device drawing | Keystroke map switch
+    viewToggle.onChange = [this] (int i) { setDrawingView (i == 1); };
+    addChildComponent (keystrokeMap);
+    keystrokeMap.setCompact (true);
+    keystrokeMap.onClick = [this] { enterLiveKeys (! liveKeys); };   // clicking the map opens Live keys too
     {   // restore the device-art V2 preference (Advanced -> New device art)
         juce::PropertiesFile::Options po; po.millisecondsBeforeSaving = 0;
         juce::PropertiesFile props (grab::dataDir().getChildFile ("settings.properties"), po);
@@ -1556,11 +1559,12 @@ void MainComponent::touchChanged (roli::TouchSurface&, const roli::TouchSurface:
     const float startNx = juce::jlimit (0.0f, 1.0f, t.startX / g.w);
     const float glide    = juce::jlimit (-1.0f, 1.0f, nx - startNx);
 
-    // While Live keys is up, the big strip owns the touch stream - the device graphic stops echoing.
-    if (! liveKeys)
-        keyboardView.setTouch ((juce::uint64) t.blockUID, (int) t.index, nx, ny, z, strike, t.isTouchEnd);
-    liveStrip.setTouch ((int) (((juce::uint32) t.blockUID * 131u) ^ (juce::uint32) t.index),
-                        nx, ny, z, strike, glide, t.isTouchEnd);
+    // Feed every live view: the device graphic, the drawing-tile keystroke map, and the big Live-keys
+    // strip (Fred keeps the device graphic live while Live keys is open).
+    const int fingerId = (int) (((juce::uint32) t.blockUID * 131u) ^ (juce::uint32) t.index);
+    keyboardView.setTouch ((juce::uint64) t.blockUID, (int) t.index, nx, ny, z, strike, t.isTouchEnd);
+    keystrokeMap.setTouch (fingerId, nx, ny, z, strike, glide, t.isTouchEnd);
+    liveStrip.setTouch    (fingerId, nx, ny, z, strike, glide, t.isTouchEnd);
 }
 
 void MainComponent::selectBlock (roli::Block::UID uid)
@@ -3181,6 +3185,7 @@ void MainComponent::forceLightpadPreview()
 void MainComponent::updateLiveStripRange()
 {
     liveStrip.setRange (48, 24);   // Seaboard Block: 24 keys C3..B4 (matches the device art's keys)
+    keystrokeMap.setRange (48, 24);
 
     // Live keys shows the physical key you're on, octave-adjusted - so the labels stay on C and track
     // the Octave setting. Transpose is a MIDI-output transform (it doesn't move which key you press),
@@ -3199,6 +3204,19 @@ void MainComponent::updateLiveStripRange()
         }
     }
     liveStrip.setLabelShift (oct * 12);
+    keystrokeMap.setLabelShift (oct * 12);
+}
+
+void MainComponent::setDrawingView (bool map)
+{
+    if (drawingIsMap == map)
+        return;
+    drawingIsMap = map;
+    viewToggle.setIndex (map ? 1 : 0, false);
+    if (map) updateLiveStripRange();   // make sure the compact map has the right range/labels
+    resized();
+    setTransient (map ? grab::u8 ("Showing the keystroke map.")
+                      : grab::u8 ("Showing the device drawing."), false);
 }
 
 void MainComponent::enterLiveKeys (bool on)
@@ -3215,8 +3233,6 @@ void MainComponent::enterLiveKeys (bool on)
     liveStrip.setVisible (on);
     liveKeysLabel.setVisible (on);
     backToSettingsBtn.setVisible (on);
-    viewToggle.setIndex (on ? 1 : 0, false);
-    keyboardView.clearTouches();   // the device graphic stops echoing presses while Live keys is up
     if (on) { liveStrip.clearTouches(); updateLiveStripRange(); }
 
     setTransient (on ? "Live keys: play the device to see where and how hard you press."
@@ -3323,8 +3339,9 @@ void MainComponent::resized()
 
     // Drawing tile: the device art centred by KeyboardView, with the Device|Keys view toggle in a
     // reserved column on the right so it sits beside the art rather than over it.
-    const bool showToggle = keyboardView.isVisible();
+    const bool showToggle = keyboardView.isVisible();   // keyboardView visibility == "has a keyboard device"
     viewToggle.setVisible (showToggle);
+    keystrokeMap.setVisible (showToggle && drawingIsMap);
     {
         auto drawArea = tb.draw.reduced (padX, padY);
         if (showToggle)
@@ -3333,8 +3350,9 @@ void MainComponent::resized()
             viewToggle.setBounds (col.removeFromTop (viewToggle.preferredHeight()));
             drawArea.removeFromRight (grab::theme::space::gutter);   // gap between art and toggle
         }
-        if (keyboardView.isVisible())
-            keyboardView.setBounds (drawArea);
+        // Drawing tile shows the device art or the compact keystroke map; the hidden one gets no bounds.
+        if (showToggle && drawingIsMap) { keystrokeMap.setBounds (drawArea); keyboardView.setBounds ({}); }
+        else if (keyboardView.isVisible()) keyboardView.setBounds (drawArea);
     }
 
     // Dashboard tile: vertical device info, with the ROLI-device switcher below it when present.

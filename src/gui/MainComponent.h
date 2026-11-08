@@ -303,8 +303,11 @@ private:
     LiveKeysStrip    liveStrip;                 // Live keys: a big keyboard strip over the settings area
     juce::Label      liveKeysLabel;             // the "Live keys" heading above the strip
     juce::TextButton backToSettingsBtn { "Back to settings" };
-    grab::ViewToggle viewToggle;                // drawing-tile switch: Device drawing | Live keys
-    bool liveKeys = false;                      // Live keys view active (settings area replaced by the strip)
+    grab::ViewToggle viewToggle;                // drawing-tile switch: Device drawing | Keystroke map
+    LiveKeysStrip    keystrokeMap;              // compact keystroke map shown in the drawing tile (toggle=map)
+    bool drawingIsMap = false;                  // drawing tile shows the keystroke map (vs the device art)
+    void setDrawingView (bool map);             // toggle the drawing-tile content (device art <-> keystroke map)
+    bool liveKeys = false;                      // Live keys view active (big strip below the sensitivity graph)
     void enterLiveKeys (bool on);               // toggle the Live-keys view (keeps the top band visible)
     bool deviceArtV2 = false;                   // Advanced -> New device art (preview); persisted in settings
     juce::Label  busyLabel;                     // centred overlay shown while the device reboots

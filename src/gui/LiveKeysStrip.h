@@ -23,8 +23,12 @@ class LiveKeysStrip  : public juce::Component,
 public:
     LiveKeysStrip() { startTimerHz (60); }
 
+    std::function<void()> onClick;   // the compact map uses this to open the big Live-keys view
+
     /** compact = the small keystroke map (shorter ticks, tighter labels, no readout row). */
     void setCompact (bool c) { if (compact != c) { compact = c; repaint(); } }
+
+    void mouseDown (const juce::MouseEvent&) override { if (onClick) onClick(); }
 
     /** The drawn keyboard span: MIDI note of the lowest key, and how many keys. */
     void setRange (int lowNote, int keyCount)
