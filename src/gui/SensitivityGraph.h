@@ -299,8 +299,8 @@ private:
                 fvLabelR = fvRow.toFloat();
                 innerB.removeFromBottom (10);
             }
-            knobCardR = innerB.removeFromBottom (100);
-            auto row = knobCardR.reduced (14, 12);
+            knobCardR = innerB.removeFromBottom (106);
+            auto row = knobCardR.reduced (14, 11);
             const int kw = 54;
             if (d.hasNodes())
             {
@@ -539,37 +539,40 @@ private:
     void paintKnob (juce::Graphics& g, juce::Rectangle<float> area, juce::Colour c, int v, const char* lab)
     {
         using namespace grab::theme;
-        auto face = area.removeFromTop (area.getWidth()).reduced (4.0f);
-        const auto centre = face.getCentre();
-        const float radius = face.getWidth() * 0.5f;
+        // Fred's layout: a small dark knob face (ring + pointer) at the top, the value below it, then
+        // the label. The value is NOT inside the face.
+        const float faceD = juce::jmin (area.getWidth(), 38.0f);
+        auto faceBox = juce::Rectangle<float> (faceD, faceD).withCentre ({ area.getCentreX(), area.getY() + faceD * 0.5f });
+        const auto centre = faceBox.getCentre();
+        const float radius = faceD * 0.5f - 1.5f;
         const float a0 = juce::MathConstants<float>::pi * 1.25f;
         const float a1 = juce::MathConstants<float>::pi * 2.75f;
         const float ang = a0 + (a1 - a0) * (float) v / 127.0f;
 
-        // Dark knob face behind the arcs (Fred's design), then the track + value arcs around it.
         g.setColour (knobFace);
-        g.fillEllipse (face.reduced (1.0f));
+        g.fillEllipse (faceBox);
 
         juce::Path track, val;
         track.addCentredArc (centre.x, centre.y, radius, radius, 0.0f, a0, a1, true);
         val.addCentredArc   (centre.x, centre.y, radius, radius, 0.0f, a0, ang, true);
-        g.setColour (knobTrack); g.strokePath (track, juce::PathStrokeType (3.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-        g.setColour (c);         g.strokePath (val,   juce::PathStrokeType (3.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        g.setColour (knobTrack); g.strokePath (track, juce::PathStrokeType (3.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        g.setColour (c);         g.strokePath (val,   juce::PathStrokeType (3.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
-        // White index mark at the pointer (Fred's design): a short radial tick straddling the arc.
+        // White pointer from the centre out to the arc.
         const float sn = std::sin (ang), cs = std::cos (ang);
-        juce::Line<float> tick (centre.x + sn * (radius - 4.5f), centre.y - cs * (radius - 4.5f),
-                                centre.x + sn * (radius + 3.0f), centre.y - cs * (radius + 3.0f));
+        juce::Line<float> tick (centre.x + sn * (radius * 0.35f), centre.y - cs * (radius * 0.35f),
+                                centre.x + sn * (radius - 2.0f),  centre.y - cs * (radius - 2.0f));
         g.setColour (ink);
-        g.drawLine (tick, 2.0f);
+        g.drawLine (tick, 1.8f);
 
+        // Value below the face, then the label.
+        auto rest = area.withTrimmedTop ((int) faceD + 3);
         g.setColour (ink);
         g.setFont (grab::theme::type::font (grab::theme::type::Role::readout));
-        g.drawText (juce::String (v), face, juce::Justification::centred);
-
+        g.drawText (juce::String (v), rest.removeFromTop (22), juce::Justification::centred);
         g.setColour (label);
         g.setFont (grab::theme::type::font (grab::theme::type::Role::caption));
-        g.drawText (lab, area, juce::Justification::centredTop);
+        g.drawText (lab, rest, juce::Justification::centredTop);
     }
 
     // --- interaction ---------------------------------------------------------------------------
