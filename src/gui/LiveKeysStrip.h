@@ -119,7 +119,7 @@ public:
             g.setColour (press.withAlpha (a));
             g.drawEllipse (cx - rad, cy - rad, rad * 2.0f, rad * 2.0f, compact ? 1.5f : 2.5f);
             g.setColour (strike.withAlpha (a));
-            const float dot = (compact ? 2.0f : 5.0f) + (compact ? 2.0f : 6.0f) * t.strike;
+            const float dot = (compact ? 1.5f : 3.0f) + (compact ? 4.0f : 18.0f) * t.strike;   // grows with strike
             g.fillEllipse (cx - dot, cy - dot, dot * 2.0f, dot * 2.0f);
         }
 
@@ -150,8 +150,10 @@ private:
     {
         using namespace grab::theme;
         const int note = noteAtX (t.dx) + shift;
+        // Slide rises toward the back of the key (up = more), so it's 1 - y (the ring still sits where
+        // the finger is; only the value is oriented front-to-back).
         const int vals[4] = { juce::roundToInt (t.strike * 127), juce::roundToInt (t.dz * 127),
-                              juce::roundToInt (t.glide * 127),  juce::roundToInt (t.dy * 127) };
+                              juce::roundToInt (t.glide * 127),  juce::roundToInt ((1.0f - t.dy) * 127) };
         const juce::Colour cols[4] = { strike, press, glide, slide };
 
         const float chipW = 44.0f + 4.0f * 32.0f, chipH = 16.0f;

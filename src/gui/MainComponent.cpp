@@ -1568,7 +1568,7 @@ void MainComponent::touchChanged (roli::TouchSurface&, const roli::TouchSurface:
 
     // Live dots on the 5D graph: one per held finger, latest last (it gets the value guides).
     if (t.isTouchEnd) liveInputs.erase (fingerId);
-    else              liveInputs[fingerId] = { strike, juce::jlimit (0.0f, 1.0f, 0.5f + glide), ny, z };
+    else              liveInputs[fingerId] = { strike, juce::jlimit (0.0f, 1.0f, 0.5f + glide), 1.0f - ny, z };   // slide: up = more
     if (sensGraph != nullptr)
     {
         std::vector<SensitivityGraph::LiveInput> v;

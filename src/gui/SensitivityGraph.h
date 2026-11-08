@@ -156,13 +156,14 @@ private:
 
     struct Knob { juce::Rectangle<float> area; Drag target; };
 
-    // The input axis value (0..1) a finger contributes to a given dimension's curve.
+    // The input axis value (0..1) a finger contributes to a given dimension's curve, or <0 to skip.
     static float inputFor (const LiveInput& li, const juce::String& name)
     {
         if (name == "Press")  return li.press;
         if (name == "Slide")  return li.slide;
         if (name == "Glide")  return li.glide;
-        return li.strike;   // Strike, Lift (release not tracked live)
+        if (name == "Lift")   return -1.0f;   // release velocity isn't tracked live - no dot (don't mirror Strike)
+        return li.strike;
     }
     // Sample a unit-space curve path's y at x (the curves are monotonic in x).
     static float yAtX (const juce::Path& path, float x)
@@ -298,7 +299,9 @@ private:
         // this dimension. The latest (last) also gets dotted guides to the axes with its values.
         for (size_t i = 0; i < liveInputs.size(); ++i)
         {
-            const float ix = juce::jlimit (0.0f, 1.0f, inputFor (liveInputs[i], sel.name));
+            const float raw = inputFor (liveInputs[i], sel.name);
+            if (raw < 0.0f) continue;   // dimension has no live input (e.g. Lift)
+            const float ix = juce::jlimit (0.0f, 1.0f, raw);
             const float iy = juce::jlimit (0.0f, 1.0f, yAtX (path, ix));
             const auto p = toPlot ({ ix, iy });
             const bool latest = (i + 1 == liveInputs.size());
