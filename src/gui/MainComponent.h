@@ -313,7 +313,7 @@ private:
     void setDrawingView (bool map);             // toggle the drawing-tile content (device art <-> keystroke map)
     bool liveKeys = false;                      // Live keys view active (big strip below the sensitivity graph)
     void enterLiveKeys (bool on);               // toggle the Live-keys view (keeps the top band visible)
-    bool deviceArtV2 = false;                   // Advanced -> New device art (preview); persisted in settings
+    bool deviceArtV2 = true;                    // Fred's SVG device-art kit (default); Advanced can toggle back
     juce::Label  busyLabel;                     // centred overlay shown while the device reboots
     double resettingSinceMs = 0.0;              // >0 while a factory reset's reboot is expected
     juce::MidiDeviceListConnection deviceList;  // to pick up a RISE switched on after launch

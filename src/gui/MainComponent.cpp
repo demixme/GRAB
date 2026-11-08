@@ -598,7 +598,7 @@ MainComponent::MainComponent()
     {   // restore the device-art V2 preference (Advanced -> New device art)
         juce::PropertiesFile::Options po; po.millisecondsBeforeSaving = 0;
         juce::PropertiesFile props (grab::dataDir().getChildFile ("settings.properties"), po);
-        deviceArtV2 = props.getBoolValue ("deviceArtV2", false);
+        deviceArtV2 = props.getBoolValue ("deviceArtV2", true);   // Fred's SVG kit is the default art now
         keyboardView.setUseDeviceArtV2 (deviceArtV2);
     }
 
