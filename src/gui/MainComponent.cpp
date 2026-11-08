@@ -1575,6 +1575,10 @@ void MainComponent::touchChanged (roli::TouchSurface&, const roli::TouchSurface:
         for (auto& kv : liveInputs) if (kv.first != fingerId) v.push_back (kv.second);
         if (! t.isTouchEnd) v.push_back (liveInputs[fingerId]);
         sensGraph->setLiveInputs (std::move (v));
+
+        // Lift = release speed: on note-off the surface reports a negative zVelocity (pressing out).
+        if (t.isTouchEnd)
+            sensGraph->setLiftPulse (juce::jlimit (0.0f, 1.0f, -t.zVelocity));
     }
 }
 

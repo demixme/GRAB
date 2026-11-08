@@ -72,7 +72,10 @@ public:
         g.setColour (well);
         g.fillRoundedRectangle (full.toFloat(), radius::tile);
 
-        auto keysR = full.reduced (compact ? 12 : 18, compact ? 10 : 14);   // fills the space below the curves
+        // A fixed readout row at the bottom-left (Fred's layout), below the keybed.
+        auto content = full;
+        auto readoutRow = compact ? juce::Rectangle<int>() : content.removeFromBottom (34);
+        auto keysR = content.reduced (compact ? 12 : 18, compact ? 10 : 14);   // fills the space below the curves
         const float x0 = (float) keysR.getX(), w = (float) keysR.getWidth();
         const float top = (float) keysR.getY(), h = (float) keysR.getHeight();
         const float tickH = h * (compact ? 0.42f : 0.5f);
@@ -124,7 +127,7 @@ public:
         }
 
         // One readout only - the active/latest key (several sets at once is overwhelming). Prefer the
-        // last-pressed finger; fall back to any still-held one.
+        // last-pressed finger; fall back to any still-held one. Fixed at the bottom-left (Fred's layout).
         if (! compact)
         {
             const Live* sel = nullptr;
@@ -132,11 +135,7 @@ public:
             if (sel == nullptr)
                 for (auto& kv : touches) if (! kv.second.releasing) { sel = &kv.second; break; }
             if (sel != nullptr)
-            {
-                const float cx = x0 + sel->dx * w;
-                const float cy = top + juce::jlimit (0.0f, 1.0f, sel->dy) * h * 0.78f + h * 0.11f;
-                paintTouchReadout (g, *sel, cx, cy, ringMin + sel->dz * ringMax, (float) keysR.getBottom(), 1.0f);
-            }
+                paintReadoutPill (g, *sel, readoutRow.reduced (0, 4));
         }
     }
 
@@ -144,35 +143,34 @@ private:
     struct Live { float x = 0, y = 0.5f, z = 0, dx = 0, dy = 0.5f, dz = 0, strike = 0, glide = 0, fade = 1.0f;
                   bool seen = false, releasing = false; };
 
-    // The per-finger readout: the note (octave + transpose), then Strike/Press/Glide/Slide each in its
-    // 5D hue, sitting just outside the ring so it follows the finger without hiding the touch.
-    void paintTouchReadout (juce::Graphics& g, const Live& t, float cx, float cy, float rad, float bottom, float a)
+    // The readout pill at the bottom-left: the note (octave + transpose), then Strike/Press/Glide/Slide
+    // each in its 5D hue. Slide rises toward the back of the key (up = more), so it's 1 - y.
+    void paintReadoutPill (juce::Graphics& g, const Live& t, juce::Rectangle<int> row)
     {
         using namespace grab::theme;
         const int note = noteAtX (t.dx) + shift;
-        // Slide rises toward the back of the key (up = more), so it's 1 - y (the ring still sits where
-        // the finger is; only the value is oriented front-to-back).
         const int vals[4] = { juce::roundToInt (t.strike * 127), juce::roundToInt (t.dz * 127),
                               juce::roundToInt (t.glide * 127),  juce::roundToInt ((1.0f - t.dy) * 127) };
         const juce::Colour cols[4] = { strike, press, glide, slide };
 
-        const float chipW = 44.0f + 4.0f * 32.0f, chipH = 16.0f;
-        float x = juce::jlimit (4.0f, (float) getWidth() - chipW - 4.0f, cx - chipW * 0.5f);
-        float y = cy + rad + 6.0f;                       // below the ring...
-        if (y + chipH > bottom) y = cy - rad - chipH - 6.0f;   // ...or above it near the bottom edge
+        const float chipH = (float) row.getHeight();
+        auto pill = juce::Rectangle<float> ((float) row.getX(), (float) row.getY(), 44.0f + 4.0f * 34.0f, chipH);
+        g.setColour (raised);
+        g.fillRoundedRectangle (pill, radius::control);
 
         g.setFont (grab::theme::type::font (grab::theme::type::Role::caption));
-        g.setColour (ink.withAlpha (a));
-        g.drawText (noteName (note), juce::Rectangle<float> (x, y, 40.0f, chipH), juce::Justification::centredLeft);
-        x += 42.0f;
+        float x = pill.getX() + 10.0f;
+        g.setColour (ink);
+        g.drawText (noteName (note), juce::Rectangle<float> (x, pill.getY(), 36.0f, chipH), juce::Justification::centredLeft);
+        x += 36.0f;
         for (int i = 0; i < 4; ++i)
         {
-            g.setColour (cols[i].withAlpha (a));
-            g.fillEllipse (x, y + chipH * 0.5f - 3.0f, 6.0f, 6.0f);
+            g.setColour (cols[i]);
+            g.fillEllipse (x, pill.getCentreY() - 3.0f, 6.0f, 6.0f);
             x += 9.0f;
-            g.setColour (cols[i].withAlpha (0.92f * a));
-            g.drawText (juce::String (vals[i]), juce::Rectangle<float> (x, y, 23.0f, chipH), juce::Justification::centredLeft);
-            x += 23.0f;
+            g.setColour (cols[i].withAlpha (0.92f));
+            g.drawText (juce::String (vals[i]), juce::Rectangle<float> (x, pill.getY(), 25.0f, chipH), juce::Justification::centredLeft);
+            x += 25.0f;
         }
     }
 

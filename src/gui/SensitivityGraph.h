@@ -19,12 +19,24 @@
 #include <vector>
 
 class SensitivityGraph  : public juce::Component,
-                          public juce::SettableTooltipClient
+                          public juce::SettableTooltipClient,
+                          private juce::Timer
 {
 public:
     using ChangeFn = std::function<void (juce::uint32 id, juce::int32 value)>;
 
     explicit SensitivityGraph (ChangeFn onChangeToUse) : change (std::move (onChangeToUse)) {}
+    ~SensitivityGraph() override { stopTimer(); }
+
+    // A release: show a fading dot on the Lift curve at the release velocity (0..1). Lift is an event,
+    // not a held value, so it pulses rather than tracking.
+    void setLiftPulse (float velocity)
+    {
+        liftValue = juce::jlimit (0.0f, 1.0f, velocity);
+        liftStartMs = juce::Time::getMillisecondCounter();
+        startTimerHz (30);
+        repaint();
+    }
 
     /** Add a dimension. minId/maxId = 0 when the device exposes no editable min/max for it. */
     void addDimension (juce::uint32 id, juce::String name, juce::Colour colour,
@@ -94,6 +106,12 @@ public:
     }
 
     void resized() override { layoutRegions(); }
+
+    void timerCallback() override
+    {
+        if (juce::Time::getMillisecondCounter() - liftStartMs > (juce::uint32) kLiftMs) stopTimer();
+        repaint();
+    }
 
     void mouseDown (const juce::MouseEvent& e) override
     {
@@ -321,6 +339,23 @@ private:
             g.setColour (sel.colour); g.fillEllipse (juce::Rectangle<float> (9.0f, 9.0f).withCentre (p));
         }
 
+        // Lift pulse: a fading dot on the Lift curve at the release velocity, right after a note off.
+        if (sel.name == "Lift")
+        {
+            const auto age = (float) (juce::Time::getMillisecondCounter() - liftStartMs);
+            if (liftStartMs != 0 && age < (float) kLiftMs)
+            {
+                const float al = 1.0f - age / (float) kLiftMs;
+                const float iy = juce::jlimit (0.0f, 1.0f, yAtX (path, liftValue));
+                const auto p = toPlot ({ liftValue, iy });
+                g.setColour (sel.colour.withAlpha (0.45f * al));
+                dashedLine (g, p, { p.x, pr.getBottom() });
+                dashedLine (g, p, { pr.getX(), p.y });
+                g.setColour (display.withAlpha (al));    g.fillEllipse (juce::Rectangle<float> (14.0f, 14.0f).withCentre (p));
+                g.setColour (sel.colour.withAlpha (al)); g.fillEllipse (juce::Rectangle<float> (9.0f, 9.0f).withCentre (p));
+            }
+        }
+
         // end nodes for the selected dimension
         if (sel.hasNodes() && sel.sens > 0)
             for (auto p : { toPlot ({ 0.0f, (float) sel.mn / 127.0f }), toPlot ({ 1.0f, (float) sel.mx / 127.0f }) })
@@ -529,8 +564,11 @@ private:
     void fire (juce::uint32 id, int v) { if (change) change (id, (juce::int32) v); }
 
     ChangeFn change;
+    static constexpr int kLiftMs = 700;   // how long a lift pulse stays on the Lift curve
     std::vector<Dim> dims;
     std::vector<LiveInput> liveInputs;   // live finger inputs plotted on the selected curve
+    float liftValue = 0.0f;              // last release velocity (for the Lift pulse)
+    juce::uint32 liftStartMs = 0;        // when the lift pulse started (0 = none)
     int selected = -1;
     Drag drag = Drag::none;
     int  dragStart = 0;
