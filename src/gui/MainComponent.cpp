@@ -1821,6 +1821,8 @@ void MainComponent::rebuildRows()
     for (const auto& g : groupOrder)
     {
         auto card = std::make_unique<SectionCard> (g.isEmpty() ? "Other" : g);
+        if (g == "Sensitivity")
+            card->setRecessed (true);   // the 5D graph tile is recessed (darker) in the bento
 
         auto emitRow = [&] (const Item& item)
         {

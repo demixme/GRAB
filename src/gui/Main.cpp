@@ -67,6 +67,7 @@ public:
             setUsingNativeTitleBar (true);
             setContentOwned (new MainComponent(), true);
             setResizable (true, true);
+            setResizeLimits (600, 700, 4000, 3000);   // narrow-width design folds at 600; never smaller
             centreWithSize (getWidth(), getHeight());
             setVisible (true);
         }

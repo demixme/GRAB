@@ -31,16 +31,19 @@ public:
 
     const juce::String& getTitle() const { return title; }
 
+    /** The graph tile is recessed (darker than the others); set on the Sensitivity card. */
+    void setRecessed (bool r) { recessed = r; }
+
     void paint (juce::Graphics& g) override
     {
         auto r = getLocalBounds().toFloat();
-        g.setColour (grab::theme::panelBg);
-        g.fillRoundedRectangle (r, 8.0f);
-        g.setColour (grab::theme::outline);
-        g.drawRoundedRectangle (r.reduced (0.5f), 8.0f, 1.0f);
+        // Borderless tile on the window gutters (the "bento" look): just a filled rounded panel,
+        // the graph tile a step darker. No outline - the tone step off the window does the work.
+        g.setColour (recessed ? grab::theme::display : grab::theme::panel);
+        g.fillRoundedRectangle (r, grab::theme::radius::tile);
 
-        g.setColour (grab::theme::header);
-        g.setFont (juce::Font (juce::FontOptions (15.0f, juce::Font::bold)));
+        g.setColour (grab::theme::ink);
+        g.setFont (grab::theme::type::font (grab::theme::type::Role::title));
         g.drawText (title, getLocalBounds().reduced (kPadX, 0).withTop (kPadTop).withHeight (kTitleH),
                     juce::Justification::centredLeft);
     }
@@ -58,8 +61,9 @@ public:
 
 private:
     juce::String title;
+    bool recessed = false;
     std::vector<std::pair<juce::Component*, int>> items;
-    static constexpr int kTitleH = 22, kPadTop = 10, kPadBottom = 12, kPadX = 12, kGap = 5;
+    static constexpr int kTitleH = 18, kPadTop = 12, kPadBottom = 14, kPadX = 16, kGap = 8;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SectionCard)
 };
@@ -73,7 +77,7 @@ inline void layoutCardGrid (juce::Viewport& viewport, juce::Component& rowHolder
                             const std::vector<std::unique_ptr<SectionCard>>& cards,
                             const juce::String& fullWidthTitle)
 {
-    const int gap    = 10;
+    const int gap    = grab::theme::space::gutter;   // 12
     const int availW = juce::jmax (260, viewport.getWidth() - 14);   // room for the scrollbar
     const int cols   = juce::jlimit (1, 3, (availW + gap) / (280 + gap));
     const int colW   = cols > 1 ? (availW - gap * (cols - 1)) / cols : availW;
@@ -116,7 +120,7 @@ inline void layoutControlCards (juce::Viewport& viewport, juce::Component& rowHo
                                 const std::vector<std::unique_ptr<SectionCard>>& cards,
                                 const juce::String& wideTitle)
 {
-    const int gap    = 10;
+    const int gap    = grab::theme::space::gutter;   // 12
     const int availW = juce::jmax (260, viewport.getWidth() - 14);
     const int leftW  = juce::jlimit (240, 420, availW * 2 / 5);
     const int rightW = availW - leftW - gap;

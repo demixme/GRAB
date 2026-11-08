@@ -779,6 +779,8 @@ void Rise2Component::rebuildRows()
     {
         const juce::String group (g);
         auto card = std::make_unique<SectionCard> (group);
+        if (group == "Sensitivity")
+            card->setRecessed (true);   // the 5D graph tile is recessed (darker) in the bento
 
         auto addRow = [&] (const Field& f)
         {
