@@ -492,10 +492,10 @@ MainComponent::MainComponent()
     };
     saveButton.setEnabled (false);
 
-    addAndMakeVisible (transportLabel);
+    addChildComponent (transportLabel);   // connection type lives in the DeviceMenu callout now
     transportLabel.setText (TRANS ("Connection Type:"), juce::dontSendNotification);
     transportLabel.setJustificationType (juce::Justification::centredRight);
-    addAndMakeVisible (transportBox);
+    addChildComponent (transportBox);     // model only; the pill's menu drives it
     transportBox.addItem (TRANS ("Auto"), 1);
     transportBox.addItem (TRANS ("USB"),  2);
     transportBox.addItem (TRANS ("BLE"),  3);
@@ -511,8 +511,13 @@ MainComponent::MainComponent()
     addAndMakeVisible (blockLabel);
     blockLabel.setText (TRANS ("ROLI device:"), juce::dontSendNotification);
     blockLabel.setJustificationType (juce::Justification::centredRight);
-    addAndMakeVisible (blockBox);
+    addChildComponent (blockBox);   // selection model only; the visible control is the pill below
     blockBox.onChange = [this] { onDeviceBoxChanged(); };
+
+    // Fred's device switcher: a pill in the dashboard tile that opens the rich DeviceMenu callout
+    // (device list + connection type). blockBox stays as the hidden selection model behind it.
+    addChildComponent (deviceMenuBtn);
+    deviceMenuBtn.onClick = [this] { showDeviceMenu(); };
 
     addAndMakeVisible (contributeBtn);
     contributeBtn.onClick = [this] { contribute(); };
@@ -893,6 +898,7 @@ void MainComponent::topologyChanged()
         blockBox.clear (juce::dontSendNotification);
         blockLabel.setVisible (false);
         blockBox.setVisible (false);
+        deviceMenuBtn.setVisible (false);
         rowsBuilt = false;
         configRequested = false;
         rows.clear();
@@ -1128,12 +1134,106 @@ void MainComponent::fillDeviceBox (int selectId)
     for (int i = 0; i < (int) deviceEntries.size(); ++i)
         blockBox.addItem (deviceEntries[(size_t) i].label, i + 1);
     blockBox.setSelectedId (selectId, juce::dontSendNotification);
+    blockLabel.setVisible (false);
+    blockBox.setVisible (false);   // model only; the pill is the visible switcher
 
-    // Show the switcher when there's a choice. In BLOCKS mode keep it visible even for one device
-    // (it names the connected block, as before); in RISE mode only show it when switching is possible.
-    const bool show = deviceEntries.size() > 1 || (source != nullptr && ! deviceEntries.empty());
-    blockLabel.setVisible (show);
-    blockBox.setVisible (show);
+    // The pill shows whenever a device is present - even one - so the connection type (now inside the
+    // menu) is always reachable. It names the selected device with a chevron.
+    const int sel = selectId - 1;
+    const bool show = ! deviceEntries.empty();
+    if (show && sel >= 0 && sel < (int) deviceEntries.size())
+    {
+        auto label = deviceEntries[(size_t) sel].label.upToFirstOccurrenceOf ("  ", false, false).trim();
+        deviceMenuBtn.setButtonText (label + "   " + juce::String (juce::CharPointer_UTF8 ("\xe2\x8c\x84")));
+    }
+    deviceMenuBtn.setVisible (show);
+    resized();   // the pill's visibility affects the dashboard tile layout
+}
+
+// The device-art SVG filename for a Block type (same names KeyboardView's v2 art uses), or "".
+static juce::String deviceArtFileForType (roli::Block::Type t)
+{
+    switch (t)
+    {
+        case roli::Block::seaboardBlock:         return "seaboard-block-24.svg";
+        case roli::Block::lightPadBlock:
+        case roli::Block::lightpadProBlock:      return "lightpad-block.svg";
+        case roli::Block::liveBlock:             return "control-live.svg";
+        case roli::Block::loopBlock:             return "control-loop.svg";
+        case roli::Block::touchBlock:            return "control-touch.svg";
+        case roli::Block::developerControlBlock: return "control-developer.svg";
+        case roli::Block::lumiKeysBlock:         return "lumi-24.svg";
+        case roli::Block::roliPiano49:           return "piano-49.svg";
+        default:                                 return {};
+    }
+}
+
+juce::Array<grab::DeviceMenu::Item> MainComponent::buildDeviceMenuItems() const
+{
+    juce::Array<grab::DeviceMenu::Item> out;
+    const int selId = blockBox.getSelectedId();
+    auto transport = detector != nullptr ? detector->getActiveTransport() : juce::String();
+    if (transport == "BLE") transport = "Bluetooth";
+
+    const auto topo = source != nullptr ? source->getCurrentTopology() : roli::BlockTopology();
+
+    for (int i = 0; i < (int) deviceEntries.size(); ++i)
+    {
+        const auto& e = deviceEntries[(size_t) i];
+        grab::DeviceMenu::Item it;
+        it.id = i + 1;
+        it.selected = (it.id == selId);
+
+        switch (e.kind)
+        {
+            case DeviceEntry::Kind::blocksCluster:
+            {
+                auto b = topo.getBlockWithUID (e.repUid);
+                if (b != nullptr)
+                {
+                    it.name = b->getDeviceDescription();
+                    auto cm = clusterMembers.find (e.repUid);
+                    if (cm != clusterMembers.end() && cm->second.size() > 1)
+                        it.name += "  x" + juce::String ((int) cm->second.size());
+                    it.artFile = deviceArtFileForType (b->getType());
+                    juce::String meta = transport;
+                    if (b->versionNumber.isNotEmpty())
+                        meta += (meta.isNotEmpty() ? ", fw " : "fw ") + b->versionNumber;
+                    it.meta = meta;
+                }
+                else { it.name = e.label; }
+                break;
+            }
+            case DeviceEntry::Kind::risePort:
+                it.name    = e.portName;
+                it.meta    = (e.identifier == currentRiseId && currentRiseId.isNotEmpty()) ? transport : juce::String ("USB");
+                it.artFile = e.grand ? "grand-stage-61.svg" : "rise-25.svg";
+                break;
+
+            case DeviceEntry::Kind::blocksSwitch:
+                it.name    = e.label;
+                it.artFile = "seaboard-block-24.svg";
+                break;
+        }
+        out.add (it);
+    }
+    return out;
+}
+
+void MainComponent::showDeviceMenu()
+{
+    auto menu = std::make_unique<grab::DeviceMenu>();
+    menu->onPick = [this] (int id) { blockBox.setSelectedId (id, juce::sendNotification); };
+    menu->onTransport = [this] (int idx)
+    {
+        transportBox.setSelectedId (idx + 1, juce::sendNotification);   // 0 Auto / 1 USB / 2 BLE -> ids 1/2/3
+    };
+    menu->setContent (buildDeviceMenuItems(), transportBox.getSelectedId() - 1);
+    menu->setSize (grab::DeviceMenu::width, menu->contentHeight());
+
+    auto& box = juce::CallOutBox::launchAsynchronously (std::move (menu),
+                                                        deviceMenuBtn.getScreenBounds(), nullptr);
+    box.setDismissalMouseClicksAreAlwaysConsumed (true);
 }
 
 void MainComponent::refreshDeviceBox()
@@ -3160,12 +3260,12 @@ void MainComponent::resized()
             keyboardView.setBounds (tb.draw.reduced (padX, padY));
         {
             auto d = tb.dash.reduced (padX, padY);
-            if (blockBox.isVisible()) blockBox.setBounds (d.removeFromBottom (30));
+            if (deviceMenuBtn.isVisible()) deviceMenuBtn.setBounds (d.removeFromBottom (30));
             deviceInfo.setBounds (d);
         }
         const auto s = splitCtrlSlots (tb.ctrl);
         toolsBtn.setBounds (s.tools);
-        transportBox.setBounds (s.conn);
+        transportBox.setBounds ({});   // connection type is in the DeviceMenu callout now
         statusLabel.setBounds (s.status);
 
         const auto off = full.getPosition();   // Rise2 children are in its local coords
@@ -3191,12 +3291,13 @@ void MainComponent::resized()
     // Dashboard tile: vertical device info, with the ROLI-device switcher below it when present.
     {
         auto d = tb.dash.reduced (padX, padY);
-        if (blockBox.isVisible())
-            blockBox.setBounds (d.removeFromBottom (30));
+        if (deviceMenuBtn.isVisible())
+            deviceMenuBtn.setBounds (d.removeFromBottom (30));
         deviceInfo.setBounds (d);
     }
 
-    // Controls tile: preset; read + save; autosave + tools; connection type; transient status.
+    // Controls tile: preset; read + save; autosave + tools; transient status.
+    // (Connection type moved into the DeviceMenu callout, per Fred.)
     {
         const auto s = splitCtrlSlots (tb.ctrl);
         presetBox.setBounds (s.preset);
@@ -3204,7 +3305,7 @@ void MainComponent::resized()
         saveButton.setBounds (s.save);
         autosaveToggle.setBounds (s.autosave);
         toolsBtn.setBounds (s.tools);
-        transportBox.setBounds (s.conn);
+        transportBox.setBounds ({});   // model only; menu drives it
         statusLabel.setBounds (s.status);
     }
 

@@ -15,6 +15,7 @@
 #include "CurveComponent.h"
 #include "SensitivityGraph.h"
 #include "SegmentedControl.h"
+#include "DeviceMenu.h"
 #include "ColourWell.h"
 #include "DeviceInfoBar.h"
 #include "SectionCard.h"
@@ -261,7 +262,10 @@ private:
     juce::Label        transportLabel;
     juce::ComboBox     transportBox;
     juce::Label        blockLabel;
-    juce::ComboBox     blockBox;
+    juce::ComboBox     blockBox;        // selection model behind the pill (kept; drives onDeviceBoxChanged)
+    juce::TextButton   deviceMenuBtn;   // dashboard-tile pill: shows the current device, opens the rich menu
+    void showDeviceMenu();              // open Fred's DeviceMenu callout (devices + connection type)
+    juce::Array<grab::DeviceMenu::Item> buildDeviceMenuItems() const;
     juce::TextButton   advancedBtn   { "Advanced..." };
     juce::TextButton   contributeBtn { "Contribute..." };
     juce::TextButton   toolsBtn      { "Tools..." };    // bento: one menu for Diagnose / Advanced / Contribute
