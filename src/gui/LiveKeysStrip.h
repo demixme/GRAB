@@ -44,16 +44,19 @@ public:
     }
 
     /** A live touch. nx across the keyboard (0..1), ny along the key / slide (0..1), z pressure
-        (0..1). end removes it. fingerId is any stable per-finger key. */
-    void setTouch (int fingerId, float nx, float ny, float z, bool end)
+        (0..1), strike 0..1 (initial contact), glide -1..1 (signed pitch bend). end removes it.
+        fingerId is any stable per-finger key. */
+    void setTouch (int fingerId, float nx, float ny, float z, float strike, float glide, bool end)
     {
         if (end) { if (auto it = touches.find (fingerId); it != touches.end()) it->second.releasing = true; return; }
         auto& t = touches[fingerId];
         t.x = juce::jlimit (0.0f, 1.0f, nx);
         t.y = juce::jlimit (0.0f, 1.0f, ny);
         t.z = juce::jlimit (0.0f, 1.0f, z);
+        t.glide = juce::jlimit (-1.0f, 1.0f, glide);
         t.releasing = false;
-        if (! t.seen) { t.dx = t.x; t.dy = t.y; t.dz = t.z; t.seen = true; t.strike = z; }
+        if (! t.seen) { t.dx = t.x; t.dy = t.y; t.dz = t.z; t.seen = true; }
+        t.strike = strike;   // held for the note's life (captured at contact upstream)
     }
 
     void clearTouches() { touches.clear(); repaint(); }
@@ -65,7 +68,7 @@ public:
         g.setColour (well);
         g.fillRoundedRectangle (full.toFloat(), radius::tile);
 
-        const int readoutH = (compact || touches.empty()) ? 0 : 30;
+        const int readoutH = compact ? 0 : 30;   // always reserve the 5D key row in the big view
         auto readoutR = full.removeFromBottom (readoutH);
 
         auto keysR = full.reduced (compact ? 12 : 18, compact ? 10 : 14);
@@ -87,11 +90,11 @@ public:
                 g.fillRect (juce::Rectangle<float> (fx - (compact ? 0.5f : 1.0f), top, compact ? 1.0f : 2.0f, tickH));
                 continue;
             }
-            if (n % 12 == 0)   // physical C: label it with the shifted note name
-            {
+            if (n % 12 == 0)   // physical C: a fixed C-grid reference (C3/C4/C5); octave/transpose show
+            {                   // in the readout note, not here, so the grid stays stable.
                 const float fx = x0 + w * (float) wIdx / (float) whites;
                 g.setColour (label);
-                g.drawText (noteName (n + shift),
+                g.drawText (noteName (n),
                             juce::Rectangle<float> (fx + 2.0f, top + h - (compact ? 14.0f : 18.0f),
                                                     42.0f, 18.0f),
                             juce::Justification::centredLeft);
@@ -99,7 +102,8 @@ public:
             ++wIdx;
         }
 
-        // Touch rings: Press-hue, grown by pressure, x follows glide, y follows slide up the key.
+        // Touch rings: a Press-hue ring (grows with pressure), a Strike-red centre dot (its initial
+        // impact) - matching the device graphic's markers. x follows glide, y follows slide up the key.
         const float ringMax = compact ? 20.0f : 46.0f, ringMin = compact ? 6.0f : 14.0f;
         for (auto& kv : touches)
         {
@@ -112,38 +116,73 @@ public:
             g.fillEllipse (cx - rad, cy - rad, rad * 2.0f, rad * 2.0f);
             g.setColour (press.withAlpha (a));
             g.drawEllipse (cx - rad, cy - rad, rad * 2.0f, rad * 2.0f, compact ? 1.5f : 2.5f);
-            g.setColour (press.withAlpha (a));
-            const float dot = compact ? 2.0f : 5.0f;
+            g.setColour (strike.withAlpha (a));
+            const float dot = (compact ? 2.0f : 5.0f) + (compact ? 2.0f : 6.0f) * t.strike;
             g.fillEllipse (cx - dot, cy - dot, dot * 2.0f, dot * 2.0f);
         }
 
-        // Readout row: one chip per held note (name + Press + Slide), in the big view.
+        // Readout row: a 5D colour key, then one chip per held note (name + Strike/Press/Glide/Slide,
+        // each in its dimension's hue). The note name carries the octave + transpose (the real note).
         if (readoutH > 0)
         {
-            auto row = readoutR.reduced (compact ? 12 : 18, 4);
+            auto row = readoutR.reduced (18, 4);
             g.setFont (grab::theme::type::font (grab::theme::type::Role::caption));
             float x = (float) row.getX();
+            const float cy = (float) row.getCentreY();
+
+            // Key: dimension colour swatches with names.
+            for (auto& d : dims())
+            {
+                g.setColour (d.colour);
+                g.fillEllipse (x, cy - 4.0f, 8.0f, 8.0f);
+                x += 12.0f;
+                g.setColour (label);
+                const float lw = (float) d.name.length() * 7.0f + 4.0f;
+                g.drawText (d.name, juce::Rectangle<float> (x, cy - 8.0f, lw, 16.0f), juce::Justification::centredLeft);
+                x += lw + 8.0f;
+            }
+            x += 10.0f;
+
             int shown = 0;
             for (auto& kv : touches)
             {
-                if (shown >= 5) break;
+                if (shown >= 4 || x > (float) row.getRight() - 150.0f) break;
                 auto& t = kv.second;
                 if (t.releasing) continue;
                 const int note = juce::roundToInt (low + t.dx * (count - 1)) + shift;
-                juce::String s = noteName (note) + "   P " + juce::String (juce::roundToInt (t.dz * 127))
-                               + "   S " + juce::String (juce::roundToInt (t.dy * 127));
-                const int cw = 132;
-                g.setColour (ink2);
-                g.drawText (s, juce::Rectangle<float> (x, (float) row.getY(), (float) cw, (float) row.getHeight()),
-                            juce::Justification::centredLeft);
-                x += cw;
+                g.setColour (ink);
+                g.drawText (noteName (note), juce::Rectangle<float> (x, cy - 8.0f, 40.0f, 16.0f), juce::Justification::centredLeft);
+                x += 40.0f;
+                const int vals[4] = { juce::roundToInt (t.strike * 127), juce::roundToInt (t.dz * 127),
+                                      juce::roundToInt (t.glide * 127),  juce::roundToInt (t.dy * 127) };
+                const juce::Colour cols[4] = { strike, press, glide, slide };
+                for (int i = 0; i < 4; ++i)
+                {
+                    g.setColour (cols[i]);
+                    g.fillEllipse (x, cy - 3.0f, 6.0f, 6.0f);
+                    x += 9.0f;
+                    g.setColour (ink2);
+                    g.drawText (juce::String (vals[i]), juce::Rectangle<float> (x, cy - 8.0f, 30.0f, 16.0f), juce::Justification::centredLeft);
+                    x += 30.0f;
+                }
+                x += 14.0f;
                 ++shown;
             }
         }
     }
 
+    struct DimKey { juce::Colour colour; juce::String name; };
+    static juce::Array<DimKey> dims()
+    {
+        using namespace grab::theme;
+        juce::Array<DimKey> a;
+        a.add ({ strike, "Strike" }); a.add ({ press, "Press" });
+        a.add ({ glide,  "Glide"  }); a.add ({ slide, "Slide" });
+        return a;
+    }
+
 private:
-    struct Live { float x = 0, y = 0.5f, z = 0, dx = 0, dy = 0.5f, dz = 0, strike = 0, fade = 1.0f;
+    struct Live { float x = 0, y = 0.5f, z = 0, dx = 0, dy = 0.5f, dz = 0, strike = 0, glide = 0, fade = 1.0f;
                   bool seen = false, releasing = false; };
 
     static bool isBlack (int note)

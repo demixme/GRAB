@@ -1550,9 +1550,13 @@ void MainComponent::touchChanged (roli::TouchSurface&, const roli::TouchSurface:
         strike = s != blockTouchStrike.end() ? s->second : z;
     }
 
+    // Glide = signed horizontal travel from where the finger landed (pitch bend direction/amount).
+    const float startNx = juce::jlimit (0.0f, 1.0f, t.startX / g.w);
+    const float glide    = juce::jlimit (-1.0f, 1.0f, nx - startNx);
+
     keyboardView.setTouch ((juce::uint64) t.blockUID, (int) t.index, nx, ny, z, strike, t.isTouchEnd);
     liveStrip.setTouch ((int) (((juce::uint32) t.blockUID * 131u) ^ (juce::uint32) t.index),
-                        nx, ny, z, t.isTouchEnd);
+                        nx, ny, z, strike, glide, t.isTouchEnd);
 }
 
 void MainComponent::selectBlock (roli::Block::UID uid)
