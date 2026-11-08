@@ -22,6 +22,7 @@
 class ConfigRow;
 class CurveRow;
 class CurveComponent;
+class SensitivityGraph;
 class SectionCard;
 class FaderPanel;
 class Fader;
@@ -179,8 +180,7 @@ private:
     juce::Viewport   viewport;
     juce::Component  rowHolder;
     std::vector<std::unique_ptr<ConfigRow>> rows;
-    std::unique_ptr<CurveRow> curveRow;
-    std::vector<CurveComponent*> curves;
+    std::unique_ptr<SensitivityGraph> sensGraph;   // the 5D overlay graph + inspector
     std::vector<std::unique_ptr<SectionCard>> cards;    // one titled card per section
     std::unique_ptr<FaderPanel> faderPanel;             // the MIDI CC Assignments faders
     std::vector<Fader*> faders;                          // non-owning, for id lookup

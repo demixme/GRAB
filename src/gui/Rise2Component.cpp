@@ -1,6 +1,7 @@
 #include "Rise2Component.h"
 #include "MainComponent.h"
 #include "SectionCard.h"
+#include "SensitivityGraph.h"
 #include "FaderPanel.h"
 #include "Help.h"
 #include "GrabPaths.h"
@@ -691,8 +692,7 @@ void Rise2Component::onState (rise2::State s)
         expected.clear();
         // Clear any rows a prior read built, so nothing stale shows under the message.
         rows.clear();
-        curveRow.reset();
-        curves.clear();
+        sensGraph.reset();
         sectionHeaders.clear();
         layoutOrder.clear();
         rowHolder.removeAllChildren();
@@ -712,7 +712,7 @@ void Rise2Component::onState (rise2::State s)
 
     if (expected.empty())
     {
-        setStatus ("Read " + juce::String ((int) rows.size() + (int) curves.size()) + " settings from the device."
+        setStatus ("Read " + juce::String ((int) rows.size() + (sensGraph != nullptr ? (int) sensGraph->sensIds().size() : 0)) + " settings from the device."
                    + (oldRise ? juce::String ("  Writes enabled (confirmed from a RISE 25 capture); "
                                               "min/max aren't shown - not reported reliably on this firmware.")
                               : juce::String()));
@@ -752,12 +752,11 @@ rise2::Messages Rise2Component::writeFor (juce::uint32 id, juce::int32 v) const
 
 void Rise2Component::rebuildRows()
 {
-    cards.clear();          // un-parents the rows/curves/faders it holds
+    cards.clear();          // un-parents the rows/graph/faders it holds
     faderPanel.reset();
     faders.clear();
     rows.clear();
-    curveRow.reset();
-    curves.clear();
+    sensGraph.reset();
     rowHolder.removeAllChildren();
 
     // Snapshot the current values before clearing. The GRAND accepts Transpose / Press Mode / Glide
@@ -805,19 +804,20 @@ void Rise2Component::rebuildRows()
 
         if (group == "Sensitivity")
         {
-            curveRow = std::make_unique<CurveRow>();
+            auto sg = std::make_unique<SensitivityGraph> (onChange);
             for (auto& d : dims)
             {
                 if (! include (d.id)) continue;   // GRAND: no Strike/Slide curve
                 const bool hasMinMax = d.minId != 0 && minMaxReliable && ! grand;   // old RISE / GRAND can't read min/max back
-                const int minId = hasMinMax ? (int) d.minId : -1;
-                const int maxId = hasMinMax ? (int) d.maxId : -1;
-                curves.push_back (curveRow->add (std::make_unique<CurveComponent> (
-                    d.label, juce::Colour (d.colour), d.id, deviceValues[d.id],
-                    minId, hasMinMax ? deviceValues[d.minId] : 0,
-                    maxId, hasMinMax ? deviceValues[d.maxId] : 127, onChange)));
+                sg->addDimension (d.id, d.label, juce::Colour (d.colour), deviceValues[d.id],
+                                  hasMinMax ? (int) d.minId : 0, hasMinMax ? deviceValues[d.minId] : 0,
+                                  hasMinMax ? (int) d.maxId : 0, hasMinMax ? deviceValues[d.maxId] : 127);
             }
-            card->addItem (*curveRow, 130);
+            if (! sg->isEmpty())
+            {
+                card->addItem (*sg, 240);
+                sensGraph = std::move (sg);
+            }
         }
 
         if (group == "MIDI CC Assignments")
@@ -877,9 +877,7 @@ void Rise2Component::onItemChanged (juce::uint32 id, juce::int32 v)
     for (auto& r : rows)
         if (r->getId() == id)
             r->setChangedFromDevice (differs);
-    for (auto* c : curves)
-        if (c->getId() == id)
-            c->setChanged (differs);
+    if (sensGraph != nullptr) sensGraph->setChanged (id, differs);
     for (auto* f : faders)
         if (f->getId() == id)
             f->setChanged (differs);
@@ -937,7 +935,9 @@ void Rise2Component::flushLiveWrites()
     }
 
     for (auto& r : rows)   r->setChangedFromDevice (deviceValues[r->getId()] != pendingValues[r->getId()]);
-    for (auto* c : curves) c->setChanged (deviceValues[c->getId()] != pendingValues[c->getId()]);
+    if (sensGraph != nullptr)
+        for (auto cid : sensGraph->sensIds())
+            sensGraph->setChanged (cid, deviceValues[cid] != pendingValues[cid]);
     for (auto* f : faders) f->setChanged (deviceValues[f->getId()] != pendingValues[f->getId()]);
     updateEnabled();
 }
@@ -1077,11 +1077,11 @@ int Rise2Component::applyPresetValues (const std::map<juce::uint32, juce::int32>
         const bool differs = deviceValues[id] != v;
         for (auto& r : rows)
             if (r->getId() == id) { r->setValue (v); r->setChangedFromDevice (differs); }
-        for (auto* c : curves)
+        if (sensGraph != nullptr)
         {
-            if (c->getId()    == id)       { c->setSensitivity (v); c->setChanged (differs); }
-            if (c->getMinId() == (int) id) c->setMin (v);
-            if (c->getMaxId() == (int) id) c->setMax (v);
+            sensGraph->setValue (id, v);
+            sensGraph->setMinMax (id, v);
+            sensGraph->setChanged (id, differs);   // no-op unless id is a sensitivity id
         }
         for (auto* f : faders)
             if (f->getId() == id) { f->setValue (v); f->setChanged (differs); }

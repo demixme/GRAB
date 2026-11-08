@@ -621,8 +621,7 @@ void MainComponent::connect (seaprobe::Transport transport)
     blockOrder.clear();
     blockBox.clear (juce::dontSendNotification);
     rows.clear();
-    curveRows.clear();
-    curves.clear();
+    sensGraph.reset();
     sectionHeaders.clear();
     layoutOrder.clear();
     rowHolder.removeAllChildren();
@@ -799,8 +798,7 @@ void MainComponent::topologyChanged()
         rowsBuilt = false;
         configRequested = false;
         rows.clear();
-        curveRows.clear();
-        curves.clear();
+        sensGraph.reset();
         sectionHeaders.clear();
         layoutOrder.clear();
         rowHolder.removeAllChildren();
@@ -1371,8 +1369,7 @@ void MainComponent::selectBlock (roli::Block::UID uid)
 
     // Reset per-block config state and re-read for the newly selected block.
     rows.clear();
-    curveRows.clear();
-    curves.clear();
+    sensGraph.reset();
     sectionHeaders.clear();
     layoutOrder.clear();
     rowHolder.removeAllChildren();
@@ -1688,9 +1685,8 @@ bool MainComponent::controlExistsFor (juce::uint32 id) const
     // A curve owns its sensitivity id AND its min/max end-node ids (50-55). Those have no row
     // of their own, so without this a live-write echo of a min/max value looked like the visible
     // set had changed and triggered a full rebuildRows() mid-drag (jerky handles, flashing Save).
-    for (auto* c : curves)
-        if (c->getId() == id || c->getMinId() == (int) id || c->getMaxId() == (int) id)
-            return true;
+    if (sensGraph != nullptr && sensGraph->owns (id))
+        return true;
     return false;
 }
 
@@ -1721,14 +1717,14 @@ void MainComponent::applyLiveConfigChange (const roli::Block::ConfigMetaData& me
     if (! userEdited)
     {
         pendingValues[index] = v;
-        for (auto& r : rows)   if (r->getId() == index) { r->setValue (v);       r->setChangedFromDevice (false); }
-        for (auto* c : curves) if (c->getId() == index) { c->setSensitivity (v); c->setChanged (false); }
+        for (auto& r : rows)   if (r->getId() == index) { r->setValue (v); r->setChangedFromDevice (false); }
+        if (sensGraph != nullptr) { sensGraph->setValue (index, v); sensGraph->setMinMax (index, v); sensGraph->setChanged (index, false); }
     }
     else
     {
         const bool stillDiffers = pendingValues[index] != v;
         for (auto& r : rows)   if (r->getId() == index) r->setChangedFromDevice (stillDiffers);
-        for (auto* c : curves) if (c->getId() == index) c->setChanged (stillDiffers);
+        if (sensGraph != nullptr) sensGraph->setChanged (index, stillDiffers);
     }
 
     updateSaveEnabled();
@@ -1744,8 +1740,7 @@ void MainComponent::rebuildRows()
 
     cards.clear();          // un-parents the rows/curves it holds
     rows.clear();
-    curveRows.clear();
-    curves.clear();
+    sensGraph.reset();
     rowHolder.removeAllChildren();
     deviceValues.clear();
     pendingValues.clear();
@@ -1853,23 +1848,22 @@ void MainComponent::rebuildRows()
 
         if (g == "Sensitivity")
         {
-            // 5D curves across the top of the card; remaining items (min/max, fixed
-            // velocity) as rows below.
-            auto cr = std::make_unique<CurveRow>();
+            // The 5D overlay graph + inspector spans the top of the card; remaining items
+            // (fixed velocity) stack as rows below.
+            auto sg = std::make_unique<SensitivityGraph> (onChange);
             for (const auto& d : dims)
             {
                 if (deviceValues.find (d.id) == deviceValues.end())
                     continue;
                 const int mn = (d.minId > 0 && deviceValues.count ((juce::uint32) d.minId)) ? deviceValues[(juce::uint32) d.minId] : 0;
                 const int mx = (d.maxId > 0 && deviceValues.count ((juce::uint32) d.maxId)) ? deviceValues[(juce::uint32) d.maxId] : 127;
-                auto* c = cr->add (std::make_unique<CurveComponent> (d.label, juce::Colour (d.colour),
-                                        d.id, deviceValues[d.id], d.minId, mn, d.maxId, mx, onChange));
-                curves.push_back (c);
+                sg->addDimension (d.id, d.label, juce::Colour (d.colour), deviceValues[d.id],
+                                  juce::jmax (0, d.minId), mn, juce::jmax (0, d.maxId), mx);
             }
-            if (! cr->curves.empty())
+            if (! sg->isEmpty())
             {
-                card->addItem (*cr, 130);
-                curveRows.push_back (std::move (cr));
+                card->addItem (*sg, 240);
+                sensGraph = std::move (sg);
             }
 
             // Min/max are now set by dragging the curve end-nodes, so skip their rows.
@@ -1936,9 +1930,7 @@ void MainComponent::onItemChanged (juce::uint32 id, juce::int32 value)
     for (auto& r : rows)
         if (r->getId() == id)
             r->setChangedFromDevice (differs);
-    for (auto* c : curves)
-        if (c->getId() == id)
-            c->setChanged (differs);
+    if (sensGraph != nullptr) sensGraph->setChanged (id, differs);
     updateSaveEnabled();
     updateLumiKeyboardColours();   // live-light the keyboard as scale/key/colours/mode are edited
     pushChordGhosts();             // live-update the chord ghosts as Chord mode is edited
@@ -1999,10 +1991,10 @@ void MainComponent::flushLiveWrites()
         r->setChangedFromDevice (deviceValues.count (r->getId())
                                  && pendingValues.count (r->getId())
                                  && deviceValues[r->getId()] != pendingValues[r->getId()]);
-    for (auto* c : curves)
-        c->setChanged (deviceValues.count (c->getId())
-                       && pendingValues.count (c->getId())
-                       && deviceValues[c->getId()] != pendingValues[c->getId()]);
+    if (sensGraph != nullptr)
+        for (auto cid : sensGraph->sensIds())
+            sensGraph->setChanged (cid, deviceValues.count (cid) && pendingValues.count (cid)
+                                        && deviceValues[cid] != pendingValues[cid]);
     updateSaveEnabled();
 }
 
@@ -2492,8 +2484,7 @@ int MainComponent::applyPresetValues (const std::map<juce::uint32, juce::int32>&
         const bool differs = deviceValues.count (id) && deviceValues[id] != v;
         for (auto& r : rows)
             if (r->getId() == id) { r->setValue (v); r->setChangedFromDevice (differs); }
-        for (auto* c : curves)
-            if (c->getId() == id) { c->setSensitivity (v); c->setChanged (differs); }
+        if (sensGraph != nullptr) { sensGraph->setValue (id, v); sensGraph->setMinMax (id, v); sensGraph->setChanged (id, differs); }
         if (live && differs)
             dirtyWrites.insert (id);
         ++applied;
