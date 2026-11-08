@@ -33,9 +33,19 @@ void grab::themeNativeTitleBar (juce::ComponentPeer* peer, juce::Colour backgrou
     DwmSetWindowAttribute (hwnd, 35 /*DWMWA_CAPTION_COLOR*/, &caption, sizeof (caption));
     DwmSetWindowAttribute (hwnd, 36 /*DWMWA_TEXT_COLOR*/,    &title,   sizeof (title));
 
-    // Title text only: drop the caption icon. The system menu (Alt+Space) and the taskbar icon stay.
+    // Title text only: drop the caption icon. WTNCA_NODRAWICON alone is ignored by the Windows 11
+    // immersive caption, so also clear the window + class icons so the caption has nothing to draw.
+    // (The taskbar icon is set separately by the app resource, so it stays.)
     WTA_OPTIONS opts { WTNCA_NODRAWICON, WTNCA_NODRAWICON };
     SetWindowThemeAttribute (hwnd, WTA_NONCLIENT, &opts, sizeof (opts));
+    SendMessageW (hwnd, WM_SETICON, ICON_SMALL,  0);
+    SendMessageW (hwnd, WM_SETICON, ICON_SMALL2, 0);
+    SendMessageW (hwnd, WM_SETICON, ICON_BIG,    0);
+    SetClassLongPtrW (hwnd, GCLP_HICONSM, 0);
+    SetClassLongPtrW (hwnd, GCLP_HICON,   0);
+    // Force the frame to repaint so the now-empty icon slot is re-rendered.
+    SetWindowPos (hwnd, nullptr, 0, 0, 0, 0,
+                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
    #else
     juce::ignoreUnused (peer, background, text);
    #endif
