@@ -10,7 +10,7 @@ instruments configurable and self-documents their protocol.
 
 <p align="center">
   <img src="docs/grab-screenshot.png" width="560"
-       alt="GRAB configuring a Seaboard Block: colour-coded 5D sensitivity curves with live touch rings on the keyboard graphic, and MIDI settings, pitch and play-mode cards below.">
+       alt="GRAB configuring a Seaboard Block in its FabFilter-style UI: one 5D sensitivity graph overlaying all five curves with live keypress dots, a Min/Sensitivity/Max inspector, the device drawing with touch rings, and MIDI output / expression / keyboard / play-mode cards below.">
 </p>
 
 ## Where it's at — v0.1.97
@@ -36,6 +36,9 @@ of **live editing** (changes write as you make them, like Dashboard), a unified 
   themed dialogs** (Diagnose, Contribute, Capture MIDI, How-you-can-help) with no OS title-bar chrome.
 - **Live keys / keystroke map** — play the device to see where and how hard; now wired on **RISE / GRAND**
   too, not just BLOCKS.
+- **Original RISE Min / Max** — the original RISE (fw 1.x) shows its **Strike / Press / Lift Min / Max**
+  dials again: it accepts those writes (ROLI Dashboard exposes them) but reads the block back as zeros,
+  so GRAB shows the dials with sensible defaults and writes them — **hardware-confirmed on fw 1.1.8**.
 - *(v0.1.86–0.1.96 built this out incrementally on the `feat/track-b-zones` branch; v0.1.97 is the first
   full release of it.)*
 
