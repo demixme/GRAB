@@ -154,15 +154,14 @@ namespace grab::theme
             }
         }
 
-        // Fred's design sizes are CSS px (20 readouts, 13 names, 12 values, 11 captions). On Windows
-        // JUCE's withHeight counts the em's leading, so the visible glyphs land ~1.33x smaller than the
-        // browser's CSS px; macOS (CoreText) already matches the design, so the bump is Windows-only.
-        // One knob per platform to tune the whole type ramp if it reads large or small.
-       #if JUCE_WINDOWS
-        inline constexpr float sizeScale = 1.33f;
-       #else
-        inline constexpr float sizeScale = 1.0f;
-       #endif
+        // Fred's design sizes are CSS px (20 readouts, 13 names, 12 values, 11 captions), where the
+        // px size IS the em square. JUCE's legacy withHeight() instead sizes ascent+descent, and with
+        // Red Hat Display's tall metrics (1.32 em) that renders glyphs ~24% small - and historically
+        // differed between Windows and macOS (CoreText), which is why a per-platform fudge was needed.
+        // withPointHeight() sizes the em square directly and identically on both platforms, so these
+        // numbers now render at the same visual size as the browser design. uiScale is the single knob
+        // to nudge the whole type ramp up or down.
+        inline constexpr float uiScale = 1.0f;
 
         inline juce::Font font (Role r)
         {
@@ -178,7 +177,7 @@ namespace grab::theme
                 case Role::caption: h = 11.0f; break;  // device facts, units, axis labels, status bar
             }
 
-            return juce::Font { juce::FontOptions().withTypeface (tf).withHeight (h * sizeScale) };
+            return juce::Font { juce::FontOptions().withTypeface (tf).withPointHeight (h * uiScale) };
         }
     }
 
