@@ -101,6 +101,15 @@ private:
 };
 
 //==============================================================================
+/** Three weighted columns: `fullWidthTitle` spans the top, then `col0Title` (35%) and `col1Title`
+    (35%) each get their own column and everything else stacks in the third (30%). Falls back to the
+    responsive grid when the window is too narrow for three columns. Used by the Seaboard keyboard
+    page so the wide MIDI output / Expression cards get the room their controls need. */
+inline void layoutWeightedCards (juce::Viewport& viewport, juce::Component& rowHolder,
+                                 const std::vector<std::unique_ptr<SectionCard>>& cards,
+                                 const juce::String& fullWidthTitle,
+                                 const juce::String& col0Title, const juce::String& col1Title);
+
 /** Lay cards out in `rowHolder` (the viewed component of `viewport`): the card whose title
     is `fullWidthTitle` spans the full width at the top, the rest flow into up to three
     responsive columns, each card dropped into the shortest column. Sizes rowHolder so the
@@ -135,6 +144,51 @@ inline void layoutCardGrid (juce::Viewport& viewport, juce::Component& rowHolder
             if (colBottom[(size_t) i] < colBottom[(size_t) col]) col = i;
         c->setBounds (col * (colW + gap), colBottom[(size_t) col], colW, c->contentHeight());
         colBottom[(size_t) col] = c->getBottom() + gap;
+    }
+
+    int total = topY;
+    for (int b : colBottom) total = juce::jmax (total, b);
+    rowHolder.setSize (availW, juce::jmax (total, viewport.getHeight()));
+}
+
+inline void layoutWeightedCards (juce::Viewport& viewport, juce::Component& rowHolder,
+                                 const std::vector<std::unique_ptr<SectionCard>>& cards,
+                                 const juce::String& fullWidthTitle,
+                                 const juce::String& col0Title, const juce::String& col1Title)
+{
+    const int gap    = grab::theme::space::gutter;
+    const int availW = juce::jmax (260, viewport.getWidth() - 14);
+
+    if (availW < 760)   // too narrow for three columns: use the responsive grid
+    {
+        layoutCardGrid (viewport, rowHolder, cards, fullWidthTitle);
+        return;
+    }
+
+    const int inner = availW - 2 * gap;
+    const int w0 = juce::roundToInt (inner * 0.35f);
+    const int w1 = juce::roundToInt (inner * 0.35f);
+    const int w2 = inner - w0 - w1;
+    const int x[3] = { 0, w0 + gap, w0 + gap + w1 + gap };
+    const int w[3] = { w0, w1, w2 };
+
+    int topY = 0;
+    SectionCard* full = nullptr;
+    for (auto& c : cards)
+        if (c->getTitle() == fullWidthTitle) { full = c.get(); break; }
+    if (full != nullptr)
+    {
+        full->setBounds (0, 0, availW, full->contentHeight());
+        topY = full->getBottom() + gap;
+    }
+
+    int colBottom[3] = { topY, topY, topY };
+    for (auto& c : cards)
+    {
+        if (c.get() == full) continue;
+        const int col = c->getTitle() == col0Title ? 0 : c->getTitle() == col1Title ? 1 : 2;
+        c->setBounds (x[col], colBottom[col], w[col], c->contentHeight());
+        colBottom[col] = c->getBottom() + gap;
     }
 
     int total = topY;

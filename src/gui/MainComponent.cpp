@@ -3679,12 +3679,20 @@ void MainComponent::resized()
     updateSensitivityLayout();
 
     // Control-block page (has a "Buttons" card): give that card the width and keep MIDI Settings slim,
-    // so its busy per-button rows fit without a very wide window. Everything else uses the normal grid.
-    bool controlPage = false;
+    // so its busy per-button rows fit without a very wide window. The Seaboard keyboard page gives the
+    // wide MIDI output / Expression cards their own 35% columns (Keyboard / Play mode share the 30%
+    // remainder). Everything else uses the responsive grid.
+    bool controlPage = false, seaboardPage = false, hasExpr = false;
     for (auto& c : cards)
-        if (c->getTitle() == "Buttons") { controlPage = true; break; }
+    {
+        if (c->getTitle() == "Buttons")     controlPage  = true;
+        if (c->getTitle() == "MIDI output") seaboardPage = true;
+        if (c->getTitle() == "Expression")  hasExpr      = true;
+    }
     if (controlPage)
         layoutControlCards (viewport, rowHolder, cards, "Buttons");
+    else if (seaboardPage && hasExpr)
+        layoutWeightedCards (viewport, rowHolder, cards, "Sensitivity", "MIDI output", "Expression");
     else
         layoutCardGrid (viewport, rowHolder, cards, "Sensitivity");
 }
