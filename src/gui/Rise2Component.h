@@ -163,7 +163,6 @@ private:
 
     bool awaitingState = false;
     int  stateRetries = 0;
-    bool minMaxReliable = true;   // false on the original RISE: min/max read back as zeros, so hidden
     bool grand = false;           // true: render the GRAND field set (4D, 3 pedals, no slide/strike/faders)
 
     juce::Label      statusLabel;

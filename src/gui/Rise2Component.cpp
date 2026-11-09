@@ -226,8 +226,8 @@ const Dim dims[] = {
 
 bool isCurve (juce::uint32 id) { return id >= kStrikeSens && id <= kLiftSens; }
 
-// The Strike/Press/Lift min/max — set by dragging the curve end-nodes (fw 2.x), not as rows.
-// On the original RISE (fw 1.x) they read back as zeros, so they're hidden there entirely.
+// The Strike/Press/Lift min/max — set by dragging the curve end-nodes / inspector dials, not as rows.
+// (The original RISE reads them back as zeros but accepts the writes; rebuildRows shows defaults.)
 bool isCurveMinMax (juce::uint32 id)
 {
     switch (id)
@@ -740,10 +740,8 @@ void Rise2Component::onState (rise2::State s)
     }
 
     // The original RISE (fw 1.x) uses the same write protocol as the RISE 2 (confirmed from a
-    // contributed Dashboard capture), so it is editable too. Some older 1.x firmware read the min/max
-    // block back as zeros; fw 2.x always reports it. rebuildRows() decides per dimension from the
-    // read-back value (show when a real ceiling comes back), so this flag is just the fw-2.x guarantee.
-    minMaxReliable = verified;
+    // contributed Dashboard capture), so it is editable too - including min/max, which it accepts as
+    // writes but reads back as zeros. rebuildRows() shows the dials with defaults in that case.
     rebuildRows();
     presetBox.setEnabled (true);        // settings are shown now, so presets apply
     refreshPresetMenu();                // (re)build for this device family now that `grand` is known
@@ -851,16 +849,21 @@ void Rise2Component::rebuildRows()
             for (auto& d : dims)
             {
                 if (! include (d.id)) continue;   // GRAND: no Strike/Slide curve
-                // Show Min/Max when the device actually reports a usable ceiling. fw 2.x always does;
-                // the original RISE (fw 1.x) was thought to read these back as zeros, but newer 1.x
-                // firmware (e.g. a RISE 25 on 1.1.8) does report them - so key off the value, not the
-                // firmware string, and hide only when the whole block really is zero. GRAND never reads
-                // them back, so it stays 1-knob regardless.
-                const bool reportsRange = deviceValues.count (d.maxId) && deviceValues[d.maxId] > 0;
-                const bool hasMinMax = d.minId != 0 && ! grand && (minMaxReliable || reportsRange);
+                // Min/Max: a real, writable RISE setting (ROLI Dashboard exposes it on the original RISE
+                // too). The RISE 2 reports it back; the original RISE (fw 1.x) accepts the writes but
+                // reads the whole block back as zeros. So show the three dials on any RISE, and when the
+                // device doesn't report a ceiling (max == 0) fall back to the defaults (min 1, max 127)
+                // instead of a bogus 0 - writes still take effect, reads just won't round-trip. GRAND
+                // never reads or writes them, so it stays a single Sensitivity knob.
+                const bool hasMinMax = d.minId != 0 && ! grand;
+                const int  rawMin = hasMinMax ? deviceValues[d.minId] : 0;
+                const int  rawMax = hasMinMax ? deviceValues[d.maxId] : 127;
+                const bool reported = rawMax > 0;                 // a 0 ceiling = the device didn't report it
+                const int  mn = reported ? rawMin : (hasMinMax ? 1 : 0);
+                const int  mx = reported ? rawMax : 127;
                 sg->addDimension (d.id, d.label, juce::Colour (d.colour), deviceValues[d.id],
-                                  hasMinMax ? (int) d.minId : 0, hasMinMax ? deviceValues[d.minId] : 0,
-                                  hasMinMax ? (int) d.maxId : 0, hasMinMax ? deviceValues[d.maxId] : 127);
+                                  hasMinMax ? (int) d.minId : 0, mn,
+                                  hasMinMax ? (int) d.maxId : 0, mx);
             }
             if (! sg->isEmpty())
             {
