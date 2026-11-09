@@ -17,10 +17,21 @@ jobs:
             name: windows
           - os: macos-latest
             name: macos
+          - os: ubuntu-22.04        # older base = wider glibc compatibility for the binary
+            name: linux
     runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install Linux build deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libasound2-dev libx11-dev libxcomposite-dev libxcursor-dev libxext-dev \
+            libxinerama-dev libxrandr-dev libxrender-dev libfreetype6-dev \
+            libfontconfig1-dev libglu1-mesa-dev mesa-common-dev
 
       # JUCE is fetched by CMake FetchContent; cache it so later builds are fast.
       - name: Cache fetched deps (JUCE)
@@ -53,6 +64,11 @@ jobs:
             find build -name 'GRAB.exe'      -exec cp {} dist/ \;
             find build -name 'seaprobe.exe'  -exec cp {} dist/ \;
             find build -name 'seadecode.exe' -exec cp {} dist/ \;
+          elif [ "$RUNNER_OS" = "Linux" ]; then
+            find build -path '*GRAB_artefacts*'     -name 'GRAB'     -type f -exec cp {} dist/ \;
+            find build -path '*seaprobe_artefacts*' -name 'seaprobe' -type f -exec cp {} dist/ \;
+            find build -maxdepth 4 -name 'seadecode' -type f -exec cp {} dist/ \;
+            chmod +x dist/GRAB dist/seaprobe dist/seadecode 2>/dev/null || true
           else
             app="$(find build -maxdepth 6 -name 'GRAB.app' -type d | head -1)"
             [ -n "$app" ] && cp -R "$app" dist/

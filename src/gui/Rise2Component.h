@@ -24,8 +24,6 @@ class CurveRow;
 class CurveComponent;
 class SensitivityGraph;
 class SectionCard;
-class FaderPanel;
-class Fader;
 namespace grab { class CcGrid; class CcCard; }
 
 class Rise2Component  : public juce::Component,
@@ -143,7 +141,7 @@ private:
 
     rise2::State state;
     // Latest value per MIDI CC (0..127), written on the MIDI thread from incoming performance
-    // messages; the fader panel polls it to animate the touch faders / XY pad. -1 = none yet.
+    // messages (-1 = none yet). Kept for live CC readout on the Controller-CC cards.
     std::array<int, 128> liveCc;
     std::array<int, 17>   touchNote;   // active note per MIDI channel (1-16), -1 = none
     std::array<float, 17> touchZ;      // last pressure per channel (Press)
@@ -185,8 +183,6 @@ private:
     SectionCard* sensitivityCard = nullptr;        // the graph-row card (grows when the inspector stacks)
     std::vector<std::unique_ptr<SectionCard>> cards;    // one titled card per section
     void updateSensitivityLayout();                // narrow fold: inspector stacks below the graph
-    std::unique_ptr<FaderPanel> faderPanel;             // the MIDI CC Assignments faders (unused - replaced by ccGrid)
-    std::vector<Fader*> faders;                          // non-owning, for id lookup
     std::unique_ptr<grab::CcGrid> ccGrid;               // Fred's Controller CCs card grid
     std::vector<grab::CcCard*> ccCards;                 // non-owning, for id lookup
     std::vector<std::unique_ptr<juce::Label>> sectionHeaders;  // (unused by the card layout)

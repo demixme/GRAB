@@ -2,7 +2,6 @@
 #include "MainComponent.h"
 #include "SectionCard.h"
 #include "SensitivityGraph.h"
-#include "FaderPanel.h"
 #include "CcCardGrid.h"
 #include "Help.h"
 #include "GrabPaths.h"
@@ -790,10 +789,8 @@ rise2::Messages Rise2Component::writeFor (juce::uint32 id, juce::int32 v) const
 
 void Rise2Component::rebuildRows()
 {
-    cards.clear();          // un-parents the rows/graph/faders it holds
+    cards.clear();          // un-parents the rows/graph/CC cards it holds
     sensitivityCard = nullptr;
-    faderPanel.reset();
-    faders.clear();
     ccGrid.reset();
     ccCards.clear();
     rows.clear();
@@ -912,9 +909,6 @@ void Rise2Component::onItemChanged (juce::uint32 id, juce::int32 v)
         if (r->getId() == id)
             r->setChangedFromDevice (differs);
     if (sensGraph != nullptr) sensGraph->setChanged (id, differs);
-    for (auto* f : faders)
-        if (f->getId() == id)
-            f->setChanged (differs);
     updateEnabled();
 
     // Live-write, Dashboard-style: queue the edit and let the throttle send it within ~75 ms,
@@ -972,7 +966,6 @@ void Rise2Component::flushLiveWrites()
     if (sensGraph != nullptr)
         for (auto cid : sensGraph->sensIds())
             sensGraph->setChanged (cid, deviceValues[cid] != pendingValues[cid]);
-    for (auto* f : faders) f->setChanged (deviceValues[f->getId()] != pendingValues[f->getId()]);
     // CC cards self-track against their baseline; after a write lands that baseline is the new
     // device value, so advance it (clears the card's changed dot + the card header's "N changed").
     for (auto* c : ccCards) c->setDeviceValue (deviceValues[c->getId()]);
@@ -1120,8 +1113,6 @@ int Rise2Component::applyPresetValues (const std::map<juce::uint32, juce::int32>
             sensGraph->setMinMax (id, v);
             sensGraph->setChanged (id, differs);   // no-op unless id is a sensitivity id
         }
-        for (auto* f : faders)
-            if (f->getId() == id) { f->setValue (v); f->setChanged (differs); }
         for (auto* c : ccCards)
             if (c->getId() == id) { c->setValue (v); c->setDeviceValue (v); }   // device value = new baseline
         if (live && differs)

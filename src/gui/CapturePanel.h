@@ -75,6 +75,11 @@ public:
         table.setRowHeight (22);
         {
             auto& h = table.getHeader();
+            // Dark header to match the modal (JUCE's default is a light-grey bar).
+            h.setColour (juce::TableHeaderComponent::backgroundColourId, grab::theme::panel);
+            h.setColour (juce::TableHeaderComponent::textColourId,       grab::theme::label);
+            h.setColour (juce::TableHeaderComponent::outlineColourId,    grab::theme::divider);
+            h.setColour (juce::TableHeaderComponent::highlightColourId,  grab::theme::raisedHover);
             const int f = juce::TableHeaderComponent::visible | juce::TableHeaderComponent::resizable;
             h.addColumn ("Time",    colTime,    78,  60, 140, f);
             h.addColumn ("Kind",    colKind,    74,  54, 120, f);
