@@ -38,7 +38,11 @@ public:
         // keep the enclosing card's "N changed" header count live
         if (auto* grid = getParentComponent()) if (auto* sc = grid->getParentComponent()) sc->repaint();
     }
-    void setDeviceValue (int v) { initial = v; repaint(); }   // the baseline the changed dot compares to
+    void setDeviceValue (int v)   // the baseline the changed dot compares to
+    {
+        initial = v; repaint();
+        if (auto* grid = getParentComponent()) if (auto* sc = grid->getParentComponent()) sc->repaint();
+    }
     int  changedCount() const override { return value != initial ? 1 : 0; }
 
     void resized() override

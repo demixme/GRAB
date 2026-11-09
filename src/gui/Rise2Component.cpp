@@ -973,6 +973,9 @@ void Rise2Component::flushLiveWrites()
         for (auto cid : sensGraph->sensIds())
             sensGraph->setChanged (cid, deviceValues[cid] != pendingValues[cid]);
     for (auto* f : faders) f->setChanged (deviceValues[f->getId()] != pendingValues[f->getId()]);
+    // CC cards self-track against their baseline; after a write lands that baseline is the new
+    // device value, so advance it (clears the card's changed dot + the card header's "N changed").
+    for (auto* c : ccCards) c->setDeviceValue (deviceValues[c->getId()]);
     updateEnabled();
 }
 
