@@ -369,12 +369,21 @@ void ConfigRow::setChangedFromDevice (bool c)
 void ConfigRow::resized()
 {
     auto r = getLocalBounds().reduced (4, 2);
+    if (! buttonCfg)
+    {
+        // Fred's .row: the label flexes on the left, a fixed ~200px control column on the right.
+        const int ctrlW = juce::jlimit (140, 200, r.getWidth() - 100);
+        auto c = r.removeFromRight (ctrlW);
+        r.removeFromRight (12);   // gap between the label and the control
+        nameLabel.setBounds (r);
+        if (control != nullptr) control->setBounds (c);
+        return;
+    }
+
     // Button rows pack a lot into one row, so give the "Button N" label a slim column and hand the
     // rest to the CC/behaviour line and the default/min/max steppers (otherwise the steppers truncate).
-    const int labelW = buttonCfg ? juce::jlimit (64, 96, (int) (r.getWidth() * 0.18f))
-                                 : juce::jlimit (90, 200, (int) (r.getWidth() * 0.46f));
+    const int labelW = juce::jlimit (64, 96, (int) (r.getWidth() * 0.18f));
     nameLabel.setBounds (r.removeFromLeft (labelW));
-    if (buttonCfg)
     {
         const int capH = 12;
         const int rowH = r.getHeight() / 2;
@@ -395,10 +404,7 @@ void ConfigRow::resized()
         defCap.setBounds (botCap.removeFromLeft (w3));
         minCap.setBounds (botCap.removeFromLeft (w3));
         maxCap.setBounds (botCap);
-        return;
     }
-    if (control != nullptr)
-        control->setBounds (r);
 }
 
 void ConfigRow::paint (juce::Graphics& g)
