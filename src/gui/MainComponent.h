@@ -20,6 +20,7 @@
 #include "DeviceMenu.h"
 #include "DeviceNameButton.h"
 #include "PresetBar.h"
+#include "IconButton.h"
 #include "ColourWell.h"
 #include "DeviceInfoBar.h"
 #include "SectionCard.h"
@@ -282,7 +283,10 @@ private:
     void updateLiveStripRange();        // feed the Live-keys strip the key span + octave/transpose shift
     juce::TextButton   advancedBtn   { "Advanced..." };
     juce::TextButton   contributeBtn { "Contribute..." };
-    juce::TextButton   toolsBtn      { "Tools..." };    // bento: one menu for Diagnose / Advanced / Contribute
+    juce::TextButton   toolsBtn      { "Tools..." };    // hidden logic owner; the visible control is toolsIconBtn
+    grab::IconButton   liveViewBtn   { grab::IconButton::Icon::liveView };   // actions row: open Live keys
+    grab::IconButton   readIconBtn   { grab::IconButton::Icon::reload };     // actions row: read from device
+    grab::IconButton   toolsIconBtn  { grab::IconButton::Icon::tools };      // actions row: Tools menu
     // Top-row bento tiles (BLOCKS page): device drawing | dashboard | controls. Painted by paint(),
     // positioned by resized(); empty when the three-tile band isn't in use (RISE page / no device art).
     juce::Rectangle<int> drawTileR, dashTileR, ctrlTileR;

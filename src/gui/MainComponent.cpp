@@ -503,14 +503,14 @@ MainComponent::MainComponent()
 
     // Bento "Tools..." menu - one button folding the three tool actions so the controls tile stays
     // tidy. It drives the existing buttons (triggerClick), which stay as the logic owners (hidden).
-    addAndMakeVisible (toolsBtn);
-    toolsBtn.onClick = [this]
+    addChildComponent (toolsBtn);   // hidden logic owner; toolsIconBtn is the visible control
+    auto showToolsMenu = [this]
     {
         juce::PopupMenu m;
         m.addItem (1, "Diagnose connection...");
         m.addItem (2, "Advanced...");
         m.addItem (3, "Contribute...");
-        m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (toolsBtn),
+        m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (toolsIconBtn),
             [this] (int r)
             {
                 if (r == 1) diagnoseBtn.triggerClick();
@@ -518,6 +518,16 @@ MainComponent::MainComponent()
                 else if (r == 3) contributeBtn.triggerClick();
             });
     };
+    // Fred's actions row: Live keys / read from device / Tools icons.
+    addChildComponent (liveViewBtn);
+    addChildComponent (readIconBtn);
+    addChildComponent (toolsIconBtn);
+    liveViewBtn.onClick = [this] { enterLiveKeys (! liveKeys); };
+    readIconBtn.onClick = [this] { reloadFromDevice(); };
+    toolsIconBtn.onClick = showToolsMenu;
+    liveViewBtn.setTooltip (TRANS ("Live keys: see where and how hard you play."));
+    readIconBtn.setTooltip (TRANS ("Read from device: load every setting again. Unsaved changes are dropped."));
+    toolsIconBtn.setTooltip (TRANS ("Tools: diagnostics, advanced settings and more."));
     addAndMakeVisible (reloadButton);
     addAndMakeVisible (saveButton);
     addAndMakeVisible (autosaveToggle);
@@ -935,7 +945,8 @@ void MainComponent::setBlocksControlsVisible (bool visible)
     // Note: blockLabel/blockBox (the "ROLI device:" switcher) are NOT here - they're shown in both
     // BLOCKS and RISE modes and their visibility is driven by fillDeviceBox() (hidden for one device).
     for (auto* c : std::initializer_list<juce::Component*> { &reloadButton, &saveButton, &autosaveToggle,
-                                                            &presetBar, &contributeBtn, &toolsBtn, &viewport })
+                                                            &presetBar, &contributeBtn, &liveViewBtn, &readIconBtn,
+                                                            &toolsIconBtn, &viewport })
         c->setVisible (visible);
 }
 
@@ -3473,7 +3484,7 @@ namespace
     // The bento top band: three tiles (device drawing | dashboard | controls). Shared by the BLOCKS
     // and RISE pages so they stay identical. splitTopBand removes the band (+ its gutter) from r.
     struct TopBand  { juce::Rectangle<int> band, draw, dash, ctrl; };
-    struct CtrlSlots { juce::Rectangle<int> preset, reload, save, autosave, tools, conn, status; };
+    struct CtrlSlots { juce::Rectangle<int> preset, reload, save, autosave, tools, conn, status, liveView, read; };
 
     TopBand splitTopBand (juce::Rectangle<int>& r)
     {
@@ -3520,8 +3531,13 @@ namespace
         auto rs = c.removeFromTop (rowH);
         s.reload = rs.removeFromLeft (juce::jmin (92, rs.getWidth() / 2)); rs.removeFromLeft (gap); s.save = rs;
         c.removeFromTop (gap);
+        // Fred's dev-act: [live view][read] | Autosave switch | [tools], all 30px icons but Autosave.
         auto at = c.removeFromTop (rowH);
-        s.autosave = at.removeFromLeft ((at.getWidth() - gap) / 2); at.removeFromLeft (gap); s.tools = at;
+        s.liveView = at.removeFromLeft (30);
+        s.read     = at.removeFromLeft (30);
+        at.removeFromLeft (8);
+        s.tools    = at.removeFromRight (30);
+        s.autosave = at;
         s.conn   = {};   // connection type lives in the device menu now
         s.status = {};   // status is shown in the footer (Fred's layout), freeing the band to 3 rows
         return s;
@@ -3543,7 +3559,7 @@ void MainComponent::resized()
         // passes clicks through to this band); MainComponent owns the drawing / dashboard / Tools /
         // Connection / status, and hands Rise2 the slots for its own Preset / Read / Save / Autosave.
         deviceInfo.setStyle (DeviceInfoBar::Style::dashboard);
-        toolsBtn.setVisible (true);   // re-shown here (setBlocksControlsVisible hid it for this page)
+        toolsIconBtn.setVisible (true);   // re-shown here (setBlocksControlsVisible hid it for this page)
         advancedBtn.setBounds ({}); diagnoseBtn.setBounds ({}); contributeBtn.setBounds ({});
         transportLabel.setBounds ({}); blockLabel.setBounds ({});
 
@@ -3562,7 +3578,7 @@ void MainComponent::resized()
             deviceInfo.setBounds (d);
         }
         const auto s = splitCtrlSlots (tb.ctrl);
-        toolsBtn.setBounds (s.tools);
+        toolsIconBtn.setBounds (s.tools);
         transportBox.setBounds ({});   // connection type is in the DeviceMenu callout now
         statusLabel.setBounds (s.status);
 
@@ -3601,8 +3617,10 @@ void MainComponent::resized()
         presetBar.setBounds (s.preset);
         reloadButton.setBounds (s.reload);
         saveButton.setBounds (s.save);
+        liveViewBtn.setBounds (s.liveView);
+        readIconBtn.setBounds (s.read);
         autosaveToggle.setBounds (s.autosave);
-        toolsBtn.setBounds (s.tools);
+        toolsIconBtn.setBounds (s.tools);
         transportBox.setBounds ({});   // model only; menu drives it
         statusLabel.setBounds (s.status);
     }
