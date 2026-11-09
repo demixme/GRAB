@@ -146,7 +146,7 @@ private:
         add (Body,  "    GRAB's device support is built from captures and testing that people with real "
                     "hardware sent in:\n");
         add (Body,  "       sbialy - Seaboard RISE 2 protocol, 5D sensitivity curves, anonymisation\n");
-        add (Body,  "       fictionfred - original RISE 25 write protocol\n");
+        add (Body,  "       fictionfred - UI design; original RISE 25 write protocol\n");
         add (Body,  "       BabeleDunnit - Seaboard GRAND configuration\n");
         add (Body,  "       lluisgerard - Piano M / LUMI Keys (incl. a chained pair)\n");
         add (Body,  "       gofer723 - Seaboard RISE 2 Multi / Single Channel\n");
