@@ -3318,6 +3318,28 @@ void MainComponent::updateLiveStripRange()
     keystrokeMap.setLabelShift (oct * 12);
 }
 
+void MainComponent::layoutDrawingTile (juce::Rectangle<int> tile)
+{
+    // Fit the device art (or the compact keystroke map) inside the tile, and - when the Device|Keys
+    // toggle shows - reserve a column for it on the right so it always clears the drawing, never
+    // floating over it. Keeps the drawing tile self-contained on both the BLOCKS and RISE pages.
+    const int padX = grab::theme::space::tilePadX, padY = grab::theme::space::tilePadY;
+    const bool showToggle = keyboardView.isVisible();   // keyboardView visibility == "has a keyboard device"
+    viewToggle.setVisible (showToggle);
+    keystrokeMap.setVisible (showToggle && drawingIsMap);
+
+    auto drawArea = tile.reduced (padX, padY);
+    if (showToggle)
+    {
+        auto col = drawArea.removeFromRight (viewToggle.preferredWidth());
+        viewToggle.setBounds (col.removeFromTop (viewToggle.preferredHeight()));
+        drawArea.removeFromRight (grab::theme::space::gutter);   // gap between art and toggle
+    }
+    // Show the device art or the compact keystroke map; the hidden one gets no bounds.
+    if (showToggle && drawingIsMap) { keystrokeMap.setBounds (drawArea); keyboardView.setBounds ({}); }
+    else if (keyboardView.isVisible()) keyboardView.setBounds (drawArea);
+}
+
 void MainComponent::setDrawingView (bool map)
 {
     if (drawingIsMap == map)
@@ -3420,8 +3442,7 @@ void MainComponent::resized()
         drawTileR = tb.draw; dashTileR = tb.dash; ctrlTileR = tb.ctrl;
         const int padX = grab::theme::space::tilePadX, padY = grab::theme::space::tilePadY;
 
-        if (keyboardView.isVisible())
-            keyboardView.setBounds (tb.draw.reduced (padX, padY));
+        layoutDrawingTile (tb.draw);   // reserve the toggle's column so it clears the art here too
         {
             auto d = tb.dash.reduced (padX, padY);
             if (deviceMenuBtn.isVisible()) deviceMenuBtn.setBounds (d.removeFromBottom (30));
@@ -3450,21 +3471,7 @@ void MainComponent::resized()
 
     // Drawing tile: the device art centred by KeyboardView, with the Device|Keys view toggle in a
     // reserved column on the right so it sits beside the art rather than over it.
-    const bool showToggle = keyboardView.isVisible();   // keyboardView visibility == "has a keyboard device"
-    viewToggle.setVisible (showToggle);
-    keystrokeMap.setVisible (showToggle && drawingIsMap);
-    {
-        auto drawArea = tb.draw.reduced (padX, padY);
-        if (showToggle)
-        {
-            auto col = drawArea.removeFromRight (viewToggle.preferredWidth());
-            viewToggle.setBounds (col.removeFromTop (viewToggle.preferredHeight()));
-            drawArea.removeFromRight (grab::theme::space::gutter);   // gap between art and toggle
-        }
-        // Drawing tile shows the device art or the compact keystroke map; the hidden one gets no bounds.
-        if (showToggle && drawingIsMap) { keystrokeMap.setBounds (drawArea); keyboardView.setBounds ({}); }
-        else if (keyboardView.isVisible()) keyboardView.setBounds (drawArea);
-    }
+    layoutDrawingTile (tb.draw);
 
     // Dashboard tile: vertical device info, with the ROLI-device switcher below it when present.
     {

@@ -318,6 +318,7 @@ private:
     LiveKeysStrip    keystrokeMap;              // compact keystroke map shown in the drawing tile (toggle=map)
     bool drawingIsMap = false;                  // drawing tile shows the keystroke map (vs the device art)
     void setDrawingView (bool map);             // toggle the drawing-tile content (device art <-> keystroke map)
+    void layoutDrawingTile (juce::Rectangle<int> tile);   // fit the art + reserve the view-toggle's column
     bool liveKeys = false;                      // Live keys view active (big strip below the sensitivity graph)
     void enterLiveKeys (bool on);               // toggle the Live-keys view (keeps the top band visible)
     bool deviceArtV2 = true;                    // Fred's SVG device-art kit (default); Advanced can toggle back
