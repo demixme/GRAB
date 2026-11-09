@@ -159,9 +159,10 @@ namespace grab::theme
         // Red Hat Display's tall metrics (1.32 em) that renders glyphs ~24% small - and historically
         // differed between Windows and macOS (CoreText), which is why a per-platform fudge was needed.
         // withPointHeight() renders ~1.33x large here (it sizes in typographic points, 1pt ~= 1.33px,
-        // not CSS px) for EVERY weight, so the whole ramp carries a single 0.75 correction to land at
-        // Fred's px sizes. This is the one knob for the whole type ramp.
-        inline constexpr float uiScale = 0.75f;
+        // not CSS px), so 0.75 lands exactly on Fred's literal token px. But Fred authors on a Mac
+        // (Retina + heavier smoothing makes those px read larger), so a small bump matches the design's
+        // apparent size on Windows. This is the single knob for the whole type ramp.
+        inline constexpr float uiScale = 0.90f;
 
         inline juce::Font font (Role r)
         {
