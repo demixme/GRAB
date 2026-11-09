@@ -91,7 +91,10 @@ ConfigRow::ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value
     : buttonCfg (buttonConfig), id (meta.item), type (meta.type), range (meta.range),
       initialValue (value), change (std::move (onChange))
 {
-    nameLabel.setText (toSentenceCase (meta.name), juce::dontSendNotification);
+    // A few fields take Fred's name rather than the firmware's.
+    juce::String displayName = meta.name;
+    if (displayName == "No. MIDI Channels") displayName = "Member channels";
+    nameLabel.setText (toSentenceCase (displayName), juce::dontSendNotification);
     addAndMakeVisible (nameLabel);
 
     if (buttonCfg)
@@ -171,7 +174,10 @@ ConfigRow::ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value
             for (int i = 0; i < names.size(); ++i)
             {
                 auto& n = names[i];
-                shortNames.add (n.endsWith (" Channel") ? n.dropLastCharacters (8) : n);
+                // Drop a redundant trailing " Channel" / " Zone" so the label fits the lozenge
+                // (Multi Channel -> Multi, Lower Zone -> Lower, Upper Zone -> Upper).
+                shortNames.add (n.endsWith (" Channel") ? n.dropLastCharacters (8)
+                              : n.endsWith (" Zone")    ? n.dropLastCharacters (5) : n);
                 segVals.add (range.getStart() + i);
             }
 
@@ -211,14 +217,34 @@ ConfigRow::ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value
         }
 
         case ConfigType::integer:
-            slider.setSliderStyle (juce::Slider::LinearHorizontal);
-            slider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 56, 22);
-            slider.setRange ((double) range.getStart(), (double) range.getEnd(), 1.0);
-            slider.setValue ((double) value, juce::dontSendNotification);
-            slider.setDoubleClickReturnValue (true, (double) value);  // double-click reverts to the device value
-            slider.onValueChange = [this] { fireChange(); };
-            control = &slider;
+        {
+            // Fred renders most integers as a -/+ stepper; a continuous few (pitch bend range,
+            // glide rate) stay sliders.
+            const bool asSlider = meta.name == "Pitch Bend Range"
+                               || meta.name.containsIgnoreCase ("Glide Rate");
+            useStepper = ! asSlider;
+            if (useStepper)
+            {
+                intStepper.setRange (range.getStart(), range.getEnd());
+                intStepper.setValue (value, false);
+                intStepper.onChange = [this] { fireChange(); };
+                // Member channels: show the actual MPE member channel span (lower zone: ch 2..N+1).
+                if (meta.name == "No. MIDI Channels")
+                    intStepper.setUnitFn ([] (int n) { return "ch 2-" + juce::String (n + 1); });
+                control = &intStepper;
+            }
+            else
+            {
+                slider.setSliderStyle (juce::Slider::LinearHorizontal);
+                slider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 56, 22);
+                slider.setRange ((double) range.getStart(), (double) range.getEnd(), 1.0);
+                slider.setValue ((double) value, juce::dontSendNotification);
+                slider.setDoubleClickReturnValue (true, (double) value);  // double-click reverts to the device value
+                slider.onValueChange = [this] { fireChange(); };
+                control = &slider;
+            }
             break;
+        }
 
         case ConfigType::colour:
             colourWell.setSwatchColour (juce::Colour ((juce::uint32) value));
@@ -293,7 +319,8 @@ juce::int32 ConfigRow::getValue() const
         case ConfigType::boolean: return toggle.getToggleState() ? 1 : 0;
         case ConfigType::options: return useSegmented ? segmented.getSelectedValue()
                                                       : range.getStart() + combo.getSelectedId() - 1;
-        case ConfigType::integer: return (juce::int32) juce::roundToInt (slider.getValue());
+        case ConfigType::integer: return useStepper ? (juce::int32) intStepper.getValue()
+                                                    : (juce::int32) juce::roundToInt (slider.getValue());
         case ConfigType::colour:  return (juce::int32) colourWell.getSwatchColour().getARGB();
         default:                  return readOnly.getText().getIntValue();
     }
@@ -318,7 +345,10 @@ void ConfigRow::setValue (juce::int32 v)
             if (useSegmented) segmented.setSelectedValue (v, false);
             else              combo.setSelectedId ((v - range.getStart()) + 1, juce::dontSendNotification);
             break;
-        case ConfigType::integer: slider.setValue ((double) v, juce::dontSendNotification); break;
+        case ConfigType::integer:
+            if (useStepper) intStepper.setValue (v, false);
+            else            slider.setValue ((double) v, juce::dontSendNotification);
+            break;
         case ConfigType::colour:  colourWell.setSwatchColour (juce::Colour ((juce::uint32) v)); break;
         default:                  readOnly.setText (juce::String (v) + "  (read-only)", juce::dontSendNotification); break;
     }

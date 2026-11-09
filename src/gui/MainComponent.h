@@ -15,6 +15,7 @@
 #include "CurveComponent.h"
 #include "SensitivityGraph.h"
 #include "SegmentedControl.h"
+#include "Stepper.h"
 #include "DeviceMenu.h"
 #include "ColourWell.h"
 #include "DeviceInfoBar.h"
@@ -89,6 +90,8 @@ private:
     juce::ComboBox   combo;      // options (combo index = value - range start): long/many-option sets
     grab::SegmentedControl segmented;   // options with a few short labels (MIDI mode, zone, ...)
     bool             useSegmented = false;
+    grab::Stepper    intStepper;        // small integer fields as Fred's -/+ stepper
+    bool             useStepper = false;
     grab::ColourWell colourWell; // colour (ARGB)
     juce::Label      readOnly;   // float — shown, not edited
 
