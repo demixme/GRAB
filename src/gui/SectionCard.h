@@ -101,8 +101,8 @@ private:
 };
 
 //==============================================================================
-/** Three weighted columns: `fullWidthTitle` spans the top, then `col0Title` (35%) and `col1Title`
-    (35%) each get their own column and everything else stacks in the third (30%). Falls back to the
+/** Three weighted columns: `fullWidthTitle` spans the top, then `col0Title` (38%) and `col1Title`
+    (38%) each get their own column and everything else stacks in the third (24%). Falls back to the
     responsive grid when the window is too narrow for three columns. Used by the Seaboard keyboard
     page so the wide MIDI output / Expression cards get the room their controls need. */
 inline void layoutWeightedCards (juce::Viewport& viewport, juce::Component& rowHolder,
@@ -166,8 +166,8 @@ inline void layoutWeightedCards (juce::Viewport& viewport, juce::Component& rowH
     }
 
     const int inner = availW - 2 * gap;
-    const int w0 = juce::roundToInt (inner * 0.35f);
-    const int w1 = juce::roundToInt (inner * 0.35f);
+    const int w0 = juce::roundToInt (inner * 0.38f);
+    const int w1 = juce::roundToInt (inner * 0.38f);
     const int w2 = inner - w0 - w1;
     const int x[3] = { 0, w0 + gap, w0 + gap + w1 + gap };
     const int w[3] = { w0, w1, w2 };
