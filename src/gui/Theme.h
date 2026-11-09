@@ -335,6 +335,40 @@ public:
                           juce::Justification::centred, 2);
     }
 
+    // Fred's .sw: every toggle is a 34x20 pill switch (grey track off, near-white on, 14px thumb).
+    // With no button text it's just the switch (boolean config rows); with text, the label sits to
+    // its left (Autosave).
+    void drawToggleButton (juce::Graphics& g, juce::ToggleButton& b, bool isOver, bool) override
+    {
+        using namespace grab::theme;
+        const bool on = b.getToggleState();
+        const bool en = b.isEnabled();
+        auto area = b.getLocalBounds();
+        const float tw = 34.0f, th = 20.0f;
+
+        juce::Rectangle<float> sw;
+        const auto text = b.getButtonText();
+        if (text.isNotEmpty())
+        {
+            g.setColour (en ? ink2 : disabled);
+            g.setFont (type::font (type::Role::body));
+            const int twd = juce::GlyphArrangement::getStringWidthInt (g.getCurrentFont(), text);
+            g.drawText (text, area.getX(), area.getY(), twd + 2, area.getHeight(), juce::Justification::centredLeft);
+            sw = { (float) area.getX() + (float) twd + 10.0f, (float) area.getCentreY() - th * 0.5f, tw, th };
+        }
+        else
+        {
+            sw = { (float) area.getX(), (float) area.getCentreY() - th * 0.5f, tw, th };
+        }
+
+        g.setColour (! en ? switchOff.withAlpha (0.5f) : on ? primaryFill : (isOver ? switchOffHover : switchOff));
+        g.fillRoundedRectangle (sw, th * 0.5f);
+        const float kr = th - 6.0f;
+        const float kx = on ? sw.getRight() - kr - 3.0f : sw.getX() + 3.0f;
+        g.setColour (! en ? ink.withAlpha (0.5f) : on ? primaryText : ink);
+        g.fillEllipse (kx, sw.getY() + 3.0f, kr, kr);
+    }
+
     // Fred's .combo: a flat sunken well (no outline), rounded, with a down chevron in the label
     // colour on the right. Hover lifts to wellHover.
     void drawComboBox (juce::Graphics& g, int width, int height, bool,
