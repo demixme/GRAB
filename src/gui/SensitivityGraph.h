@@ -473,7 +473,9 @@ private:
             g.setColour (dimmed ? disabled : (on ? ink : ink2));
             g.drawText (d.name, juce::Rectangle<float> (tx, r.getY(), nameW + 2.0f, r.getHeight()), juce::Justification::centredLeft);
             tx += nameW + 6.0f;
-            g.setColour (dimmed ? disabled : ink2);
+            // value: caption size, in the dimension hue (white when selected) - Fred's .chip .v
+            g.setFont (grab::theme::type::font (grab::theme::type::Role::caption));
+            g.setColour (dimmed ? disabled : (on ? ink : d.colour));
             g.drawText (juce::String (d.sens), juce::Rectangle<float> (tx, r.getY(), 30.0f, r.getHeight()), juce::Justification::centredLeft);
 
             if (edited (d))   // persistent dot (vertically centred): differs from its page-load value
@@ -515,18 +517,13 @@ private:
         g.drawText ("Reset", resetR, juce::Justification::centredRight);
         b.removeFromTop (6);
 
-        // description
-        g.setColour (ink2);
-        g.setFont (grab::theme::type::font (grab::theme::type::Role::body));
-        g.drawFittedText (d.desc, b.removeFromTop (54), juce::Justification::topLeft, 3);
+        // description: word-wrapped at the true body size (AttributedString / TextLayout never
+        // auto-shrinks or squashes the text the way drawFittedText does).
+        drawWrapped (g, d.desc, b.removeFromTop (54), grab::theme::type::Role::body, ink2);
 
         // Lift on a device that doesn't report it: say so under the description.
         if (d.name == "Lift" && liftUnsupported)
-        {
-            g.setColour (disabled);
-            g.setFont (grab::theme::type::font (grab::theme::type::Role::caption));
-            g.drawFittedText ("Not sent by this device.", b.removeFromTop (28), juce::Justification::topLeft, 2);
-        }
+            drawWrapped (g, "Not sent by this device.", b.removeFromTop (28), grab::theme::type::Role::caption, disabled);
 
         // knobs, in a sunken (tileInset) well within the inspector - Fred's .kwell
         g.setColour (tileInset);
@@ -561,6 +558,19 @@ private:
             g.setColour (fvOn ? primaryText : ink);
             g.fillEllipse (kx, fvSwitchR.getY() + 3.0f, kr, kr);
         }
+    }
+
+    // Word-wrapped text at the role's exact point-height, no auto-shrink (unlike drawFittedText).
+    static void drawWrapped (juce::Graphics& g, const juce::String& text, juce::Rectangle<int> box,
+                             grab::theme::type::Role role, juce::Colour colour)
+    {
+        juce::AttributedString as;
+        as.setText (text);
+        as.setFont (grab::theme::type::font (role));
+        as.setColour (colour);
+        as.setJustification (juce::Justification::topLeft);
+        as.setWordWrap (juce::AttributedString::byWord);
+        as.draw (g, box.toFloat());
     }
 
     void paintKnob (juce::Graphics& g, juce::Rectangle<float> area, juce::Colour c, int v, const char* lab)
