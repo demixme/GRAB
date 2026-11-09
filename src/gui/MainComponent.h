@@ -313,12 +313,13 @@ private:
     LiveKeysStrip    liveStrip;                 // Live keys: a big keyboard strip over the settings area
     juce::Label      liveKeysLabel;             // the "Live keys" heading above the strip
     juce::TextButton backToSettingsBtn { "Back to settings" };
-    juce::Component* sensitivityCard = nullptr; // the 5D card (kept visible above Live keys); owned by `cards`
+    SectionCard* sensitivityCard = nullptr;     // the 5D card (kept visible above Live keys); owned by `cards`
     grab::ViewToggle viewToggle;                // drawing-tile switch: Device drawing | Keystroke map
     LiveKeysStrip    keystrokeMap;              // compact keystroke map shown in the drawing tile (toggle=map)
     bool drawingIsMap = false;                  // drawing tile shows the keystroke map (vs the device art)
     void setDrawingView (bool map);             // toggle the drawing-tile content (device art <-> keystroke map)
     void layoutDrawingTile (juce::Rectangle<int> tile);   // fit the art + reserve the view-toggle's column
+    void updateSensitivityLayout();   // narrow fold: inspector stacks below the graph, card grows
     bool liveKeys = false;                      // Live keys view active (big strip below the sensitivity graph)
     void enterLiveKeys (bool on);               // toggle the Live-keys view (keeps the top band visible)
     bool deviceArtV2 = true;                    // Fred's SVG device-art kit (default); Advanced can toggle back

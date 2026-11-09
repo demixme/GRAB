@@ -181,7 +181,9 @@ private:
     juce::Component  rowHolder;
     std::vector<std::unique_ptr<ConfigRow>> rows;
     std::unique_ptr<SensitivityGraph> sensGraph;   // the 5D overlay graph + inspector
+    SectionCard* sensitivityCard = nullptr;        // the graph-row card (grows when the inspector stacks)
     std::vector<std::unique_ptr<SectionCard>> cards;    // one titled card per section
+    void updateSensitivityLayout();                // narrow fold: inspector stacks below the graph
     std::unique_ptr<FaderPanel> faderPanel;             // the MIDI CC Assignments faders
     std::vector<Fader*> faders;                          // non-owning, for id lookup
     std::vector<std::unique_ptr<juce::Label>> sectionHeaders;  // (unused by the card layout)

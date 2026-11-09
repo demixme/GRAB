@@ -22,6 +22,15 @@ public:
     void addItem (juce::Component& c, int h) { addAndMakeVisible (c); items.push_back ({ &c, h }); }
     bool isEmpty() const { return items.empty(); }
 
+    /** Change a child's reserved height (e.g. the sensitivity graph growing when the inspector
+        stacks below it at narrow widths). Returns true if the height actually changed. */
+    bool setItemHeight (juce::Component* c, int h)
+    {
+        for (auto& it : items)
+            if (it.first == c && it.second != h) { it.second = h; return true; }
+        return false;
+    }
+
     /** Height this card needs to show its title and all its rows. */
     int contentHeight() const
     {

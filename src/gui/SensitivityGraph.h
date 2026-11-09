@@ -32,6 +32,12 @@ public:
     // Lift chip dims and its inspector says so, instead of silently showing no live data.
     void setLiftUnsupported (bool b) { if (liftUnsupported != b) { liftUnsupported = b; repaint(); } }
 
+    // Narrow layout: the inspector drops below the graph as a horizontal strip (Fred's < 760 fold)
+    // instead of sitting in the 240px right column. Height the component accordingly (preferredHeight).
+    void setNarrow (bool n) { if (narrowInsp != n) { narrowInsp = n; layoutRegions(); repaint(); } }
+    bool isNarrow() const { return narrowInsp; }
+    static constexpr int fullHeight = 280, narrowHeight = 416;
+
     // A release: show a fading dot on the Lift curve at the release velocity (0..1). Lift is an event,
     // not a held value, so it pulses rather than tracking.
     void setLiftPulse (float velocity)
@@ -258,11 +264,18 @@ private:
     void layoutRegions()
     {
         auto b = getLocalBounds();
-        // Fred's inspector is a fixed 240px tile; narrow only when the window can't spare it.
-        const int inspW = b.getWidth() >= 700 ? 240 : juce::jlimit (190, 240, b.getWidth() / 4);
-        inspR = b.removeFromRight (inspW);
-        b.removeFromRight (grab::theme::space::gutter);
-        graphR = b;
+        if (narrowInsp)   // inspector stacks below the graph (Fred's narrow fold)
+        {
+            inspR = b.removeFromBottom (132);
+            b.removeFromBottom (grab::theme::space::gutter);
+            graphR = b;
+        }
+        else              // inspector is the 240px right column beside the graph
+        {
+            inspR = b.removeFromRight (240);
+            b.removeFromRight (grab::theme::space::gutter);
+            graphR = b;
+        }
 
         // Graph internals: chip row on top, then the plot inset for the axes.
         auto gr = graphR;
@@ -283,51 +296,97 @@ private:
             x += w + 8;
         }
 
-        // Knob rects in the inspector (Min / Sensitivity / Max, or just Sensitivity), inside a card.
+        // Inspector regions: title row, description, the knob well, and the fixed-velocity controls.
+        // Full: a vertical panel (title / desc on top, knob well pinned to the bottom, fixed velocity
+        // inside the well). Narrow: a horizontal strip (title / desc / fixed velocity on the left, the
+        // knob well on the right).
         knobR.clear();
+        fvShown = false;
         if (! dims.empty())
         {
             auto& d = dims[(size_t) selected];
-            auto innerB = inspR.reduced (14, 0);   // match the inspector's 14px side padding
-            innerB.removeFromBottom (12);          // bottom padding
-
-            // Fred's .kwell: a single sunken (tileInset) well pinned to the bottom of the inspector,
-            // holding the knobs on top and - under a divider - the fixed-velocity row. Fixed velocity
-            // is a Strike-only control (fixRow = n === 'Strike' in Fred's design).
             const bool fv = hasFixedVel && d.name == "Strike";
-            const int fixH = fv ? 38 : 0;
-            knobCardR = innerB.removeFromBottom (108 + fixH);
+            fvShown = fv;
 
-            auto win = knobCardR.reduced (8, 0);   // .kwell horizontal padding
-            win.removeFromTop (8);
-            win.removeFromBottom (6);
-            if (fv)                // fixed-velocity row (.kfix), inside the well, under a divider
+            if (narrowInsp)
             {
-                auto fvRow = win.removeFromBottom (32);
-                fvDivider = { (float) knobCardR.getX() + 10.0f, (float) fvRow.getY() - 3.0f,
-                              (float) knobCardR.getRight() - 10.0f, (float) fvRow.getY() - 3.0f };
-                auto fr = fvRow.reduced (6, 0);
-                fvSwitchR = fr.removeFromRight (34).withSizeKeepingCentre (34, 20).toFloat();
-                fr.removeFromRight (8);
-                if (fvOn) { fvValueR = fr.removeFromRight (32).toFloat(); fr.removeFromRight (4); }
-                else        fvValueR = {};
-                fvLabelR = fr.toFloat();
-                win.removeFromBottom (8);           // gap above the divider
-            }
-            auto row = win;
-            const int kw = 52;
-            if (d.hasNodes())
-            {
-                const int gap = juce::jmax (6, (row.getWidth() - kw * 3) / 2);
-                knobR.push_back ({ row.removeFromLeft (kw).toFloat(), Drag::knobMin });  row.removeFromLeft (gap);
-                knobR.push_back ({ row.removeFromLeft (kw).toFloat(), Drag::knobSens }); row.removeFromLeft (gap);
-                knobR.push_back ({ row.removeFromLeft (kw).toFloat(), Drag::knobMax });
+                fvInWell = false;
+                auto strip = inspR.reduced (16, 12);
+                const int kwW = juce::jlimit (200, 236, strip.getWidth() * 2 / 5);
+                knobCardR = strip.removeFromRight (kwW);
+                strip.removeFromRight (16);        // gap between the info column and the knob well
+
+                inspTitleR = strip.removeFromTop (28);
+                strip.removeFromTop (4);
+                if (fv)                            // fixed velocity sits at the bottom of the left column
+                {
+                    fvDivider = {};                // no divider in the strip form
+                    placeFixedVel (strip.removeFromBottom (30));
+                    strip.removeFromBottom (6);
+                }
+                inspDescR = strip;
+
+                auto win = knobCardR.reduced (8, 8);
+                placeKnobs (win, d);
             }
             else
             {
-                knobR.push_back ({ row.withSizeKeepingCentre (kw, row.getHeight()).toFloat(), Drag::knobSens });
+                fvInWell = true;
+                auto innerB = inspR.reduced (14, 0);
+                innerB.removeFromTop (14);
+                innerB.removeFromBottom (12);
+
+                inspTitleR = innerB.removeFromTop (28);
+                innerB.removeFromTop (6);
+
+                // Fred's .kwell: a sunken well pinned to the bottom, knobs over the fixed-velocity row.
+                const int fixH = fv ? 38 : 0;
+                knobCardR = innerB.removeFromBottom (108 + fixH);
+                innerB.removeFromBottom (8);
+                inspDescR = innerB;                // the remaining middle holds the description
+
+                auto win = knobCardR.reduced (8, 0);
+                win.removeFromTop (8);
+                win.removeFromBottom (6);
+                if (fv)                            // fixed-velocity row (.kfix) inside the well, under a divider
+                {
+                    auto fvRow = win.removeFromBottom (32);
+                    fvDivider = { (float) knobCardR.getX() + 10.0f, (float) fvRow.getY() - 3.0f,
+                                  (float) knobCardR.getRight() - 10.0f, (float) fvRow.getY() - 3.0f };
+                    placeFixedVel (fvRow);
+                    win.removeFromBottom (8);
+                }
+                placeKnobs (win, d);
             }
         }
+    }
+
+    // Lay the Min / Sensitivity / Max knobs (or just Sensitivity) across a row.
+    void placeKnobs (juce::Rectangle<int> row, const Dim& d)
+    {
+        const int kw = 52;
+        if (d.hasNodes())
+        {
+            const int gap = juce::jmax (6, (row.getWidth() - kw * 3) / 2);
+            knobR.push_back ({ row.removeFromLeft (kw).toFloat(), Drag::knobMin });  row.removeFromLeft (gap);
+            knobR.push_back ({ row.removeFromLeft (kw).toFloat(), Drag::knobSens }); row.removeFromLeft (gap);
+            knobR.push_back ({ row.removeFromLeft (kw).toFloat(), Drag::knobMax });
+        }
+        else
+        {
+            knobR.push_back ({ row.withSizeKeepingCentre (kw, row.getHeight()).toFloat(), Drag::knobSens });
+        }
+    }
+
+    // Place the fixed-velocity label / value / switch within a row.
+    void placeFixedVel (juce::Rectangle<int> fvRow)
+    {
+        auto fr = fvRow.reduced (6, 0);
+        fvSwitchR = fr.removeFromRight (34).withSizeKeepingCentre (34, 20).toFloat();
+        fr.removeFromRight (8);
+        if (fvOn) { fvValueR = fr.removeFromRight (32).toFloat(); fr.removeFromRight (4); }
+        else        fvValueR = {};
+        fvLabelR = fr.toFloat();
     }
 
     juce::Point<float> toPlot (juce::Point<float> p) const
@@ -489,14 +548,13 @@ private:
         if (dims.empty()) return;
         auto& d = dims[(size_t) selected];
 
-        // The inspector is its own full-height panel (Fred's design): everything sits inside it.
+        // The inspector tile (Fred's panel): a right column beside the graph (full) or a strip below
+        // it (narrow). Its pieces are positioned in layoutRegions; this just paints them.
         g.setColour (panel);
         g.fillRoundedRectangle (inspR.toFloat(), radius::tile);
 
-        auto b = inspR.reduced (16, 14);
-
         // Fred's .insp-h: a hue dot, the name in ink (not coloured), an optional changed dot, Reset.
-        auto head = b.removeFromTop (28);
+        auto head = inspTitleR;
         auto titleR = head.removeFromLeft (head.getWidth() - 56);
         auto dotA = titleR.removeFromLeft (10);
         titleR.removeFromLeft (8);
@@ -515,17 +573,17 @@ private:
         g.setColour (edited (d) ? ink2 : disabled);
         g.setFont (grab::theme::type::font (grab::theme::type::Role::body));
         g.drawText ("Reset", resetR, juce::Justification::centredRight);
-        b.removeFromTop (6);
 
         // description: word-wrapped at the true body size (AttributedString / TextLayout never
         // auto-shrinks or squashes the text the way drawFittedText does).
-        drawWrapped (g, d.desc, b.removeFromTop (54), grab::theme::type::Role::body, ink2);
+        auto desc = inspDescR;
+        drawWrapped (g, d.desc, desc.removeFromTop (juce::jmin (54, desc.getHeight())), grab::theme::type::Role::body, ink2);
 
         // Lift on a device that doesn't report it: say so under the description.
         if (d.name == "Lift" && liftUnsupported)
-            drawWrapped (g, "Not sent by this device.", b.removeFromTop (28), grab::theme::type::Role::caption, disabled);
+            drawWrapped (g, "Not sent by this device.", desc.removeFromTop (28), grab::theme::type::Role::caption, disabled);
 
-        // knobs, in a sunken (tileInset) well within the inspector - Fred's .kwell
+        // knobs, in a sunken (tileInset) well - Fred's .kwell
         g.setColour (tileInset);
         g.fillRoundedRectangle (knobCardR.toFloat(), radius::inset);
         for (auto& k : knobR)
@@ -535,12 +593,11 @@ private:
             paintKnob (g, k.area, d.colour, v, lab);
         }
 
-        // Fixed velocity (.kfix): a divider, then label, optional value, and a switch - inside the
-        // well, and only on Strike (Fred's design).
-        if (hasFixedVel && d.name == "Strike")
+        // Fixed velocity (.kfix): label, optional value, and a switch. In the full layout it sits in
+        // the well under a divider; in the narrow strip it sits in the left column.
+        if (fvShown)
         {
-            g.setColour (divider);
-            g.drawLine (fvDivider, 1.0f);
+            if (fvInWell) { g.setColour (divider); g.drawLine (fvDivider, 1.0f); }
             g.setColour (fvOn ? ink : ink2);
             g.setFont (grab::theme::type::font (grab::theme::type::Role::body));
             g.drawText ("Fixed velocity", fvLabelR, juce::Justification::centredLeft);
@@ -724,9 +781,12 @@ private:
     int  dragStart = 0;
 
     juce::Rectangle<int> graphR, inspR, chipRow, plotR;
+    juce::Rectangle<int> inspTitleR, inspDescR;   // computed in layoutRegions, used by paintInspector
     std::vector<juce::Rectangle<float>> chipR;
     std::vector<Knob> knobR;
     juce::Rectangle<int> knobCardR;   // the recessed card the Min/Sensitivity/Max knobs sit in
+    bool narrowInsp = false;          // inspector stacks below the graph (narrow window) vs beside it
+    bool fvShown = false, fvInWell = true;   // fixed velocity: visible? inside the knob well (full) vs on the left (narrow)
     // Fixed velocity (optional), at the bottom of the inspector panel.
     bool hasFixedVel = false;
     juce::uint32 fvToggleId = 0, fvValueId = 0;

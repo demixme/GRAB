@@ -3318,6 +3318,19 @@ void MainComponent::updateLiveStripRange()
     keystrokeMap.setLabelShift (oct * 12);
 }
 
+void MainComponent::updateSensitivityLayout()
+{
+    // Below Fred's ~760 fold the 5D inspector drops below the graph as a horizontal strip, so the
+    // sensitivity card needs to grow. Decide from the grid's available width (the sensitivity card is
+    // full-width, so the graph gets exactly this), and keep the graph's own narrow flag in step.
+    if (sensGraph == nullptr || sensitivityCard == nullptr) return;
+    const int availW = juce::jmax (260, viewport.getWidth() - 14);
+    const bool narrow = availW < 740;
+    sensGraph->setNarrow (narrow);
+    sensitivityCard->setItemHeight (sensGraph.get(),
+                                    narrow ? SensitivityGraph::narrowHeight : SensitivityGraph::fullHeight);
+}
+
 void MainComponent::layoutDrawingTile (juce::Rectangle<int> tile)
 {
     // Fit the device art (or the compact keystroke map) inside the tile, and - when the Device|Keys
@@ -3518,6 +3531,7 @@ void MainComponent::resized()
     if (liveKeys)
     {
         viewport.setBounds (r);                               // full width so the grid lays out correctly
+        updateSensitivityLayout();
         layoutCardGrid (viewport, rowHolder, cards, "Sensitivity");   // positions the sensitivity card at the top
         const int sensH = sensitivityCard != nullptr ? sensitivityCard->getBottom() : 240;
 
@@ -3537,6 +3551,7 @@ void MainComponent::resized()
 
     viewport.setBounds (r);
     busyLabel.setBounds (r);   // overlay centred over the content area (shown during a reset)
+    updateSensitivityLayout();
 
     // Control-block page (has a "Buttons" card): give that card the width and keep MIDI Settings slim,
     // so its busy per-button rows fit without a very wide window. Everything else uses the normal grid.

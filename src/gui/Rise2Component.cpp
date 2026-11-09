@@ -784,6 +784,7 @@ rise2::Messages Rise2Component::writeFor (juce::uint32 id, juce::int32 v) const
 void Rise2Component::rebuildRows()
 {
     cards.clear();          // un-parents the rows/graph/faders it holds
+    sensitivityCard = nullptr;
     faderPanel.reset();
     faders.clear();
     rows.clear();
@@ -816,7 +817,10 @@ void Rise2Component::rebuildRows()
         const juce::String group (g);
         auto card = std::make_unique<SectionCard> (group);
         if (group == "Sensitivity")
+        {
             card->setGraphRow (true);   // transparent holder: the graph + inspector are two sibling tiles
+            sensitivityCard = card.get();
+        }
 
         auto addRow = [&] (const Field& f)
         {
@@ -847,7 +851,7 @@ void Rise2Component::rebuildRows()
             }
             if (! sg->isEmpty())
             {
-                card->addItem (*sg, 240);
+                card->addItem (*sg, SensitivityGraph::fullHeight);
                 sensGraph = std::move (sg);
             }
         }
@@ -1325,6 +1329,7 @@ void Rise2Component::resized()
         saveButton.setBounds (bentoSave);
         autosaveToggle.setBounds (bentoAutosave);
         viewport.setBounds (r.withTop (bentoViewportTop));
+        updateSensitivityLayout();
         layoutCardGrid (viewport, rowHolder, cards, "Sensitivity");
         return;
     }
@@ -1339,5 +1344,16 @@ void Rise2Component::resized()
     r.removeFromTop (6);
 
     viewport.setBounds (r);
+    updateSensitivityLayout();
     layoutCardGrid (viewport, rowHolder, cards, "Sensitivity");
+}
+
+void Rise2Component::updateSensitivityLayout()
+{
+    if (sensGraph == nullptr || sensitivityCard == nullptr) return;
+    const int availW = juce::jmax (260, viewport.getWidth() - 14);
+    const bool narrow = availW < 740;
+    sensGraph->setNarrow (narrow);
+    sensitivityCard->setItemHeight (sensGraph.get(),
+                                    narrow ? SensitivityGraph::narrowHeight : SensitivityGraph::fullHeight);
 }
