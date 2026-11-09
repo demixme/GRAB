@@ -540,13 +540,12 @@ MainComponent::MainComponent()
 
     // One "Preset" menu: ROLI's built-in presets (Seaboard) and the user's own saved presets in
     // one list, plus Save / Import / Export - the way ROLI Dashboard presents presets.
-    addChildComponent (presetBox);   // shown with the other Block controls (setBlocksControlsVisible)
+    addChildComponent (presetBox);   // the model (list + apply logic); the visible control is presetBar
     presetBox.setTextWhenNothingSelected (TRANS ("Preset..."));
     presetBox.onChange = [this]
     {
         const int id = presetBox.getSelectedId();
-        if (id <= 0)
-            return;
+        if (id <= 0) { updatePresetBar(); return; }
 
         if (id >= 1 && id < kUserPresetBase)
             applyBlockPreset (presetBox.getText());
@@ -556,13 +555,25 @@ MainComponent::MainComponent()
             if (idx < userPresetFiles.size())
                 applyUserPreset (userPresetFiles[idx]);
         }
-        else if (id == kPresetSaveAs) saveUserPresetAs();
-        else if (id == kPresetImport) loadPreset();
-        else if (id == kPresetExport) savePreset();
-        else if (id == kPresetReveal) { auto d = presetDir(); d.createDirectory(); d.revealToUser(); }
+        else   // action items: run, then put the selection back on the current preset
+        {
+            if (id == kPresetSaveAs) saveUserPresetAs();
+            else if (id == kPresetImport) loadPreset();
+            else if (id == kPresetExport) savePreset();
+            else if (id == kPresetReveal) { auto d = presetDir(); d.createDirectory(); d.revealToUser(); }
+            presetBox.setSelectedId (lastRealPresetId, juce::dontSendNotification);
+            updatePresetBar();
+            return;
+        }
 
-        presetBox.setSelectedId (0, juce::dontSendNotification);   // back to the placeholder
+        lastRealPresetId = id;   // a real preset is now loaded; the bar shows its name
+        updatePresetBar();
     };
+
+    addChildComponent (presetBar);   // Fred's .pbar, over presetBox; the arrows step, the name opens the list
+    presetBar.onPrev = [this] { stepPreset (-1); };
+    presetBar.onNext = [this] { stepPreset (+1); };
+    presetBar.onOpen = [this] { presetBox.showPopup(); };
     saveButton.setEnabled (false);
 
     addChildComponent (transportLabel);   // connection type lives in the DeviceMenu callout now
@@ -915,7 +926,7 @@ void MainComponent::setBlocksControlsVisible (bool visible)
     // Note: blockLabel/blockBox (the "ROLI device:" switcher) are NOT here - they're shown in both
     // BLOCKS and RISE modes and their visibility is driven by fillDeviceBox() (hidden for one device).
     for (auto* c : std::initializer_list<juce::Component*> { &reloadButton, &saveButton, &autosaveToggle,
-                                                            &presetBox, &contributeBtn, &toolsBtn, &viewport })
+                                                            &presetBar, &contributeBtn, &toolsBtn, &viewport })
         c->setVisible (visible);
 }
 
@@ -2345,6 +2356,9 @@ void MainComponent::updateSaveEnabled()
     // Autosave on: edits write themselves, so Save is just the flash target (stays disabled, no
     // strobing). Off: Save lights up when there are unsaved edits and writes them on click.
     saveButton.setEnabled (! autosaveToggle.getToggleState() && any);
+
+    // The preset bar's "Edited" badge: a preset is loaded and something now differs from the device.
+    presetBar.setEdited (any && lastRealPresetId > 0 && lastRealPresetId < kPresetSaveAs);
 }
 
 void MainComponent::flashSaved()
@@ -2797,6 +2811,8 @@ void MainComponent::populatePresetBox()
     presetBox.addItem ("Reveal presets folder...", kPresetReveal);
 
     presetBox.setSelectedId (0, juce::dontSendNotification);
+    lastRealPresetId = 0;
+    updatePresetBar();
     resized();
 }
 
@@ -2986,7 +3002,7 @@ void MainComponent::forcePianoPreview()
     stopTimer();
     if (rise2Page != nullptr) { removeChildComponent (rise2Page.get()); rise2Page.reset(); }
     setBlocksControlsVisible (true);
-    presetBox.setVisible (false);   // presets are Seaboard-only for now
+    presetBar.setVisible (false);   // bar is the visible preset control; presetBox is the model   // presets are Seaboard-only for now
 
     using CT = roli::Block::ConfigMetaData::ConfigType;
     const auto mk = [] (int id, juce::int32 val, const char* name, CT type, int mn, int mx,
@@ -3066,7 +3082,7 @@ void MainComponent::forceControlPreview()
     stopTimer();
     if (rise2Page != nullptr) { removeChildComponent (rise2Page.get()); rise2Page.reset(); }
     setBlocksControlsVisible (true);
-    presetBox.setVisible (false);
+    presetBar.setVisible (false);   // bar is the visible preset control; presetBox is the model
 
     using CT = roli::Block::ConfigMetaData::ConfigType;
     const auto mk = [] (int id, juce::int32 val, const char* name, CT type, int mn, int mx, const char* group)
@@ -3115,7 +3131,7 @@ void MainComponent::forceLumiPreview()
     stopTimer();
     if (rise2Page != nullptr) { removeChildComponent (rise2Page.get()); rise2Page.reset(); }
     setBlocksControlsVisible (true);
-    presetBox.setVisible (false);   // presets are Seaboard-only for now
+    presetBar.setVisible (false);   // bar is the visible preset control; presetBox is the model   // presets are Seaboard-only for now
 
     using CT = roli::Block::ConfigMetaData::ConfigType;
     const auto mk = [] (int id, juce::int32 val, const char* name, CT type, int mn, int mx,
@@ -3223,7 +3239,7 @@ void MainComponent::forceLightpadPreview()
     stopTimer();
     if (rise2Page != nullptr) { removeChildComponent (rise2Page.get()); rise2Page.reset(); }
     setBlocksControlsVisible (true);
-    presetBox.setVisible (false);   // presets are Seaboard-only for now
+    presetBar.setVisible (false);   // bar is the visible preset control; presetBox is the model   // presets are Seaboard-only for now
 
     using CT = roli::Block::ConfigMetaData::ConfigType;
     const auto mk = [] (int id, juce::int32 val, const char* name, CT type, int mn, int mx,
@@ -3316,6 +3332,29 @@ void MainComponent::updateLiveStripRange()
     }
     liveStrip.setLabelShift (oct * 12);
     keystrokeMap.setLabelShift (oct * 12);
+}
+
+void MainComponent::updatePresetBar()
+{
+    const int id = presetBox.getSelectedId();
+    const bool real = id > 0 && id < kPresetSaveAs;
+    presetBar.setName (real ? presetBox.getText() : juce::String ("Preset..."), ! real);
+}
+
+void MainComponent::stepPreset (int dir)
+{
+    const int n = presetBox.getNumItems();
+    int cur = presetBox.getSelectedItemIndex();
+    if (cur < 0) cur = dir > 0 ? -1 : n;   // nothing selected: start before the first / after the last
+    for (int i = cur + dir; i >= 0 && i < n; i += dir)
+    {
+        const int id = presetBox.getItemId (i);   // 0 for headings / separators
+        if (id > 0 && id < kPresetSaveAs)
+        {
+            presetBox.setSelectedItemIndex (i, juce::sendNotification);   // applies + updates the bar
+            return;
+        }
+    }
 }
 
 void MainComponent::updateSensitivityLayout()
@@ -3521,7 +3560,8 @@ void MainComponent::resized()
     // (Connection type moved into the DeviceMenu callout, per Fred.)
     {
         const auto s = splitCtrlSlots (tb.ctrl);
-        presetBox.setBounds (s.preset);
+        presetBox.setBounds (s.preset);   // model: bounds anchor the popup; presetBar is drawn on top
+        presetBar.setBounds (s.preset);
         reloadButton.setBounds (s.reload);
         saveButton.setBounds (s.save);
         autosaveToggle.setBounds (s.autosave);

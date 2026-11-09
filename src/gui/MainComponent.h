@@ -19,6 +19,7 @@
 #include "Changeable.h"
 #include "DeviceMenu.h"
 #include "DeviceNameButton.h"
+#include "PresetBar.h"
 #include "ColourWell.h"
 #include "DeviceInfoBar.h"
 #include "SectionCard.h"
@@ -291,7 +292,11 @@ private:
     juce::ToggleButton autosaveToggle { "Autosave" };   // on: edits write live; off: manual Save
     bool               savedFlash = false;              // button briefly showing "Saved" after a write
     int                savedFlashGen = 0;               // only the newest flash's timer reverts (no mid-drag blink)
-    juce::ComboBox     presetBox;   // unified: ROLI presets + the user's own saved presets
+    juce::ComboBox     presetBox;   // unified: ROLI presets + the user's own saved presets (model)
+    grab::PresetBar    presetBar;   // Fred's .pbar: prev / name (opens the list) / next, over presetBox
+    int                lastRealPresetId = 0;   // the currently-loaded preset (presetBox id), for the bar/stepping
+    void stepPreset (int dir);      // move to the previous/next real preset, skipping headings/actions
+    void updatePresetBar();         // refresh the bar's name from presetBox's selection
     std::vector<juce::File> userPresetFiles;   // menu index -> saved-preset file (parallel to the combo)
     juce::Viewport     viewport;
     juce::Component    rowHolder;
