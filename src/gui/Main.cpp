@@ -4,6 +4,7 @@
 
 #include "MainComponent.h"
 #include "Theme.h"
+#include "TitleBar.h"
 #include "GrabPaths.h"    // grab::dataDir() + one-time macOS data-folder migration
 #include "BinaryData.h"   // embedded translation files (see CMakeLists / localization/)
 
@@ -42,8 +43,8 @@ public:
         grab::migrateLegacyDataDir();   // before anything reads GRAB's data folder (mac: move ~/Library/GRAB)
         setupLocalisation();   // before any UI is built, so TRANS() in constructors resolves
         juce::LookAndFeel::setDefaultLookAndFeel (&lookAndFeel);   // before the window, so it picks up the dark bg
-        // Show the version in the title bar so a user reporting a bug can read off their build.
-        mainWindow = std::make_unique<MainWindow> (getApplicationName() + " " + getApplicationVersion());
+        // Title is just "GRAB" - the version is read off the footer (bottom-right), per Fred's design.
+        mainWindow = std::make_unique<MainWindow> (getApplicationName());
     }
 
     void shutdown() override
@@ -67,8 +68,12 @@ public:
             setUsingNativeTitleBar (true);
             setContentOwned (new MainComponent(), true);
             setResizable (true, true);
+            setResizeLimits (600, 700, 4000, 3000);   // narrow-width design folds at 600; never smaller
             centreWithSize (getWidth(), getHeight());
             setVisible (true);
+            // Per Fred's design the native caption is the window colour with the title text only
+            // (no icon), so it reads as one surface with the window. Native min/max/close stay.
+            grab::themeNativeTitleBar (getPeer(), grab::theme::window, grab::theme::ink);
         }
 
         void closeButtonPressed() override

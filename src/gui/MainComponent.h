@@ -13,11 +13,21 @@
 #include "ConfigOverrides.h"
 #include "LearnedNames.h"
 #include "CurveComponent.h"
+#include "SensitivityGraph.h"
+#include "SegmentedControl.h"
+#include "Stepper.h"
+#include "Changeable.h"
+#include "DeviceMenu.h"
+#include "DeviceNameButton.h"
+#include "PresetBar.h"
+#include "IconButton.h"
 #include "ColourWell.h"
 #include "DeviceInfoBar.h"
 #include "SectionCard.h"
 #include "FooterBar.h"
 #include "KeyboardView.h"
+#include "LiveKeysStrip.h"
+#include "ViewToggle.h"
 #include "Rise2Component.h"
 #include "ThrottledWriter.h"
 #include "CapturePanel.h"
@@ -31,7 +41,8 @@
 //==============================================================================
 /** One editable config item: label + the control appropriate to its type. */
 class ConfigRow  : public juce::Component,
-                   public juce::SettableTooltipClient
+                   public juce::SettableTooltipClient,
+                   public grab::Changeable
 {
 public:
     using ChangeFn = std::function<void (juce::uint32 id, juce::int32 value)>;
@@ -51,12 +62,14 @@ public:
     juce::int32  getValue() const;
     void setValue (juce::int32 v);          // updates control without firing change
     void setChangedFromDevice (bool changed);
+    int  changedCount() const override { return getValue() != initialValue ? 1 : 0; }
 
 private:
     using ConfigType = roli::Block::ConfigMetaData::ConfigType;
 
     void fireChange();
     void resetToDevice();   // revert to the device value and write it (double-/right-click)
+    void refreshChangedLook();   // label tone (ink2 -> ink when changed) + the changed dot
 
     juce::uint32 id;
     ConfigType   type;
@@ -80,13 +93,18 @@ private:
     juce::Label      nameLabel;
     juce::Slider     slider;     // integer
     juce::ToggleButton toggle;   // boolean
-    juce::ComboBox   combo;      // options (combo index = value - range start)
+    juce::ComboBox   combo;      // options (combo index = value - range start): long/many-option sets
+    grab::SegmentedControl segmented;   // options with a few short labels (MIDI mode, zone, ...)
+    bool             useSegmented = false;
+    grab::Stepper    intStepper;        // small integer fields as Fred's -/+ stepper
+    bool             useStepper = false;
     grab::ColourWell colourWell; // colour (ARGB)
     juce::Label      readOnly;   // float — shown, not edited
 
     juce::Component* control = nullptr;
     ChangeFn change;
     bool changed = false;
+    std::vector<juce::Colour> dimDots;   // 5D dimension hues this setting affects, shown after the label
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ConfigRow)
 };
@@ -232,6 +250,9 @@ private:
 
     std::map<juce::uint32, juce::int32> deviceValues;  // last values read from device
     std::map<juce::uint32, juce::int32> pendingValues; // edited values, rows + curves
+    std::map<int, SensitivityGraph::LiveInput> liveInputs;  // per-finger input, plotted live on the 5D graph
+    bool liftObserved = false;   // we've seen at least one release on this device
+    bool liftReported = false;   // ...and at least one carried a real release velocity (device has lift)
     // Live-write: ids the user edited interactively, pending a throttled write to the device.
     // Preset-staged values are NOT in here — those still wait for an explicit Save.
     std::set<juce::uint32> dirtyWrites;
@@ -256,22 +277,36 @@ private:
     juce::Label        transportLabel;
     juce::ComboBox     transportBox;
     juce::Label        blockLabel;
-    juce::ComboBox     blockBox;
+    juce::ComboBox     blockBox;        // selection model behind the pill (kept; drives onDeviceBoxChanged)
+    grab::DeviceNameButton deviceMenuBtn;   // dashboard heading: the device name + chevron, opens the rich menu
+    void showDeviceMenu();              // open Fred's DeviceMenu callout (devices + connection type)
+    juce::Array<grab::DeviceMenu::Item> buildDeviceMenuItems() const;
+    void updateLiveStripRange();        // feed the Live-keys strip the key span + octave/transpose shift
     juce::TextButton   advancedBtn   { "Advanced..." };
     juce::TextButton   contributeBtn { "Contribute..." };
+    juce::TextButton   toolsBtn      { "Tools..." };    // hidden logic owner; the visible control is toolsIconBtn
+    grab::IconButton   liveViewBtn   { grab::IconButton::Icon::liveView };   // actions row: open Live keys
+    grab::IconButton   readIconBtn   { grab::IconButton::Icon::reload };     // actions row: read from device
+    grab::IconButton   toolsIconBtn  { grab::IconButton::Icon::tools };      // actions row: Tools menu
+    // Top-row bento tiles (BLOCKS page): device drawing | dashboard | controls. Painted by paint(),
+    // positioned by resized(); empty when the three-tile band isn't in use (RISE page / no device art).
+    juce::Rectangle<int> drawTileR, dashTileR, ctrlTileR;
     juce::TextButton   reloadButton  { "Reload from device" };
     juce::TextButton   diagnoseBtn   { "Diagnose..." };
     juce::TextButton   saveButton    { "Save to device" };
     juce::ToggleButton autosaveToggle { "Autosave" };   // on: edits write live; off: manual Save
     bool               savedFlash = false;              // button briefly showing "Saved" after a write
     int                savedFlashGen = 0;               // only the newest flash's timer reverts (no mid-drag blink)
-    juce::ComboBox     presetBox;   // unified: ROLI presets + the user's own saved presets
+    juce::ComboBox     presetBox;   // unified: ROLI presets + the user's own saved presets (model)
+    grab::PresetBar    presetBar;   // Fred's .pbar: prev / name (opens the list) / next, over presetBox
+    int                lastRealPresetId = 0;   // the currently-loaded preset (presetBox id), for the bar/stepping
+    void stepPreset (int dir);      // move to the previous/next real preset, skipping headings/actions
+    void updatePresetBar();         // refresh the bar's name from presetBox's selection
     std::vector<juce::File> userPresetFiles;   // menu index -> saved-preset file (parallel to the combo)
     juce::Viewport     viewport;
     juce::Component    rowHolder;
     std::vector<std::unique_ptr<ConfigRow>> rows;
-    std::vector<std::unique_ptr<CurveRow>> curveRows;   // 5D curve panels
-    std::vector<CurveComponent*> curves;                // non-owning, for id lookup
+    std::unique_ptr<SensitivityGraph> sensGraph;        // the 5D overlay graph + inspector
     std::vector<std::unique_ptr<SectionCard>> cards;    // one titled card per section
     std::vector<std::unique_ptr<juce::Label>> sectionHeaders;  // (unused by the card layout)
     // Ordered list of what to stack in rowHolder: section headers and rows, each
@@ -286,7 +321,19 @@ private:
 
     FooterBar footer;                           // hover-help strip along the bottom
     KeyboardView keyboardView;                  // stylised keywave at the top (keyboard devices)
-    bool deviceArtV2 = false;                   // Advanced -> New device art (preview); persisted in settings
+    LiveKeysStrip    liveStrip;                 // Live keys: a big keyboard strip over the settings area
+    juce::Label      liveKeysLabel;             // the "Live keys" heading above the strip
+    juce::TextButton backToSettingsBtn { "Back to settings" };
+    SectionCard* sensitivityCard = nullptr;     // the 5D card (kept visible above Live keys); owned by `cards`
+    grab::ViewToggle viewToggle;                // drawing-tile switch: Device drawing | Keystroke map
+    LiveKeysStrip    keystrokeMap;              // compact keystroke map shown in the drawing tile (toggle=map)
+    bool drawingIsMap = false;                  // drawing tile shows the keystroke map (vs the device art)
+    void setDrawingView (bool map);             // toggle the drawing-tile content (device art <-> keystroke map)
+    void layoutDrawingTile (juce::Rectangle<int> tile);   // fit the art + reserve the view-toggle's column
+    void updateSensitivityLayout();   // narrow fold: inspector stacks below the graph, card grows
+    bool liveKeys = false;                      // Live keys view active (big strip below the sensitivity graph)
+    void enterLiveKeys (bool on);               // toggle the Live-keys view (keeps the top band visible)
+    bool deviceArtV2 = true;                    // Fred's SVG device-art kit (default); Advanced can toggle back
     juce::Label  busyLabel;                     // centred overlay shown while the device reboots
     double resettingSinceMs = 0.0;              // >0 while a factory reset's reboot is expected
     juce::MidiDeviceListConnection deviceList;  // to pick up a RISE switched on after launch

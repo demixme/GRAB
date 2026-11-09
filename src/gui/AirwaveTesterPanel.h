@@ -34,7 +34,7 @@ public:
         addAndMakeVisible (title);
         title.setText ("Airwave Expression emulator " + grab::u8 ("-") + " experimental",
                        juce::dontSendNotification);
-        title.setFont (juce::Font (juce::FontOptions (18.0f)).boldened());
+        title.setFont (grab::theme::type::fontAt (18.0f, 2));
         title.setColour (juce::Label::textColourId, grab::theme::accent);
 
         addAndMakeVisible (intro);

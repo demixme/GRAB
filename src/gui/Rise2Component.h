@@ -22,9 +22,9 @@
 class ConfigRow;
 class CurveRow;
 class CurveComponent;
+class SensitivityGraph;
 class SectionCard;
-class FaderPanel;
-class Fader;
+namespace grab { class CcGrid; class CcCard; }
 
 class Rise2Component  : public juce::Component,
                         private juce::MidiInputCallback,
@@ -65,6 +65,14 @@ public:
     void previewSyntheticGrand();
 
     void resized() override;
+
+    /** Bento mode: MainComponent owns the three-tile top band and places the drawing / dashboard /
+        Tools / Connection / status itself, then hands this page the control-slot rects (in THIS
+        component's local coordinates) for its own Preset / Read / Save / Autosave, plus the Y at
+        which its settings viewport should start (below the band). Pass viewportTop < 0 to fall back
+        to the legacy single-row layout. */
+    void setBentoControls (juce::Rectangle<int> preset, juce::Rectangle<int> reload,
+                           juce::Rectangle<int> save, juce::Rectangle<int> autosave, int viewportTop);
 
     /** Live keyboard touch, synthesised from the device's performance MIDI and forwarded to the
         keyboard graphic. Set by MainComponent. Args: MIDI channel 1-16, note, pressure 0-1,
@@ -133,7 +141,7 @@ private:
 
     rise2::State state;
     // Latest value per MIDI CC (0..127), written on the MIDI thread from incoming performance
-    // messages; the fader panel polls it to animate the touch faders / XY pad. -1 = none yet.
+    // messages (-1 = none yet). Kept for live CC readout on the Controller-CC cards.
     std::array<int, 128> liveCc;
     std::array<int, 17>   touchNote;   // active note per MIDI channel (1-16), -1 = none
     std::array<float, 17> touchZ;      // last pressure per channel (Press)
@@ -148,6 +156,11 @@ private:
     // ~75 ms throttle. Preset-staged values aren't here — they still wait for an explicit Save.
     std::set<juce::uint32> dirtyWrites;
     ThrottledWriter        liveWriter;
+    // Bento top-band control slots (local coords), set by MainComponent via setBentoControls.
+    // bentoViewportTop >= 0 means the bento layout is active; < 0 uses the legacy row.
+    juce::Rectangle<int> bentoPreset, bentoReload, bentoSave, bentoAutosave;
+    int  bentoViewportTop = -1;
+
     bool awaitingState = false;
     int  stateRetries = 0;
     bool minMaxReliable = true;   // false on the original RISE: min/max read back as zeros, so hidden
@@ -166,11 +179,12 @@ private:
     juce::Viewport   viewport;
     juce::Component  rowHolder;
     std::vector<std::unique_ptr<ConfigRow>> rows;
-    std::unique_ptr<CurveRow> curveRow;
-    std::vector<CurveComponent*> curves;
+    std::unique_ptr<SensitivityGraph> sensGraph;   // the 5D overlay graph + inspector
+    SectionCard* sensitivityCard = nullptr;        // the graph-row card (grows when the inspector stacks)
     std::vector<std::unique_ptr<SectionCard>> cards;    // one titled card per section
-    std::unique_ptr<FaderPanel> faderPanel;             // the MIDI CC Assignments faders
-    std::vector<Fader*> faders;                          // non-owning, for id lookup
+    void updateSensitivityLayout();                // narrow fold: inspector stacks below the graph
+    std::unique_ptr<grab::CcGrid> ccGrid;               // Fred's Controller CCs card grid
+    std::vector<grab::CcCard*> ccCards;                 // non-owning, for id lookup
     std::vector<std::unique_ptr<juce::Label>> sectionHeaders;  // (unused by the card layout)
     std::vector<std::pair<juce::Component*, int>> layoutOrder;  // (unused by the card layout)
 

@@ -154,6 +154,16 @@ namespace grab::theme
             }
         }
 
+        // Fred's design sizes are CSS px (20 readouts, 13 names, 12 values, 11 captions), where the
+        // px size IS the em square. JUCE's legacy withHeight() instead sizes ascent+descent, and with
+        // Red Hat Display's tall metrics (1.32 em) that renders glyphs ~24% small - and historically
+        // differed between Windows and macOS (CoreText), which is why a per-platform fudge was needed.
+        // withPointHeight() renders ~1.33x large here (it sizes in typographic points, 1pt ~= 1.33px,
+        // not CSS px), so 0.75 lands exactly on Fred's literal token px. But Fred authors on a Mac
+        // (Retina + heavier smoothing makes those px read larger), so a small bump matches the design's
+        // apparent size on Windows. This is the single knob for the whole type ramp.
+        inline constexpr float uiScale = 0.90f;
+
         inline juce::Font font (Role r)
         {
             float h = 13.0f;
@@ -168,7 +178,23 @@ namespace grab::theme
                 case Role::caption: h = 11.0f; break;  // device facts, units, axis labels, status bar
             }
 
-            return juce::Font { juce::FontOptions().withTypeface (tf).withHeight (h) };
+            return juce::Font { juce::FontOptions().withTypeface (tf).withPointHeight (h * uiScale) };
+        }
+
+        // Red Hat at an arbitrary pixel size (same metric correction as the Role fonts). Used by the
+        // modal panels' text areas so their prose is the app font, not the OS default. weight: 0 =
+        // regular, 1 = medium, 2 = semibold.
+        inline juce::Font fontAt (float px, int weight = 0)
+        {
+            juce::Typeface::Ptr tf = weight >= 2 ? detail::semibold() : weight == 1 ? detail::medium() : detail::regular();
+            return juce::Font { juce::FontOptions().withTypeface (tf).withPointHeight (px * uiScale) };
+        }
+
+        // A role at Red Hat Medium (weight 500) - Fred sets his numeric values and .btn.primary this way.
+        inline juce::Font fontMedium (Role r)
+        {
+            const float h = r == Role::readout ? 20.0f : r == Role::control ? 12.0f : r == Role::caption ? 11.0f : 13.0f;
+            return juce::Font { juce::FontOptions().withTypeface (detail::medium()).withPointHeight (h * uiScale) };
         }
     }
 
@@ -222,6 +248,12 @@ public:
         setColour (juce::ComboBox::arrowColourId,      ink2);
         setColour (juce::ComboBox::buttonColourId,     well);
 
+        setColour (juce::PopupMenu::backgroundColourId,            panel);
+        setColour (juce::PopupMenu::textColourId,                  ink2);
+        setColour (juce::PopupMenu::highlightedBackgroundColourId, raisedHover);
+        setColour (juce::PopupMenu::highlightedTextColourId,       ink);
+        setColour (juce::PopupMenu::headerTextColourId,            label);
+
         setColour (juce::TextButton::buttonColourId,   raised);
         setColour (juce::TextButton::buttonOnColourId, segmentOn);
         setColour (juce::TextButton::textColourOffId,  ink2);
@@ -274,37 +306,42 @@ public:
         using namespace grab::theme;
         auto r = b.getLocalBounds().toFloat().reduced (0.5f);
         const float corner = radius::control;
-        const bool on = b.getToggleState();
+        const bool on      = b.getToggleState();
+        const bool en      = b.isEnabled();
+        const bool ghost   = (bool) b.getProperties().getWithDefault ("ghost",   false);
+        const bool primary = (bool) b.getProperties().getWithDefault ("primary", false);
+        const bool outline = (bool) b.getProperties().getWithDefault ("outline", false);
 
-        juce::Colour fill = on     ? primaryFill
-                          : isDown ? raisedHover
-                          : isOver ? raisedHover
-                          :          raised;
-        if (! b.isEnabled())
-            fill = raised.withAlpha (0.45f);
+        if (ghost) return;   // a text-only link (Revert / In sync): no fill, no outline
 
+        // Fred's .btn: flat raised fill, no border. Hover -> raised-hover, pressed/toggled -> segment-on
+        // grey (near-white is reserved for .btn.primary). Disabled keeps the full raised fill (text dims).
+        juce::Colour fill = (primary && en) ? ((isOver || isDown) ? primaryHover : primaryFill)
+                          : ! en            ? raised
+                          : (isDown || on)  ? segmentOn
+                          : isOver          ? raisedHover
+                          :                   raised;
         g.setColour (fill);
         g.fillRoundedRectangle (r, corner);
 
-        // A hairline edge only when raised above the surface; selected (near-white) needs none.
-        if (! on)
+        if (outline && en && ! primary)   // only an explicit .btn.outline opts into a ring
         {
             g.setColour (isOver || isDown ? divider.brighter (0.2f) : divider);
             g.drawRoundedRectangle (r, corner, 1.0f);
         }
     }
 
-    // Keep the toggled-on (near-white) button legible: dark text on the primary fill.
     void drawButtonText (juce::Graphics& g, juce::TextButton& b, bool isOver, bool isDown) override
     {
         using namespace grab::theme;
-        const bool on = b.getToggleState();
-        auto col = ! b.isEnabled() ? disabled
-                 : on              ? primaryText
-                 : (isOver || isDown) ? ink
-                 :                   ink2;
+        const bool on      = b.getToggleState();
+        const bool primary = (bool) b.getProperties().getWithDefault ("primary", false);
+        auto col = ! b.isEnabled()         ? disabled
+                 : (primary && b.isEnabled()) ? primaryText         // dark on the near-white primary fill
+                 : (on || isOver || isDown) ? ink                   // toggled / pressed / hover
+                 :                            ink2;
         g.setColour (col);
-        g.setFont (type::font (type::Role::body));
+        g.setFont (primary && b.isEnabled() ? type::fontMedium (type::Role::body) : type::font (type::Role::body));
 
         const int ydent = juce::jmin (4, b.getHeight() / 4);
         const int cnrSz = juce::jmin (b.getHeight(), b.getWidth()) / 2;
@@ -312,6 +349,244 @@ public:
         g.drawFittedText (b.getButtonText(),
                           left, ydent, b.getWidth() - left * 2, b.getHeight() - ydent * 2,
                           juce::Justification::centred, 2);
+    }
+
+    // Fred's .sw: every toggle is a 34x20 pill switch (grey track off, near-white on, 14px thumb).
+    // With no button text it's just the switch (boolean config rows); with text, the label sits to
+    // its left (Autosave).
+    void drawToggleButton (juce::Graphics& g, juce::ToggleButton& b, bool isOver, bool) override
+    {
+        using namespace grab::theme;
+        const bool on = b.getToggleState();
+        const bool en = b.isEnabled();
+        auto area = b.getLocalBounds();
+        const float tw = 34.0f, th = 20.0f;
+
+        juce::Rectangle<float> sw;
+        const auto text = b.getButtonText();
+        if (text.isNotEmpty())
+        {
+            g.setColour (en ? ink2 : disabled);
+            g.setFont (type::font (type::Role::body));
+            const int twd = juce::GlyphArrangement::getStringWidthInt (g.getCurrentFont(), text);
+            g.drawText (text, area.getX(), area.getY(), twd + 2, area.getHeight(), juce::Justification::centredLeft);
+            sw = { (float) area.getX() + (float) twd + 10.0f, (float) area.getCentreY() - th * 0.5f, tw, th };
+        }
+        else
+        {
+            sw = { (float) area.getX(), (float) area.getCentreY() - th * 0.5f, tw, th };
+        }
+
+        g.setColour (! en ? segmentOn : on ? primaryFill : (isOver ? switchOffHover : switchOff));
+        g.fillRoundedRectangle (sw, th * 0.5f);
+        const float kr = th - 6.0f;
+        const float kx = on ? sw.getRight() - kr - 3.0f : sw.getX() + 3.0f;
+        g.setColour (! en ? disabled : on ? primaryText : ink);
+        g.fillEllipse (kx, sw.getY() + 3.0f, kr, kr);
+    }
+
+    // Fred's .sl: a 2px knob-track rail inset 6px, an ink fill up to a 12px ink thumb.
+    void drawLinearSlider (juce::Graphics& g, int x, int y, int width, int height,
+                           float sliderPos, float, float, juce::Slider::SliderStyle, juce::Slider&) override
+    {
+        using namespace grab::theme;
+        const float cy    = (float) y + (float) height * 0.5f;
+        const float left  = (float) x + 6.0f;
+        const float right = (float) x + (float) width - 6.0f;
+        const float tx    = juce::jlimit (left, right, sliderPos);
+
+        g.setColour (knobTrack);
+        g.fillRoundedRectangle (left, cy - 1.0f, right - left, 2.0f, 1.0f);
+        g.setColour (ink);
+        g.fillRoundedRectangle (left, cy - 1.0f, juce::jmax (0.0f, tx - left), 2.0f, 1.0f);
+        g.fillEllipse (tx - 6.0f, cy - 6.0f, 12.0f, 12.0f);
+    }
+
+    // Fred's .combo: a flat sunken well (no outline), rounded, with a down chevron in the label
+    // colour on the right. Hover lifts to wellHover.
+    void drawComboBox (juce::Graphics& g, int width, int height, bool,
+                       int, int, int, int, juce::ComboBox& box) override
+    {
+        using namespace grab::theme;
+        auto r = juce::Rectangle<float> (0.0f, 0.0f, (float) width, (float) height);
+        g.setColour (box.isMouseOver (true) ? wellHover : well);
+        g.fillRoundedRectangle (r, (float) radius::control);
+
+        const float cx = (float) width - 16.0f, cy = (float) height * 0.5f, w = 4.0f, h = 2.5f;
+        juce::Path chev;
+        chev.startNewSubPath (cx - w, cy - h);
+        chev.lineTo          (cx,     cy + h);
+        chev.lineTo          (cx + w, cy - h);
+        g.setColour (box.isEnabled() ? label : disabled);
+        g.strokePath (chev, juce::PathStrokeType (1.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    }
+
+    juce::Font getComboBoxFont (juce::ComboBox&) override
+    {
+        return grab::theme::type::font (grab::theme::type::Role::control);
+    }
+
+    void positionComboBoxText (juce::ComboBox& box, juce::Label& label) override
+    {
+        label.setBounds (12, 0, box.getWidth() - 12 - 26, box.getHeight());
+        label.setFont (grab::theme::type::font (grab::theme::type::Role::control));
+        label.setJustificationType (juce::Justification::centredLeft);
+    }
+
+    // ---- Popup menus (Fred's .menu): a rounded panel, items with a 7px rounded hover/selected pill,
+    //      a left checkmark on the ticked item, and caption-grey section headers. --------------------
+    void drawPopupMenuBackground (juce::Graphics& g, int width, int height) override
+    {
+        using namespace grab::theme;
+        auto r = juce::Rectangle<float> (0.0f, 0.0f, (float) width, (float) height).reduced (0.5f);
+        // The menu window isn't transparent on Windows, so cover its (white) backdrop with the window
+        // tone first; the rounded panel then reads with dark corners rather than white ones.
+        g.fillAll (window);
+        g.setColour (panel);
+        g.fillRoundedRectangle (r, 10.0f);
+        g.setColour (divider);
+        g.drawRoundedRectangle (r, 10.0f, 1.0f);
+    }
+
+    // Device menu callout: no arrow, a rounded panel like the popup menus (not JUCE's default box).
+    void drawCallOutBoxBackground (juce::CallOutBox&, juce::Graphics& g, const juce::Path& path, juce::Image&) override
+    {
+        using namespace grab::theme;
+        juce::DropShadow (juce::Colours::black.withAlpha (0.45f), 18, {}).drawForPath (g, path);
+        g.setColour (panel);
+        g.fillPath (path);
+        g.setColour (divider);
+        g.strokePath (path, juce::PathStrokeType (1.0f));
+    }
+
+    int getCallOutBoxBorderSize (const juce::CallOutBox&) override { return 12; }
+
+    // Dialogs (openDialog) use a JUCE-drawn title bar instead of the OS one, so it matches the dark
+    // window and carries no application icon. The bar is left blank - each panel paints its own
+    // heading, so repeating the title here would just say it twice.
+    void drawDocumentWindowTitleBar (juce::DocumentWindow&, juce::Graphics& g,
+                                     int /*w*/, int /*h*/, int /*titleSpaceX*/, int /*titleSpaceW*/,
+                                     const juce::Image* /*icon*/, bool /*drawTitleTextOnLeft*/) override
+    {
+        g.fillAll (grab::theme::window);
+    }
+
+    // The title-bar close / min / max buttons for those JUCE-drawn bars: blend with the title bar
+    // (no OS red), a white glyph, a subtle hover fill. Close gets a red hover (the usual affordance).
+    juce::Button* createDocumentWindowButton (int buttonType) override
+    {
+        struct TitleBarButton  : public juce::Button
+        {
+            explicit TitleBarButton (int t) : juce::Button ({}), kind (t) {}
+            void paintButton (juce::Graphics& g, bool over, bool down) override
+            {
+                using namespace grab::theme;
+                auto r = getLocalBounds().toFloat();
+                const bool isClose = kind == juce::DocumentWindow::closeButton;
+                if (over || down)
+                {
+                    g.setColour (isClose ? juce::Colour (0xffe03131).withAlpha (down ? 1.0f : 0.9f) : raisedHover);
+                    g.fillRect (r);
+                }
+                const float cx = r.getCentreX(), cy = r.getCentreY();
+                const float s  = juce::jmin (r.getWidth(), r.getHeight()) * 0.2f;
+                juce::Path p;
+                if (isClose)
+                {
+                    p.startNewSubPath (cx - s, cy - s); p.lineTo (cx + s, cy + s);
+                    p.startNewSubPath (cx + s, cy - s); p.lineTo (cx - s, cy + s);
+                }
+                else if (kind == juce::DocumentWindow::minimiseButton)
+                {
+                    p.startNewSubPath (cx - s, cy + s); p.lineTo (cx + s, cy + s);
+                }
+                else
+                {
+                    p.addRectangle (cx - s, cy - s, s * 2.0f, s * 2.0f);
+                }
+                g.setColour (ink);
+                g.strokePath (p, juce::PathStrokeType (1.4f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+            }
+            int kind;
+        };
+        return new TitleBarButton (buttonType);
+    }
+
+    juce::Font getPopupMenuFont() override { return grab::theme::type::font (grab::theme::type::Role::body); }
+
+    // Every juce::Label (dialog intros, field labels, status lines) renders in Red Hat, not the OS
+    // default - so the modal panels match the app. Size is preserved; a label that already set a Red
+    // Hat font (e.g. a bold heading) is left as-is so its weight survives.
+    juce::Font getLabelFont (juce::Label& label) override
+    {
+        auto f = label.getFont();
+        if (f.getTypefaceName().containsIgnoreCase ("Red Hat")) return f;
+        return juce::Font { juce::FontOptions().withTypeface (grab::theme::type::detail::regular())
+                                               .withHeight (f.getHeight()) };
+    }
+
+    void getIdealPopupMenuItemSize (const juce::String& text, bool isSeparator, int,
+                                    int& idealWidth, int& idealHeight) override
+    {
+        if (isSeparator) { idealWidth = 60; idealHeight = 11; return; }
+        idealHeight = 32;
+        idealWidth  = juce::GlyphArrangement::getStringWidthInt (getPopupMenuFont(), text) + 28 + 18;
+    }
+
+    void drawPopupMenuSectionHeader (juce::Graphics& g, const juce::Rectangle<int>& area,
+                                     const juce::String& sectionName) override
+    {
+        using namespace grab::theme;
+        g.setColour (label);
+        g.setFont (type::font (type::Role::caption));
+        g.drawText (sectionName, area.reduced (10, 0).withTrimmedBottom (3),
+                    juce::Justification::bottomLeft, true);
+    }
+
+    void drawPopupMenuItem (juce::Graphics& g, const juce::Rectangle<int>& area,
+                            bool isSeparator, bool isActive, bool isHighlighted, bool isTicked,
+                            bool hasSubMenu, const juce::String& text, const juce::String& shortcutKeyText,
+                            const juce::Drawable*, const juce::Colour*) override
+    {
+        using namespace grab::theme;
+        if (isSeparator)
+        {
+            auto s = area.withSizeKeepingCentre (area.getWidth() - 10, 1);
+            g.setColour (divider);
+            g.fillRect (s);
+            return;
+        }
+
+        auto r = area.reduced (4, 1);
+        if (isHighlighted && isActive) { g.setColour (raisedHover); g.fillRoundedRectangle (r.toFloat(), 7.0f); }
+        else if (isTicked)             { g.setColour (segmentOn);   g.fillRoundedRectangle (r.toFloat(), 7.0f); }
+
+        if (isTicked)   // left checkmark
+        {
+            const float cx = (float) r.getX() + 16.0f, cy = (float) r.getCentreY();
+            juce::Path check;
+            check.startNewSubPath (cx - 4.0f, cy + 0.5f);
+            check.lineTo          (cx - 1.0f, cy + 3.5f);
+            check.lineTo          (cx + 4.5f, cy - 3.5f);
+            g.setColour (ink);
+            g.strokePath (check, juce::PathStrokeType (1.6f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        }
+
+        g.setColour (! isActive ? disabled : (isHighlighted || isTicked) ? ink : ink2);
+        g.setFont (getPopupMenuFont());
+        auto textR = r.withTrimmedLeft (28).withTrimmedRight (hasSubMenu || shortcutKeyText.isNotEmpty() ? 22 : 10);
+        g.drawText (text, textR, juce::Justification::centredLeft, true);
+
+        if (hasSubMenu)   // right chevron
+        {
+            const float cx = (float) r.getRight() - 12.0f, cy = (float) r.getCentreY(), w = 2.5f, h = 3.5f;
+            juce::Path chev;
+            chev.startNewSubPath (cx - w, cy - h);
+            chev.lineTo          (cx + w, cy);
+            chev.lineTo          (cx - w, cy + h);
+            g.setColour (label);
+            g.strokePath (chev, juce::PathStrokeType (1.4f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        }
     }
 };
 

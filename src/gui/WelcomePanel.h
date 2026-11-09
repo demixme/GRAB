@@ -16,7 +16,7 @@ public:
     {
         addAndMakeVisible (title);
         title.setText ("GRAB " + grab::u8 ("-") + " how you can help", juce::dontSendNotification);
-        title.setFont (juce::Font (juce::FontOptions (20.0f)).boldened());
+        title.setFont (grab::theme::type::fontAt (20.0f, 2));
         title.setColour (juce::Label::textColourId, grab::theme::accent);
 
         addAndMakeVisible (body);
@@ -67,14 +67,14 @@ private:
 
     void add (Style s, const char* utf8)
     {
-        juce::Font   f (juce::FontOptions (15.0f));
+        juce::Font   f = grab::theme::type::fontAt (15.5f);
         juce::Colour col = grab::theme::textPrimary;
         switch (s)
         {
-            case H1:    f = juce::Font (juce::FontOptions (17.0f)).boldened(); col = grab::theme::accent;        break;
-            case H2:    f = juce::Font (juce::FontOptions (15.0f)).boldened();                                   break;
-            case Click: col = grab::theme::accent;                                                               break;
-            case Note:  f = juce::Font (juce::FontOptions (13.5f)); col = grab::theme::textPrimary.withAlpha (0.72f); break;
+            case H1:    f = grab::theme::type::fontAt (18.0f, 2); col = grab::theme::accent;        break;
+            case H2:    f = grab::theme::type::fontAt (15.5f, 2);                                   break;
+            case Click: col = grab::theme::accent;                                                 break;
+            case Note:  f = grab::theme::type::fontAt (15.5f); col = grab::theme::textPrimary.withAlpha (0.72f); break;
             case Body:  default: break;
         }
         body.setFont (f);
@@ -84,101 +84,62 @@ private:
 
     void populate()
     {
-        add (Body,  "GRAB reads and writes ROLI device settings over MIDI - no ROLI software needed. It "
-                    "grows from what people with real hardware send in. Everything is anonymised; nothing is sent "
-                    "until you click.\n\n");
+        add (Body,  "GRAB reads and writes ROLI device settings over MIDI - no ROLI software needed. It grows "
+                    "from what people with real hardware send in, all anonymised; nothing is sent until you click.\n\n");
 
-        // --- device-first: find yourself, see which "way" (below) helps -------------------------
+        // --- device-first: what's supported, what's still wanted --------------------------------
         add (H1,    "What does your device need?\n");
         add (H2,    "Fully supported:");
-        add (Body,  "  Seaboard Block / Block M, RISE 25 / 49 / 2, GRAND, ROLI Piano, Piano M / LUMI Keys.\n");
-        add (Body,  "    They read + live-edit fully - just send a profile (way 1) to confirm names & ranges.\n\n");
+        add (Body,  "  Seaboard Block / Block M, RISE 25 / 49 / 2, GRAND, ROLI Piano, Piano M / LUMI Keys, and "
+                    "Control Blocks (Live / Loop / Touch). They read + live-edit - send a profile (way 1) to "
+                    "confirm names & ranges.\n\n");
+
+        add (H2,    "  >> Most wanted: a first-edition Seaboard GRAND <<\n");
+        add (Body,  "    GRAB's GRAND support is built from one contributor's capture of a later board. If you have "
+                    "an original (first-edition) Seaboard GRAND, a ");
+        add (Click, "Capture MIDI");
+        add (Body,  " or Dashboard capture (ways 2 & 3) confirms its settings on the earlier hardware.\n\n");
 
         add (H2,    "Work in progress:");
-        add (Body,  "  Lightpad Block / Pad - its settings read + live-edit. Its apps (Note Grid, Fader, Drum...) "
-                    "now PREVIEW inside GRAB, and can be LOADED onto a connected Lightpad - both experimental, in "
-                    "Advanced.\n");
-        add (Body,  "    App-specific settings live inside the app, not the device, so they're shown but not yet "
-                    "editable.\n");
-        add (Body,  "  Control Blocks - Live / Loop / Touch (DNA-connected, off a Lightpad or Seaboard Block). Their "
-                    "buttons read + live-edit fully: per-button MIDI CC, behaviour, default / min / max and on/off "
-                    "colours. Read AND write are now confirmed on real hardware (Live + Loop) - editing a button's CC, "
-                    "behaviour or colour takes effect on the device.\n");
-        add (H2,    "  >> Most wanted right now: a Touch Block <<\n");
-        add (Body,  "    Live and Loop are covered; the one gap is a Touch Block, which no one has sent yet. If you "
-                    "have one, run ");
-        add (Click, "Advanced... > Help add device");
-        add (Body,  " (and press every button) so we can confirm its layout and defaults - connected on its own or "
-                    "chained, either works. This area also grows from a Capture MIDI (way 2) and/or a Dashboard capture "
-                    "(way 3).\n\n");
-
-        add (H2,    "Not recognised / out of scope:");
-        add (Body,  "  an unknown device - use Help add device (way 2).\n");
-        add (Body,  "    Airwave - a camera gesture controller that only sends MIDI CCs, so there's nothing on the "
-                    "device to configure. GRAB includes Airwave notes + a CC tester under Advanced (experimental).\n\n");
+        add (Body,  "  Lightpad Block / Pad - settings read + live-edit; its apps (Note Grid, Fader, Drum...) "
+                    "preview inside GRAB and can be loaded onto a connected Lightpad (experimental, in Advanced).\n");
+        add (Body,  "  Airwave is out of scope - it only sends MIDI CCs, so there's nothing on the device to "
+                    "configure (notes + a CC tester live under Advanced).\n\n");
 
         // --- the three ways, easiest first ------------------------------------------------------
         add (H1,    "Three ways to help (easiest first)\n");
 
-        add (H2,    "1.  Send a profile - one click\n");
-        add (Click, "    Contribute...  (top row, on the right)\n");
-        add (Body,  "    Sends the settings your device reports (ids, names, ranges, your values), anonymised, so "
-                    "controls get labelled correctly for everyone. Any supported device. ~30 seconds.\n\n");
+        add (H2,    "1.  Send a profile - one click.  ");
+        add (Click, "Contribute...");
+        add (Body,  "  (top row) sends the ids, names, ranges and your values, anonymised, so controls get labelled "
+                    "for everyone. Any supported device, ~30 seconds.\n\n");
 
-        add (H2,    "2.  Capture MIDI - built into GRAB, no extra software\n");
-        add (Click, "    Advanced... > Capture MIDI\n");
-        add (Body,  "    Records everything your device SENDS and decodes it to plain English (Time / Kind / Message "
-                    "/ Value / Raw), then Submit, Save, or open an issue. Use it to show what a not-yet-supported "
-                    "device actually does: play it, touch it, press its buttons, switch its modes. ");
-        add (Note,  "(This is the device side - it can't see what Dashboard sends TO the device; that's way 3.)\n");
-        add (Body,  "    For a device GRAB doesn't recognise at all, ");
-        add (Click, "Advanced... > Help add device ");
-        add (Body,  "does an automatic, one-click version of this.\n\n");
+        add (H2,    "2.  Capture MIDI - built in.  ");
+        add (Click, "Advanced... > Capture MIDI");
+        add (Body,  "  records what your device SENDS, decoded to plain English, then Submit / Save / open an issue. "
+                    "Shows what a not-yet-mapped device does: play it, press its buttons, switch its modes. ");
+        add (Click, "Advanced... > Help add device");
+        add (Body,  " is a one-click version for a device GRAB doesn't recognise at all.\n\n");
 
-        add (H2,    "3.  Dashboard capture - ~10 min, a little technical, unlocks the most\n");
-        add (Body,  "    Records what ROLI Dashboard SENDS to the device when you change a setting - the write "
-                    "side, and the only way to add WRITING for a new setting, app or device. (It's how the Seaboard "
-                    "GRAND became configurable.) GRAB can't record this itself, so run a free USB/MIDI monitor next "
-                    "to Dashboard:\n");
-        add (Body,  "       Windows:  Wireshark + USBPcap - connect the device by USB cable (not Bluetooth) and "
-                    "record while you edit in Dashboard.\n");
-        add (Body,  "       macOS:  MIDI Monitor (Snoize) with \"Spy on output\" on - record the \"to device\" "
-                    "stream.\n");
-        add (Note,  "       (Over Bluetooth the capture sees only the device's output, not Dashboard's writes.)\n");
-        add (Click, "    Then attach the saved file to a GitHub issue - full step-by-step: \"Open capture guide\" "
+        add (H2,    "3.  Dashboard capture - a little technical, unlocks writing.  ");
+        add (Body,  "records what ROLI Dashboard SENDS to the device - the only way to add WRITING for a new setting "
+                    "or device (it's how the GRAND became configurable). Run a free USB/MIDI monitor beside Dashboard "
+                    "(Wireshark + USBPcap on Windows, MIDI Monitor on macOS); full steps in \"Open capture guide\" "
                     "below.\n\n");
 
         // --- good to know -----------------------------------------------------------------------
         add (H1,    "Good to know\n");
-        add (Body,  "    Several devices at once: plug in more than one ROLI device and the ");
+        add (Body,  "    Multiple devices: plug in several and the ");
         add (Click, "ROLI device");
-        add (Body,  " dropdown (top row) lists them all - switch between a RISE, a Seaboard, a Lightpad and a "
-                    "GRAND without restarting or power-cycling.\n");
-        add (Body,  "    Sharing the device on Windows: on Windows 11 25H2+, Windows MIDI Services makes MIDI "
-                    "multi-client by default, so GRAB, your DAW and ROLI Dashboard can all use the device at "
-                    "once - no setup, no quitting. ");
-        add (Note,  "(On older Windows, or if a PC is set to Legacy API Mode, it's one app per port - quit the "
-                    "other app first. Mac/Linux already share.)\n");
-        add (Body,  "    Bluetooth on Windows: ROLI BLE-MIDI needs Windows MIDI Services (built into Windows 11 "
-                    "25H2+; not available on older builds) - without it, Bluetooth is unreliable or absent, so "
-                    "use USB there. USB works on every Windows version.\n");
-        add (Click, "    Won't connect?  Diagnose...  ");
-        add (Body,  "(top row) lists the MIDI ports GRAB sees and flags a port held by another app.\n");
-        add (Body,  "    Archive firmware: Advanced > Download firmware for archiving saves your Block / RISE "
-                    "firmware while ROLI's servers are up.\n");
-        add (Body,  "    Archive your ROLI software: Advanced > Archive my ROLI downloads reads your signed-in "
-                    "ROLI Connect session and fetches what your account owns - the app installers (Dashboard, "
-                    "Equator, Connect), your device firmware, every owned soundpack (free or paid, downloaded "
-                    "directly), and the Studio / Equator 2 packages Connect already has - a one-stop "
-                    "preservation grab while the servers last. Download-only, never flashes or uploads.\n");
-        add (Body,  "    Lightpad apps can WRITE to the device (experimental): from ");
-        add (Click, "Advanced > app inspector");
-        add (Body,  " you can preview an app and load it onto a connected Lightpad. Loading writes a program to the "
-                    "Block - held in memory only, not saved to flash, so switching it off and on restores its "
-                    "previous app. It's always behind a confirmation, Lightpad-only, and apps only - GRAB never "
-                    "writes firmware.\n");
-        add (Body,  "    Private & safe: serials are hashed, serial & MAC stripped from captures, nothing is sent or "
-                    "written until you click, and GRAB never flashes firmware.\n\n");
+        add (Body,  " dropdown (top row) switches between them - no restart or power-cycle.\n");
+        add (Body,  "    Windows Bluetooth: ROLI BLE-MIDI needs Windows MIDI Services (Windows 11 25H2+); otherwise "
+                    "use USB, which works on every Windows version.\n");
+        add (Click, "    Won't connect?  Diagnose...");
+        add (Body,  " (top row) lists the MIDI ports GRAB sees and flags one held by another app.\n");
+        add (Body,  "    Archiving: Advanced can download your Block / RISE firmware and the ROLI software your "
+                    "account owns while ROLI's servers are up - download-only, never flashes or uploads.\n");
+        add (Body,  "    Private & safe: serials hashed, serial & MAC stripped from captures, nothing sent until you "
+                    "click, and GRAB never flashes firmware.\n\n");
 
         // --- credits ----------------------------------------------------------------------------
         add (H1,    "With thanks to our contributors\n");
@@ -197,10 +158,9 @@ private:
         add (Body,  "       Pete Brown (Microsoft) - Windows 11 multi-client MIDI\n");
         add (Body,  "       Legitimate_Horror_72 - ROLI Piano scale names & firmware scale lighting\n");
         add (Body,  "    ...and everyone who sent an anonymous profile or capture - GRAB's device support "
-                    "grows from your data.\n");
-        add (Note,  "    Missed from this list? Let us know and we'll add you.\n\n");
+                    "grows from your data.  Missed from this list? Let us know and we'll add you.\n\n");
 
-        add (Note,  "Thanks for helping!  Reopen any time from Advanced > How you can help.");
+        add (Body,  "Thanks for helping!  Reopen any time from Advanced > How you can help.");
 
         body.setReadOnly (true);
         body.setCaretPosition (0);   // scroll back to the top after building

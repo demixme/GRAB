@@ -174,6 +174,13 @@ public:
         repaint();
     }
 
+    // Drop all live markers (e.g. when Live keys takes over the touch stream).
+    void clearTouches()
+    {
+        { const juce::ScopedLock sl (touchLock); touches.clear(); }
+        dirty = true; repaint();
+    }
+
     // nx/ny are 0..1 within the tile's own (unrotated) surface. tileUid picks the tile.
     void setTouch (juce::uint64 tileUid, int fingerId, float nx, float ny, float z, float strike, bool end)
     {
@@ -198,15 +205,30 @@ public:
     // click a block in ROLI Dashboard. uid 0 (the single RISE/GRAND keybed) never fires.
     std::function<void (juce::uint64)> onTileClicked;
 
+    // Clicking the device itself (a single keybed, or empty space in a cluster - i.e. not a specific
+    // block) opens / closes the big Live-keys view. Set by MainComponent.
+    std::function<void()> onDeviceClicked;
+
     void mouseDown (const juce::MouseEvent& e) override
     {
+        size_t tileCount;
+        { const juce::ScopedLock sl (touchLock); tileCount = tiles.size(); }
+
+        // A single device (one tile, incl. a Seaboard Block or a RISE/GRAND keybed): a click
+        // anywhere opens Live keys. A cluster: click a block to select it, empty space opens Live.
+        if (tileCount <= 1)
+        {
+            if (onDeviceClicked != nullptr) onDeviceClicked();
+            return;
+        }
         const auto uid = tileUidAt (e.position);
         if (uid != 0 && onTileClicked != nullptr) onTileClicked (uid);
+        else if (onDeviceClicked != nullptr)      onDeviceClicked();
     }
     void mouseMove (const juce::MouseEvent& e) override
     {
-        setMouseCursor (tileUidAt (e.position) != 0 ? juce::MouseCursor::PointingHandCursor
-                                                     : juce::MouseCursor::NormalCursor);
+        const bool clickable = tileUidAt (e.position) != 0 || onDeviceClicked != nullptr;
+        setMouseCursor (clickable ? juce::MouseCursor::PointingHandCursor : juce::MouseCursor::NormalCursor);
     }
 
     void paint (juce::Graphics& g) override
@@ -239,7 +261,20 @@ public:
         for (auto& t : ts)
         {
             juce::Rectangle<float> foot (ox + t.ux * scale, oy + t.uy * scale, t.uw * scale, t.uh * scale);
-            drawTile (g, t, foot.reduced (0.5f), liveTouches, chord, highlight, highlight && isSel (t.uid));
+            auto body = foot.reduced (0.5f);
+
+            // Soft drop shadow so the device reads as sitting above the tile (Fred's design). The
+            // chassis is ~ a rounded rectangle, so a blurred rounded-rect of the footprint, offset
+            // down, gives the halo; the opaque art then covers the body, leaving only the glow.
+            {
+                juce::Path shape;
+                shape.addRoundedRectangle (body, juce::jmax (4.0f, body.getHeight() * 0.10f));
+                juce::DropShadow (juce::Colours::black.withAlpha (0.5f),
+                                  juce::jmax (8,  (int) (body.getHeight() * 0.18f)),
+                                  { 0, juce::jmax (3, (int) (body.getHeight() * 0.07f)) }).drawForPath (g, shape);
+            }
+
+            drawTile (g, t, body, liveTouches, chord, highlight, highlight && isSel (t.uid));
         }
     }
 

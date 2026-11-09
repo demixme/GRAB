@@ -59,6 +59,30 @@ int lowNoteForKeyCount (int keyCount)
     const int octs = juce::jlimit (1, 8, (keyCount + 6) / 12);
     return 72 - 12 * (octs / 2);   // ROLI keyboards sit an octave above the naive centre (see riseKeyRange)
 }
+
+// Fred's rule: sentence case everywhere, capitals only for acronyms and product names. Keep the
+// first word as-is (it's either a normal word, correctly capitalised to start the phrase, or an
+// acronym); for later words, lower-case the first letter unless the whole word is an acronym
+// (all-caps, e.g. MIDI / MPE / CC) or has no lower-casable letter (e.g. "No.").
+static juce::String toSentenceCase (const juce::String& s)
+{
+    auto words = juce::StringArray::fromTokens (s, " ", "");
+    for (int i = 1; i < words.size(); ++i)
+    {
+        auto& w = words.getReference (i);
+        if (w.isEmpty()) continue;
+        bool allCaps = true, hasLetter = false;
+        for (auto c : w)
+            if (juce::CharacterFunctions::isLetter (c))
+            {
+                hasLetter = true;
+                if (! juce::CharacterFunctions::isUpperCase (c)) { allCaps = false; break; }
+            }
+        if (hasLetter && allCaps && w.length() >= 2) continue;   // acronym, keep it
+        w = w.substring (0, 1).toLowerCase() + w.substring (1);
+    }
+    return words.joinIntoString (" ");
+}
 }
 
 //==============================================================================
@@ -67,8 +91,23 @@ ConfigRow::ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value
     : buttonCfg (buttonConfig), id (meta.item), type (meta.type), range (meta.range),
       initialValue (value), change (std::move (onChange))
 {
-    nameLabel.setText (meta.name, juce::dontSendNotification);
+    // A few fields take Fred's name rather than the firmware's.
+    juce::String displayName = meta.name;
+    if (displayName == "No. MIDI Channels") displayName = "Member channels";
+    nameLabel.setText (toSentenceCase (displayName), juce::dontSendNotification);
     addAndMakeVisible (nameLabel);
+
+    // Coloured dots after the label link the setting to the 5D dimension(s) it affects (Fred's design);
+    // a setting can touch more than one (e.g. "Glide & slide tracking").
+    {
+        using namespace grab::theme;
+        const auto& n = meta.name;
+        if (n.containsIgnoreCase ("strike")) dimDots.push_back (strike);
+        if (n.containsIgnoreCase ("glide"))  dimDots.push_back (glide);
+        if (n.containsIgnoreCase ("slide"))  dimDots.push_back (slide);
+        if (n.containsIgnoreCase ("press"))  dimDots.push_back (press);   // "Press mode", "Pressure tracking"
+        if (n.containsIgnoreCase ("lift"))   dimDots.push_back (lift);
+    }
 
     if (buttonCfg)
     {
@@ -129,27 +168,100 @@ ConfigRow::ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value
             break;
 
         case ConfigType::options:
+        {
             // Only offer options that map to an in-range value. optionNames[i] maps to
             // value range.start + i, so valid i is 0..range.getLength(). Some items
             // (e.g. Glide/Slide Tracking: range 1..4) carry a trailing name ("Disabled")
             // beyond max; showing it would let the user write an out-of-range value.
+            juce::StringArray names;
             for (int i = 0; i <= range.getLength() && i < roli::Block::ConfigMetaData::numOptionNames; ++i)
                 if (meta.optionNames[i].isNotEmpty())
-                    combo.addItem (meta.optionNames[i], i + 1); // itemId = optionIndex + 1
-            combo.setSelectedId ((value - range.getStart()) + 1, juce::dontSendNotification);
-            combo.onChange = [this] { fireChange(); };
-            control = &combo;
+                    names.add (meta.optionNames[i]);
+
+            // Compact labels for segments: drop a redundant " Channel" suffix (Multi Channel -> Multi).
+            // segVals[i] is the device value the label maps to (range.start + name index), so the
+            // display order can differ from the firmware's value order.
+            juce::StringArray shortNames;
+            juce::Array<int>  segVals;
+            for (int i = 0; i < names.size(); ++i)
+            {
+                auto& n = names[i];
+                // Drop a redundant trailing " Channel" / " Zone" so the label fits the lozenge
+                // (Multi Channel -> Multi, Lower Zone -> Lower, Upper Zone -> Upper).
+                shortNames.add (n.endsWith (" Channel") ? n.dropLastCharacters (8)
+                              : n.endsWith (" Zone")    ? n.dropLastCharacters (5) : n);
+                segVals.add (range.getStart() + i);
+            }
+
+            // MIDI mode reads MPE first everywhere (Fred's design), whatever value the firmware gives
+            // it: the real Block reports Multi/MPE/Single, RISE reports MPE/Multi/Single. Move the MPE
+            // segment to the front, keeping the value map intact so we still write the firmware's value.
+            const int mpeIdx = shortNames.indexOf ("MPE");
+            if (mpeIdx > 0)
+            {
+                shortNames.move (mpeIdx, 0);
+                segVals.move    (mpeIdx, 0);
+            }
+
+            // A few short labels -> segmented buttons (MIDI mode, zone, pedal type); otherwise a
+            // dropdown (long labels, or many options like the 19 scales).
+            int maxLen = 0; for (auto& n : shortNames) maxLen = juce::jmax (maxLen, n.length());
+            useSegmented = names.size() >= 2 && names.size() <= 3 && maxLen <= 10;
+            if (useSegmented)
+            {
+                segmented.setItems (shortNames, segVals);
+                segmented.setSelectedValue (value, false);
+                segmented.onChange = [this] { fireChange(); };
+                control = &segmented;
+            }
+            else
+            {
+                for (int i = 0; i < names.size(); ++i) combo.addItem (names[i], i + 1);   // itemId = index + 1
+                // Clamp into the valid set: some devices report an out-of-range option value (the GRAND
+                // sends 0 for Glide & Slide Tracking, range 1-4, so it never reports it) - show the first
+                // option rather than a blank box.
+                combo.setSelectedId (juce::jlimit (0, names.size() - 1, value - range.getStart()) + 1,
+                                     juce::dontSendNotification);
+                combo.onChange = [this] { fireChange(); };
+                control = &combo;
+            }
             break;
+        }
 
         case ConfigType::integer:
-            slider.setSliderStyle (juce::Slider::LinearHorizontal);
-            slider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 56, 22);
-            slider.setRange ((double) range.getStart(), (double) range.getEnd(), 1.0);
-            slider.setValue ((double) value, juce::dontSendNotification);
-            slider.setDoubleClickReturnValue (true, (double) value);  // double-click reverts to the device value
-            slider.onValueChange = [this] { fireChange(); };
-            control = &slider;
+        {
+            // Fred renders most integers as a -/+ stepper; a continuous few (pitch bend range,
+            // glide rate) stay sliders.
+            const bool asSlider = meta.name == "Pitch Bend Range"
+                               || meta.name.containsIgnoreCase ("Glide Rate");
+            useStepper = ! asSlider;
+            if (useStepper)
+            {
+                intStepper.setRange (range.getStart(), range.getEnd());
+                intStepper.setValue (value, false);
+                intStepper.onChange = [this] { fireChange(); };
+                // Member channels: show the actual MPE member channel span (lower zone: ch 2..N+1).
+                if (meta.name == "No. MIDI Channels")
+                    intStepper.setUnitFn ([] (int n) { return "ch 2-" + juce::String (n + 1); });
+                control = &intStepper;
+            }
+            else
+            {
+                slider.setSliderStyle (juce::Slider::LinearHorizontal);
+                slider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 56, 22);
+                // Fred shows the slider value as plain text (no boxed field), with its unit.
+                slider.setColour (juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
+                slider.setColour (juce::Slider::textBoxOutlineColourId,    juce::Colours::transparentBlack);
+                slider.setColour (juce::Slider::textBoxTextColourId,       grab::theme::ink);
+                if (meta.name == "Pitch Bend Range") slider.setTextValueSuffix (" st");
+                slider.setRange ((double) range.getStart(), (double) range.getEnd(), 1.0);
+                slider.setValue ((double) value, juce::dontSendNotification);
+                slider.setDoubleClickReturnValue (true, (double) value);  // double-click reverts to the device value
+                slider.onValueChange = [this] { fireChange(); };
+                control = &slider;
+            }
             break;
+        }
 
         case ConfigType::colour:
             colourWell.setSwatchColour (juce::Colour ((juce::uint32) value));
@@ -175,6 +287,18 @@ ConfigRow::ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value
         tc->setTooltip (help);
     if (control != nullptr)
         control->addMouseListener (this, true);
+
+    nameLabel.setFont (grab::theme::type::font (grab::theme::type::Role::body));
+    nameLabel.setMinimumHorizontalScale (1.0f);   // never horizontally compress a long label (JUCE's default squashes)
+    refreshChangedLook();   // start dim (ink2); brightens to ink when changed
+}
+
+void ConfigRow::refreshChangedLook()
+{
+    nameLabel.setColour (juce::Label::textColourId,
+                         getValue() != initialValue ? grab::theme::ink : grab::theme::ink2);
+    repaint();
+    if (auto* card = getParentComponent()) card->repaint();   // keep the card's "N changed" count live
 }
 
 void ConfigRow::mouseDown (const juce::MouseEvent& e)
@@ -196,6 +320,7 @@ void ConfigRow::resetToDevice()
 
 void ConfigRow::fireChange()
 {
+    refreshChangedLook();
     if (change != nullptr)
         change (id, getValue());
 }
@@ -211,8 +336,10 @@ juce::int32 ConfigRow::getValue() const
     switch (type)
     {
         case ConfigType::boolean: return toggle.getToggleState() ? 1 : 0;
-        case ConfigType::options: return range.getStart() + (combo.getSelectedId() - 1);
-        case ConfigType::integer: return (juce::int32) juce::roundToInt (slider.getValue());
+        case ConfigType::options: return useSegmented ? segmented.getSelectedValue()
+                                                      : range.getStart() + combo.getSelectedId() - 1;
+        case ConfigType::integer: return useStepper ? (juce::int32) intStepper.getValue()
+                                                    : (juce::int32) juce::roundToInt (slider.getValue());
         case ConfigType::colour:  return (juce::int32) colourWell.getSwatchColour().getARGB();
         default:                  return readOnly.getText().getIntValue();
     }
@@ -227,16 +354,24 @@ void ConfigRow::setValue (juce::int32 v)
         defSlider.setValue ((double) buttonVal  (v), juce::dontSendNotification);
         minSlider.setValue ((double) buttonMin  (v), juce::dontSendNotification);
         maxSlider.setValue ((double) buttonMax  (v), juce::dontSendNotification);
+        refreshChangedLook();
         return;
     }
     switch (type)
     {
         case ConfigType::boolean: toggle.setToggleState (v != 0, juce::dontSendNotification); break;
-        case ConfigType::options: combo.setSelectedId ((v - range.getStart()) + 1, juce::dontSendNotification); break;
-        case ConfigType::integer: slider.setValue ((double) v, juce::dontSendNotification); break;
+        case ConfigType::options:
+            if (useSegmented) segmented.setSelectedValue (v, false);
+            else              combo.setSelectedId ((v - range.getStart()) + 1, juce::dontSendNotification);
+            break;
+        case ConfigType::integer:
+            if (useStepper) intStepper.setValue (v, false);
+            else            slider.setValue ((double) v, juce::dontSendNotification);
+            break;
         case ConfigType::colour:  colourWell.setSwatchColour (juce::Colour ((juce::uint32) v)); break;
         default:                  readOnly.setText (juce::String (v) + "  (read-only)", juce::dontSendNotification); break;
     }
+    refreshChangedLook();
 }
 
 void ConfigRow::setChangedFromDevice (bool c)
@@ -246,13 +381,24 @@ void ConfigRow::setChangedFromDevice (bool c)
 
 void ConfigRow::resized()
 {
-    auto r = getLocalBounds().reduced (4, 2);
+    auto r = getLocalBounds().reduced (4, 1);
+    if (! buttonCfg)
+    {
+        // Fred's .row: the label flexes on the left, a fixed ~200px control column on the right; the
+        // control fills the row height (~32px), not a thin strip.
+        const int ctrlW = juce::jlimit (140, 200, r.getWidth() - 100);
+        auto c = r.removeFromRight (ctrlW);
+        r.removeFromRight (12);   // gap between the label and the control
+        nameLabel.setBounds (r);
+        if (control != nullptr) control->setBounds (c);
+        return;
+    }
+    r = getLocalBounds().reduced (4, 2);   // button rows keep their original vertical inset
+
     // Button rows pack a lot into one row, so give the "Button N" label a slim column and hand the
     // rest to the CC/behaviour line and the default/min/max steppers (otherwise the steppers truncate).
-    const int labelW = buttonCfg ? juce::jlimit (64, 96, (int) (r.getWidth() * 0.18f))
-                                 : juce::jlimit (90, 200, (int) (r.getWidth() * 0.46f));
+    const int labelW = juce::jlimit (64, 96, (int) (r.getWidth() * 0.18f));
     nameLabel.setBounds (r.removeFromLeft (labelW));
-    if (buttonCfg)
     {
         const int capH = 12;
         const int rowH = r.getHeight() / 2;
@@ -273,36 +419,79 @@ void ConfigRow::resized()
         defCap.setBounds (botCap.removeFromLeft (w3));
         minCap.setBounds (botCap.removeFromLeft (w3));
         maxCap.setBounds (botCap);
-        return;
     }
-    if (control != nullptr)
-        control->setBounds (r);
 }
 
 void ConfigRow::paint (juce::Graphics& g)
 {
-    // A small accent dot on the left marks a value you've changed from what the device reported.
-    // It persists (unlike the old orange flash, which cleared the instant a live-write landed) and
-    // clears on Reload from device or a right-click / double-click reset.
+    using namespace grab::theme;
+    if (buttonCfg) return;
+
+    // After the label text: coloured dots for the 5D dimension(s) this setting affects, then a white
+    // dot if the value has been changed from the device value (Fred's design - markers on the right).
+    const juce::Font f = type::font (type::Role::body);
+    const int tw = juce::GlyphArrangement::getStringWidthInt (f, nameLabel.getText());
+    float dx = (float) nameLabel.getX() + (float) juce::jmin (tw, nameLabel.getWidth()) + 8.0f;
+    const float cy = (float) getHeight() * 0.5f;
+
+    for (auto col : dimDots)
+    {
+        g.setColour (col);
+        g.fillEllipse (dx, cy - 3.0f, 6.0f, 6.0f);
+        dx += 10.0f;
+    }
+
     if (getValue() != initialValue)
     {
-        const float d = 5.0f;
-        g.setColour (grab::theme::accent);
-        g.fillEllipse (2.0f, ((float) getHeight() - d) * 0.5f, d, d);
+        g.setColour (ink);
+        g.fillEllipse (dx, cy - 2.5f, 5.0f, 5.0f);
     }
 }
 
 //==============================================================================
-static constexpr int rowHeight = 30;
+static constexpr int rowHeight = 34;   // control fills ~32px (Fred's size.control), not a thin 26px
 static constexpr int buttonRowHeight = 74;   // Control-block button rows: CC+behaviour over default/min/max, two lines of captions
 static constexpr int sectionHeaderHeight = 30;
 
-// Order config sections roughly like ROLI Dashboard (Sensitivity / 5D first).
+// Fred's section + order for a BLOCKS field, by name (the real device's ids differ from the sim, so
+// name is the robust key). Unmatched names keep their original group. See template.html device tiles.
+static juce::String fredGroupBlocks (const juce::String& n, const juce::String& fallback)
+{
+    if (fallback == "Sensitivity") return "Sensitivity";   // 5D curves + fixed velocity stay put
+    if (n == "MIDI Mode" || n.containsIgnoreCase ("MPE Zone")) return "MIDI output";
+    // Channel fields: "MIDI Channel", "MIDI Start/End Channel", "No. MIDI Channels", "Member channels".
+    if (n.containsIgnoreCase ("Channel") || n.containsIgnoreCase ("Member")) return "MIDI output";
+    if (n == "Pitch Bend Range") return "MIDI output";
+    if (n == "Octave" || n == "Transpose" || n == "Semitone Legato" || n == "Scale" || n == "Key"
+        || n == "Active Mode" || n == "Key Pitch Bend Amount") return "Keyboard";
+    if (n.containsIgnoreCase ("Press") || n.containsIgnoreCase ("Glide") || n.containsIgnoreCase ("Slide")
+        || n == "Pitch Bend Tracking") return "Expression";
+    if (n.containsIgnoreCase ("Pedal")) return "Controller CCs";
+    if (n.containsIgnoreCase ("Port") || n.containsIgnoreCase ("Sleep")) return "Ports & power";
+    if (n.containsIgnoreCase ("Colour") || n.containsIgnoreCase ("Color") || n == "Brightness") return "Colors";
+    return fallback;   // Buttons, Mode N, Rhythm, etc.
+}
+static int fredOrderBlocks (const juce::String& n)
+{
+    if (n == "MIDI Mode") return 0;
+    if (n.containsIgnoreCase ("MPE Zone")) return 1;
+    if (n.containsIgnoreCase ("Start Channel") || n == "MIDI Channel") return 2;
+    if (n.containsIgnoreCase ("End Channel") || n == "No. MIDI Channels" || n.containsIgnoreCase ("Member")) return 3;
+    if (n == "Pitch Bend Range") return 4;
+    if (n == "Octave") return 0; if (n == "Transpose") return 1; if (n == "Semitone Legato") return 2;
+    if (n == "Scale") return 3; if (n == "Key") return 4; if (n == "Active Mode") return 5; if (n == "Key Pitch Bend Amount") return 6;
+    if (n.containsIgnoreCase ("Slide Mode")) return 2; if (n.containsIgnoreCase ("Slide CC")) return 3;
+    if (n.containsIgnoreCase ("Glide")) return 0; if (n.containsIgnoreCase ("Press") || n == "Pitch Bend Tracking") return 1;
+    if (n.containsIgnoreCase ("Port Forward")) return 0; if (n.containsIgnoreCase ("Throttle")) return 1; if (n.containsIgnoreCase ("Sleep")) return 2;
+    return 0;
+}
+
+// Order config sections like Fred's layout (Sensitivity graph first, then the job-based groups).
 static int groupRank (const juce::String& g)
 {
     static const char* order[] = {
-        "Sensitivity", "MIDI Settings", "Pitch", "Keybed State", "Play mode",
-        "Pedal", "Colors", "Rhythm", "Mode 1", "Mode 2", "Mode 3", "Mode 4"
+        "Sensitivity", "MIDI output", "Expression", "Keyboard", "Controller CCs", "Colors",
+        "Ports & power", "Pedal", "Rhythm", "Mode 1", "Mode 2", "Mode 3", "Mode 4", "Buttons"
     };
     for (int i = 0; i < (int) (sizeof (order) / sizeof (order[0])); ++i)
         if (g == order[i])
@@ -338,6 +527,34 @@ MainComponent::MainComponent()
 
     addAndMakeVisible (diagnoseBtn);
     diagnoseBtn.onClick = [this] { openDialog (new DiagnosePanel(), "Diagnose connection"); };
+
+    // Bento "Tools..." menu - one button folding the three tool actions so the controls tile stays
+    // tidy. It drives the existing buttons (triggerClick), which stay as the logic owners (hidden).
+    addChildComponent (toolsBtn);   // hidden logic owner; toolsIconBtn is the visible control
+    auto showToolsMenu = [this]
+    {
+        juce::PopupMenu m;
+        m.addItem (1, "Diagnose connection...");
+        m.addItem (2, "Advanced...");
+        m.addItem (3, "Contribute...");
+        m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (toolsIconBtn),
+            [this] (int r)
+            {
+                if (r == 1) diagnoseBtn.triggerClick();
+                else if (r == 2) advancedBtn.triggerClick();
+                else if (r == 3) contributeBtn.triggerClick();
+            });
+    };
+    // Fred's actions row: Live keys / read from device / Tools icons.
+    addChildComponent (liveViewBtn);
+    addChildComponent (readIconBtn);
+    addChildComponent (toolsIconBtn);
+    liveViewBtn.onClick = [this] { enterLiveKeys (! liveKeys); };
+    readIconBtn.onClick = [this] { reloadFromDevice(); };
+    toolsIconBtn.onClick = showToolsMenu;
+    liveViewBtn.setTooltip (TRANS ("Live keys: see where and how hard you play."));
+    readIconBtn.setTooltip (TRANS ("Read from device: load every setting again. Unsaved changes are dropped."));
+    toolsIconBtn.setTooltip (TRANS ("Tools: diagnostics, advanced settings and more."));
     addAndMakeVisible (reloadButton);
     addAndMakeVisible (saveButton);
     addAndMakeVisible (autosaveToggle);
@@ -361,19 +578,20 @@ MainComponent::MainComponent()
     reloadButton.setButtonText   (TRANS ("Reload from device"));
     saveButton.setButtonText     (TRANS ("Save to device"));
     autosaveToggle.setButtonText (TRANS ("Autosave"));
+    saveButton.getProperties().set   ("primary", true);   // Fred's primary (near-white) Save button
+    reloadButton.getProperties().set ("ghost",   true);   // Fred's Revert / In sync text link
     contributeBtn.setButtonText  (TRANS ("Contribute..."));
     advancedBtn.setButtonText    (TRANS ("Advanced..."));
     diagnoseBtn.setButtonText    (TRANS ("Diagnose..."));
 
     // One "Preset" menu: ROLI's built-in presets (Seaboard) and the user's own saved presets in
     // one list, plus Save / Import / Export - the way ROLI Dashboard presents presets.
-    addChildComponent (presetBox);   // shown with the other Block controls (setBlocksControlsVisible)
+    addChildComponent (presetBox);   // the model (list + apply logic); the visible control is presetBar
     presetBox.setTextWhenNothingSelected (TRANS ("Preset..."));
     presetBox.onChange = [this]
     {
         const int id = presetBox.getSelectedId();
-        if (id <= 0)
-            return;
+        if (id <= 0) { updatePresetBar(); return; }
 
         if (id >= 1 && id < kUserPresetBase)
             applyBlockPreset (presetBox.getText());
@@ -383,19 +601,31 @@ MainComponent::MainComponent()
             if (idx < userPresetFiles.size())
                 applyUserPreset (userPresetFiles[idx]);
         }
-        else if (id == kPresetSaveAs) saveUserPresetAs();
-        else if (id == kPresetImport) loadPreset();
-        else if (id == kPresetExport) savePreset();
-        else if (id == kPresetReveal) { auto d = presetDir(); d.createDirectory(); d.revealToUser(); }
+        else   // action items: run, then put the selection back on the current preset
+        {
+            if (id == kPresetSaveAs) saveUserPresetAs();
+            else if (id == kPresetImport) loadPreset();
+            else if (id == kPresetExport) savePreset();
+            else if (id == kPresetReveal) { auto d = presetDir(); d.createDirectory(); d.revealToUser(); }
+            presetBox.setSelectedId (lastRealPresetId, juce::dontSendNotification);
+            updatePresetBar();
+            return;
+        }
 
-        presetBox.setSelectedId (0, juce::dontSendNotification);   // back to the placeholder
+        lastRealPresetId = id;   // a real preset is now loaded; the bar shows its name
+        updatePresetBar();
     };
+
+    addChildComponent (presetBar);   // Fred's .pbar, over presetBox; the arrows step, the name opens the list
+    presetBar.onPrev = [this] { stepPreset (-1); };
+    presetBar.onNext = [this] { stepPreset (+1); };
+    presetBar.onOpen = [this] { presetBox.showPopup(); };
     saveButton.setEnabled (false);
 
-    addAndMakeVisible (transportLabel);
+    addChildComponent (transportLabel);   // connection type lives in the DeviceMenu callout now
     transportLabel.setText (TRANS ("Connection Type:"), juce::dontSendNotification);
     transportLabel.setJustificationType (juce::Justification::centredRight);
-    addAndMakeVisible (transportBox);
+    addChildComponent (transportBox);     // model only; the pill's menu drives it
     transportBox.addItem (TRANS ("Auto"), 1);
     transportBox.addItem (TRANS ("USB"),  2);
     transportBox.addItem (TRANS ("BLE"),  3);
@@ -411,8 +641,13 @@ MainComponent::MainComponent()
     addAndMakeVisible (blockLabel);
     blockLabel.setText (TRANS ("ROLI device:"), juce::dontSendNotification);
     blockLabel.setJustificationType (juce::Justification::centredRight);
-    addAndMakeVisible (blockBox);
+    addChildComponent (blockBox);   // selection model only; the visible control is the pill below
     blockBox.onChange = [this] { onDeviceBoxChanged(); };
+
+    // Fred's device switcher: a pill in the dashboard tile that opens the rich DeviceMenu callout
+    // (device list + connection type). blockBox stays as the hidden selection model behind it.
+    addChildComponent (deviceMenuBtn);
+    deviceMenuBtn.onClick = [this] { showDeviceMenu(); };
 
     addAndMakeVisible (contributeBtn);
     contributeBtn.onClick = [this] { contribute(); };
@@ -478,10 +713,22 @@ MainComponent::MainComponent()
     checkForUpdate();   // ask GitHub for the latest release; lights up the footer if newer
     addChildComponent (keyboardView);   // shown only for keyboard devices
     keyboardView.onTileClicked = [this] (juce::uint64 uid) { selectBlockByUid (uid); }; // Dashboard-style click-to-select
+    keyboardView.onDeviceClicked = [this] { enterLiveKeys (! liveKeys); };   // click the device -> Live keys
+    addChildComponent (liveStrip);
+    addChildComponent (liveKeysLabel);
+    liveKeysLabel.setText ("Live keys", juce::dontSendNotification);
+    liveKeysLabel.setFont (grab::theme::type::font (grab::theme::type::Role::title));
+    addChildComponent (backToSettingsBtn);
+    backToSettingsBtn.onClick = [this] { enterLiveKeys (false); };
+    addChildComponent (viewToggle);   // drawing-tile Device drawing | Keystroke map switch
+    viewToggle.onChange = [this] (int i) { setDrawingView (i == 1); };
+    addChildComponent (keystrokeMap);
+    keystrokeMap.setCompact (true);
+    keystrokeMap.onClick = [this] { enterLiveKeys (! liveKeys); };   // clicking the map opens Live keys too
     {   // restore the device-art V2 preference (Advanced -> New device art)
         juce::PropertiesFile::Options po; po.millisecondsBeforeSaving = 0;
         juce::PropertiesFile props (grab::dataDir().getChildFile ("settings.properties"), po);
-        deviceArtV2 = props.getBoolValue ("deviceArtV2", false);
+        deviceArtV2 = props.getBoolValue ("deviceArtV2", true);   // Fred's SVG kit is the default art now
         keyboardView.setUseDeviceArtV2 (deviceArtV2);
     }
 
@@ -577,6 +824,15 @@ void MainComponent::connect (seaprobe::Transport transport)
     simConfig.clear();        // leave any dev preview
     grandPreview = false;
 
+    if (liveKeys)             // a reconnect while playing drops back to the settings view
+    {
+        liveKeys = false;
+        viewport.setVisible (true);
+        liveStrip.setVisible (false);
+        liveKeysLabel.setVisible (false);
+        backToSettingsBtn.setVisible (false);
+    }
+
     // Tear down any existing session.
     stopTimer();
     liveWriter.cancel();
@@ -603,8 +859,7 @@ void MainComponent::connect (seaprobe::Transport transport)
     blockOrder.clear();
     blockBox.clear (juce::dontSendNotification);
     rows.clear();
-    curveRows.clear();
-    curves.clear();
+    sensGraph.reset();
     sectionHeaders.clear();
     layoutOrder.clear();
     rowHolder.removeAllChildren();
@@ -717,7 +972,8 @@ void MainComponent::setBlocksControlsVisible (bool visible)
     // Note: blockLabel/blockBox (the "ROLI device:" switcher) are NOT here - they're shown in both
     // BLOCKS and RISE modes and their visibility is driven by fillDeviceBox() (hidden for one device).
     for (auto* c : std::initializer_list<juce::Component*> { &reloadButton, &saveButton, &autosaveToggle,
-                                                            &presetBox, &contributeBtn, &viewport })
+                                                            &presetBar, &contributeBtn, &liveViewBtn, &readIconBtn,
+                                                            &toolsIconBtn, &viewport })
         c->setVisible (visible);
 }
 
@@ -725,6 +981,7 @@ void MainComponent::setStatus (const juce::String& s)
 {
     ++statusGen;   // cancel any pending auto-clear from a previous transient
     statusLabel.setText (s, juce::dontSendNotification);
+    footer.setStatus (s);   // shown in the footer (Fred's layout), not the control tile
 }
 
 // A status message that fades back to idle on its own (so "Reading..." / "Saved" never stick). The
@@ -733,11 +990,15 @@ void MainComponent::setTransient (const juce::String& s, bool autoClear)
 {
     const int gen = ++statusGen;
     statusLabel.setText (s, juce::dontSendNotification);
+    footer.setStatus (s);
     if (autoClear)
         juce::Timer::callAfterDelay (2600, [this, gen, safe = juce::Component::SafePointer<MainComponent> (this)]
         {
             if (safe != nullptr && statusGen == gen)
+            {
                 statusLabel.setText ({}, juce::dontSendNotification);
+                footer.setStatus ({});
+            }
         });
 }
 
@@ -778,11 +1039,11 @@ void MainComponent::topologyChanged()
         blockBox.clear (juce::dontSendNotification);
         blockLabel.setVisible (false);
         blockBox.setVisible (false);
+        deviceMenuBtn.setVisible (false);
         rowsBuilt = false;
         configRequested = false;
         rows.clear();
-        curveRows.clear();
-        curves.clear();
+        sensGraph.reset();
         sectionHeaders.clear();
         layoutOrder.clear();
         rowHolder.removeAllChildren();
@@ -1014,12 +1275,109 @@ void MainComponent::fillDeviceBox (int selectId)
     for (int i = 0; i < (int) deviceEntries.size(); ++i)
         blockBox.addItem (deviceEntries[(size_t) i].label, i + 1);
     blockBox.setSelectedId (selectId, juce::dontSendNotification);
+    blockLabel.setVisible (false);
+    blockBox.setVisible (false);   // model only; the pill is the visible switcher
 
-    // Show the switcher when there's a choice. In BLOCKS mode keep it visible even for one device
-    // (it names the connected block, as before); in RISE mode only show it when switching is possible.
-    const bool show = deviceEntries.size() > 1 || (source != nullptr && ! deviceEntries.empty());
-    blockLabel.setVisible (show);
-    blockBox.setVisible (show);
+    // The pill shows whenever a device is present - even one - so the connection type (now inside the
+    // menu) is always reachable. It names the selected device with a chevron.
+    const int sel = selectId - 1;
+    const bool show = ! deviceEntries.empty();
+    if (show && sel >= 0 && sel < (int) deviceEntries.size())
+    {
+        auto label = deviceEntries[(size_t) sel].label.upToFirstOccurrenceOf ("  ", false, false)
+                                                      .upToFirstOccurrenceOf (" (", false, false).trim()
+                                                      .replace ("BLOCK", "Block");   // ROLI brands "Block" proper-case (RISE/GRAND stay caps)
+        deviceMenuBtn.setButtonText (label);   // the chevron is drawn by DeviceNameButton (no cluster suffix)
+    }
+    deviceMenuBtn.setVisible (show);
+    resized();   // the pill's visibility affects the dashboard tile layout
+}
+
+// The device-art SVG filename for a Block type (same names KeyboardView's v2 art uses), or "".
+static juce::String deviceArtFileForType (roli::Block::Type t)
+{
+    switch (t)
+    {
+        case roli::Block::seaboardBlock:         return "seaboard-block-24.svg";
+        case roli::Block::lightPadBlock:
+        case roli::Block::lightpadProBlock:      return "lightpad-block.svg";
+        case roli::Block::liveBlock:             return "control-live.svg";
+        case roli::Block::loopBlock:             return "control-loop.svg";
+        case roli::Block::touchBlock:            return "control-touch.svg";
+        case roli::Block::developerControlBlock: return "control-developer.svg";
+        case roli::Block::lumiKeysBlock:         return "lumi-24.svg";
+        case roli::Block::roliPiano49:           return "piano-49.svg";
+        default:                                 return {};
+    }
+}
+
+juce::Array<grab::DeviceMenu::Item> MainComponent::buildDeviceMenuItems() const
+{
+    juce::Array<grab::DeviceMenu::Item> out;
+    const int selId = blockBox.getSelectedId();
+    auto transport = detector != nullptr ? detector->getActiveTransport() : juce::String();
+    if (transport == "BLE") transport = "Bluetooth";
+
+    const auto topo = source != nullptr ? source->getCurrentTopology() : roli::BlockTopology();
+
+    for (int i = 0; i < (int) deviceEntries.size(); ++i)
+    {
+        const auto& e = deviceEntries[(size_t) i];
+        grab::DeviceMenu::Item it;
+        it.id = i + 1;
+        it.selected = (it.id == selId);
+
+        switch (e.kind)
+        {
+            case DeviceEntry::Kind::blocksCluster:
+            {
+                auto b = topo.getBlockWithUID (e.repUid);
+                if (b != nullptr)
+                {
+                    it.name = b->getDeviceDescription();
+                    auto cm = clusterMembers.find (e.repUid);
+                    if (cm != clusterMembers.end() && cm->second.size() > 1)
+                        it.name += "  x" + juce::String ((int) cm->second.size());
+                    it.artFile = deviceArtFileForType (b->getType());
+                    juce::String meta = transport;
+                    if (b->versionNumber.isNotEmpty())
+                        meta += (meta.isNotEmpty() ? ", fw " : "fw ") + b->versionNumber;
+                    it.meta = meta;
+                }
+                else { it.name = e.label; }
+                break;
+            }
+            case DeviceEntry::Kind::risePort:
+                it.name    = e.portName;
+                it.meta    = (e.identifier == currentRiseId && currentRiseId.isNotEmpty()) ? transport : juce::String ("USB");
+                it.artFile = e.grand ? "grand-stage-61.svg" : "rise-25.svg";
+                break;
+
+            case DeviceEntry::Kind::blocksSwitch:
+                it.name    = e.label;
+                it.artFile = "seaboard-block-24.svg";
+                break;
+        }
+        out.add (it);
+    }
+    return out;
+}
+
+void MainComponent::showDeviceMenu()
+{
+    auto menu = std::make_unique<grab::DeviceMenu>();
+    menu->onPick = [this] (int id) { blockBox.setSelectedId (id, juce::sendNotification); };
+    menu->onTransport = [this] (int idx)
+    {
+        transportBox.setSelectedId (idx + 1, juce::sendNotification);   // 0 Auto / 1 USB / 2 BLE -> ids 1/2/3
+    };
+    menu->setContent (buildDeviceMenuItems(), transportBox.getSelectedId() - 1);
+    menu->setSize (grab::DeviceMenu::width, menu->contentHeight());
+
+    auto& box = juce::CallOutBox::launchAsynchronously (std::move (menu),
+                                                        deviceMenuBtn.getScreenBounds(), nullptr);
+    box.setArrowSize (0.0f);   // a plain rounded dropdown, not a pointer callout (Fred's design)
+    box.setDismissalMouseClicksAreAlwaysConsumed (true);
 }
 
 void MainComponent::refreshDeviceBox()
@@ -1336,7 +1694,38 @@ void MainComponent::touchChanged (roli::TouchSurface&, const roli::TouchSurface:
         strike = s != blockTouchStrike.end() ? s->second : z;
     }
 
+    // Glide = signed horizontal travel from where the finger landed (pitch bend direction/amount).
+    const float startNx = juce::jlimit (0.0f, 1.0f, t.startX / g.w);
+    const float glide    = juce::jlimit (-1.0f, 1.0f, nx - startNx);
+
+    // Feed every live view: the device graphic, the drawing-tile keystroke map, and the big Live-keys
+    // strip (Fred keeps the device graphic live while Live keys is open).
+    const int fingerId = (int) (((juce::uint32) t.blockUID * 131u) ^ (juce::uint32) t.index);
     keyboardView.setTouch ((juce::uint64) t.blockUID, (int) t.index, nx, ny, z, strike, t.isTouchEnd);
+    keystrokeMap.setTouch (fingerId, nx, ny, z, strike, glide, t.isTouchEnd);
+    liveStrip.setTouch    (fingerId, nx, ny, z, strike, glide, t.isTouchEnd);
+
+    // Live dots on the 5D graph: one per held finger, latest last (it gets the value guides).
+    if (t.isTouchEnd) liveInputs.erase (fingerId);
+    else              liveInputs[fingerId] = { strike, juce::jlimit (0.0f, 1.0f, 0.5f + glide), 1.0f - ny, z };   // slide: up = more
+    if (sensGraph != nullptr)
+    {
+        std::vector<SensitivityGraph::LiveInput> v;
+        for (auto& kv : liveInputs) if (kv.first != fingerId) v.push_back (kv.second);
+        if (! t.isTouchEnd) v.push_back (liveInputs[fingerId]);
+        sensGraph->setLiveInputs (std::move (v));
+
+        // Lift = release speed: on note-off the surface reports a negative zVelocity (pressing out).
+        // Some devices (Seaboard Block) send a fixed note-off / no release velocity - detect that
+        // (a release observed but never any velocity) and mark Lift unsupported.
+        if (t.isTouchEnd)
+        {
+            const float lift = juce::jlimit (0.0f, 1.0f, -t.zVelocity);
+            liftObserved = true;
+            if (lift > 0.02f) { liftReported = true; sensGraph->setLiftPulse (lift); }
+            sensGraph->setLiftUnsupported (liftObserved && ! liftReported);
+        }
+    }
 }
 
 void MainComponent::selectBlock (roli::Block::UID uid)
@@ -1353,8 +1742,7 @@ void MainComponent::selectBlock (roli::Block::UID uid)
 
     // Reset per-block config state and re-read for the newly selected block.
     rows.clear();
-    curveRows.clear();
-    curves.clear();
+    sensGraph.reset();
     sectionHeaders.clear();
     layoutOrder.clear();
     rowHolder.removeAllChildren();
@@ -1380,7 +1768,7 @@ void MainComponent::openDialog (juce::Component* panel, const juce::String& titl
     o.dialogTitle = title;
     o.dialogBackgroundColour = getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId);
     o.escapeKeyTriggersCloseButton = true;
-    o.useNativeTitleBar = true;
+    o.useNativeTitleBar = false;   // JUCE-drawn title bar: dark, matches the window, no OS app icon
     o.resizable = true;
     o.launchAsync();
 }
@@ -1461,7 +1849,7 @@ void MainComponent::openCaptureWindow()
     };
 
     auto* w = new CaptureWindow (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
-    w->setUsingNativeTitleBar (true);
+    w->setUsingNativeTitleBar (false);   // themed title bar + close button, matching the other dialogs
     w->setContentOwned (new CapturePanel (std::move (describe)), true);
     w->setResizable (true, false);
     w->centreAroundComponent (this, w->getWidth(), w->getHeight());
@@ -1670,9 +2058,8 @@ bool MainComponent::controlExistsFor (juce::uint32 id) const
     // A curve owns its sensitivity id AND its min/max end-node ids (50-55). Those have no row
     // of their own, so without this a live-write echo of a min/max value looked like the visible
     // set had changed and triggered a full rebuildRows() mid-drag (jerky handles, flashing Save).
-    for (auto* c : curves)
-        if (c->getId() == id || c->getMinId() == (int) id || c->getMaxId() == (int) id)
-            return true;
+    if (sensGraph != nullptr && sensGraph->owns (id))
+        return true;
     return false;
 }
 
@@ -1703,19 +2090,20 @@ void MainComponent::applyLiveConfigChange (const roli::Block::ConfigMetaData& me
     if (! userEdited)
     {
         pendingValues[index] = v;
-        for (auto& r : rows)   if (r->getId() == index) { r->setValue (v);       r->setChangedFromDevice (false); }
-        for (auto* c : curves) if (c->getId() == index) { c->setSensitivity (v); c->setChanged (false); }
+        for (auto& r : rows)   if (r->getId() == index) { r->setValue (v); r->setChangedFromDevice (false); }
+        if (sensGraph != nullptr) { sensGraph->setValue (index, v); sensGraph->setMinMax (index, v); sensGraph->setChanged (index, false); sensGraph->updateFixedVel (index, v); }
     }
     else
     {
         const bool stillDiffers = pendingValues[index] != v;
         for (auto& r : rows)   if (r->getId() == index) r->setChangedFromDevice (stillDiffers);
-        for (auto* c : curves) if (c->getId() == index) c->setChanged (stillDiffers);
+        if (sensGraph != nullptr) sensGraph->setChanged (index, stillDiffers);
     }
 
     updateSaveEnabled();
     updateLumiKeyboardColours();   // a device-reported change (scale/key/colour/mode) re-lights the graphic
     pushChordGhosts();             // ...and a Chord-mode change re-aims the touch ghosts
+    if (liveKeys) updateLiveStripRange();   // Octave/Transpose from the device move the Live-keys labels
 }
 
 void MainComponent::rebuildRows()
@@ -1726,8 +2114,9 @@ void MainComponent::rebuildRows()
 
     cards.clear();          // un-parents the rows/curves it holds
     rows.clear();
-    curveRows.clear();
-    curves.clear();
+    sensGraph.reset();
+    sensitivityCard = nullptr;
+    liftObserved = liftReported = false;   // re-assess lift support for the (possibly new) device
     rowHolder.removeAllChildren();
     deviceValues.clear();
     pendingValues.clear();
@@ -1786,6 +2175,8 @@ void MainComponent::rebuildRows()
 
         grab::applyLearnedNames (meta, learnedNames);  // names pulled from the store (user renames win)
 
+        meta.group = fredGroupBlocks (meta.name, meta.group);   // regroup into Fred's job-based sections
+
         deviceValues[meta.item] = value;
         pendingValues[meta.item] = value;
 
@@ -1811,6 +2202,11 @@ void MainComponent::rebuildRows()
     std::stable_sort (groupOrder.begin(), groupOrder.end(),
                       [] (const juce::String& a, const juce::String& b) { return groupRank (a) < groupRank (b); });
 
+    // Order fields within each card to Fred's tile order (MIDI Mode first in MIDI output, etc.).
+    for (auto& kv : groups)
+        std::stable_sort (kv.second.begin(), kv.second.end(), [] (const Item& a, const Item& b)
+        { return fredOrderBlocks (a.meta.name) < fredOrderBlocks (b.meta.name); });
+
     // The 5D sensitivity config ids -> curve panels (Strike/Glide/Slide/Press/Lift).
     struct Dim { juce::uint32 id; const char* label; juce::uint32 colour; int minId; int maxId; };
     static const Dim dims[] = {
@@ -1821,6 +2217,8 @@ void MainComponent::rebuildRows()
     for (const auto& g : groupOrder)
     {
         auto card = std::make_unique<SectionCard> (g.isEmpty() ? "Other" : g);
+        if (g == "Sensitivity")
+            card->setGraphRow (true);   // transparent holder: the graph + inspector are two sibling tiles
 
         auto emitRow = [&] (const Item& item)
         {
@@ -1833,24 +2231,34 @@ void MainComponent::rebuildRows()
 
         if (g == "Sensitivity")
         {
-            // 5D curves across the top of the card; remaining items (min/max, fixed
-            // velocity) as rows below.
-            auto cr = std::make_unique<CurveRow>();
+            // The 5D overlay graph + inspector spans the top of the card; remaining items
+            // (fixed velocity) stack as rows below.
+            auto sg = std::make_unique<SensitivityGraph> (onChange);
             for (const auto& d : dims)
             {
                 if (deviceValues.find (d.id) == deviceValues.end())
                     continue;
                 const int mn = (d.minId > 0 && deviceValues.count ((juce::uint32) d.minId)) ? deviceValues[(juce::uint32) d.minId] : 0;
                 const int mx = (d.maxId > 0 && deviceValues.count ((juce::uint32) d.maxId)) ? deviceValues[(juce::uint32) d.maxId] : 127;
-                auto* c = cr->add (std::make_unique<CurveComponent> (d.label, juce::Colour (d.colour),
-                                        d.id, deviceValues[d.id], d.minId, mn, d.maxId, mx, onChange));
-                curves.push_back (c);
+                sg->addDimension (d.id, d.label, juce::Colour (d.colour), deviceValues[d.id],
+                                  juce::jmax (0, d.minId), mn, juce::jmax (0, d.maxId), mx);
             }
-            if (! cr->curves.empty())
+            if (! sg->isEmpty())
             {
-                card->addItem (*cr, 130);
-                curveRows.push_back (std::move (cr));
+                card->addItem (*sg, 280);   // tall enough for the inspector panel (knobs + fixed velocity)
+                sensGraph = std::move (sg);
             }
+
+            // Fixed velocity moves into the inspector panel (Fred's design): hand its two config ids
+            // to the graph and don't emit them as separate rows.
+            juce::uint32 fvToggle = 0, fvValue = 0; bool fvOn = false; int fvVal = 100;
+            for (const auto& item : groups[g])
+            {
+                if (item.meta.name == juce::String ("Fixed Velocity"))            { fvToggle = item.meta.item; fvOn = item.value != 0; }
+                else if (item.meta.name == juce::String ("Fixed Velocity Value")) { fvValue  = item.meta.item; fvVal = item.value; }
+            }
+            if (sensGraph != nullptr && fvToggle != 0)
+                sensGraph->setFixedVelocity (fvToggle, fvOn, fvValue, fvVal);
 
             // Min/max are now set by dragging the curve end-nodes, so skip their rows.
             auto isCurveMinMax = [&] (juce::uint32 itemId)
@@ -1861,7 +2269,8 @@ void MainComponent::rebuildRows()
                 return false;
             };
             for (const auto& item : groups[g])
-                if ((item.meta.item < 10 || item.meta.item > 14) && ! isCurveMinMax (item.meta.item))
+                if ((item.meta.item < 10 || item.meta.item > 14) && ! isCurveMinMax (item.meta.item)
+                    && item.meta.item != fvToggle && item.meta.item != fvValue)
                     emitRow (item);
         }
         else if (g == "Buttons")
@@ -1890,12 +2299,14 @@ void MainComponent::rebuildRows()
                 emitRow (item);
         }
 
+        if (g == "Sensitivity") sensitivityCard = card.get();   // kept visible above Live keys
         rowHolder.addAndMakeVisible (*card);
         cards.push_back (std::move (card));
     }
 
     resized(); // positions the cards and sizes rowHolder
     saveButton.setEnabled (false);
+    updateSaveEnabled();   // set the Save/Revert button text ("In sync" when freshly loaded)
     updateLumiKeyboardColours();   // (re)light the LUMI/Piano keyboard from the freshly-read config
 
     // The read is done: refresh the shared device bar (incl. the item count) and clear any lingering
@@ -1916,12 +2327,12 @@ void MainComponent::onItemChanged (juce::uint32 id, juce::int32 value)
     for (auto& r : rows)
         if (r->getId() == id)
             r->setChangedFromDevice (differs);
-    for (auto* c : curves)
-        if (c->getId() == id)
-            c->setChanged (differs);
+    if (sensGraph != nullptr) sensGraph->setChanged (id, differs);
+    for (auto& c : cards) c->repaint();   // refresh each card's "N changed" header count
     updateSaveEnabled();
     updateLumiKeyboardColours();   // live-light the keyboard as scale/key/colours/mode are edited
     pushChordGhosts();             // live-update the chord ghosts as Chord mode is edited
+    if (liveKeys) updateLiveStripRange();   // Octave/Transpose edits move the Live-keys C labels
 
     // Live-write, Dashboard-style: queue this edit and let the throttle flush it to the
     // device within ~75 ms. A drag coalesces into one burst per window instead of a write
@@ -1979,10 +2390,10 @@ void MainComponent::flushLiveWrites()
         r->setChangedFromDevice (deviceValues.count (r->getId())
                                  && pendingValues.count (r->getId())
                                  && deviceValues[r->getId()] != pendingValues[r->getId()]);
-    for (auto* c : curves)
-        c->setChanged (deviceValues.count (c->getId())
-                       && pendingValues.count (c->getId())
-                       && deviceValues[c->getId()] != pendingValues[c->getId()]);
+    if (sensGraph != nullptr)
+        for (auto cid : sensGraph->sensIds())
+            sensGraph->setChanged (cid, deviceValues.count (cid) && pendingValues.count (cid)
+                                        && deviceValues[cid] != pendingValues[cid]);
     updateSaveEnabled();
 }
 
@@ -1991,16 +2402,26 @@ void MainComponent::updateSaveEnabled()
     if (savedFlash)   // during the "Saved" flash the button is intentionally lit; don't fight it
         return;
 
-    bool any = false;
+    int n = 0;
     for (auto& kv : pendingValues)
     {
         auto d = deviceValues.find (kv.first);
         if (d != deviceValues.end() && d->second != kv.second)
-            any = true;
+            ++n;
     }
-    // Autosave on: edits write themselves, so Save is just the flash target (stays disabled, no
-    // strobing). Off: Save lights up when there are unsaved edits and writes them on click.
+    const bool any = n > 0;
+
+    // Fred's save row: a primary "Save N changes" button (disabled "Save to device" when in sync),
+    // and a Revert link that reloads from the device - quiet "In sync" when there's nothing to revert.
+    // Autosave on: edits write themselves, so Save stays the (disabled) flash target, no strobing.
     saveButton.setEnabled (! autosaveToggle.getToggleState() && any);
+    saveButton.setButtonText (any ? TRANS ("Save ") + juce::String (n) + (n == 1 ? TRANS (" change") : TRANS (" changes"))
+                                  : TRANS ("Save to device"));
+    reloadButton.setButtonText (any ? TRANS ("Revert") : TRANS ("In sync"));
+    reloadButton.setEnabled (any);
+
+    // The preset bar's "Edited" badge: a preset is loaded and something now differs from the device.
+    presetBar.setEdited (any && lastRealPresetId > 0 && lastRealPresetId < kPresetSaveAs);
 }
 
 void MainComponent::flashSaved()
@@ -2453,6 +2874,20 @@ void MainComponent::populatePresetBox()
     presetBox.addItem ("Reveal presets folder...", kPresetReveal);
 
     presetBox.setSelectedId (0, juce::dontSendNotification);
+    lastRealPresetId = 0;
+    // Default the bar to the first real preset (MPE) for display rather than the "Preset..."
+    // placeholder - it does not apply the preset (the device config was just read).
+    for (int i = 0; i < presetBox.getNumItems(); ++i)
+    {
+        const int id = presetBox.getItemId (i);
+        if (id > 0 && id < kPresetSaveAs)
+        {
+            presetBox.setSelectedId (id, juce::dontSendNotification);
+            lastRealPresetId = id;
+            break;
+        }
+    }
+    updatePresetBar();
     resized();
 }
 
@@ -2472,8 +2907,7 @@ int MainComponent::applyPresetValues (const std::map<juce::uint32, juce::int32>&
         const bool differs = deviceValues.count (id) && deviceValues[id] != v;
         for (auto& r : rows)
             if (r->getId() == id) { r->setValue (v); r->setChangedFromDevice (differs); }
-        for (auto* c : curves)
-            if (c->getId() == id) { c->setSensitivity (v); c->setChanged (differs); }
+        if (sensGraph != nullptr) { sensGraph->setValue (id, v); sensGraph->setMinMax (id, v); sensGraph->setChanged (id, differs); }
         if (live && differs)
             dirtyWrites.insert (id);
         ++applied;
@@ -2643,7 +3077,7 @@ void MainComponent::forcePianoPreview()
     stopTimer();
     if (rise2Page != nullptr) { removeChildComponent (rise2Page.get()); rise2Page.reset(); }
     setBlocksControlsVisible (true);
-    presetBox.setVisible (false);   // presets are Seaboard-only for now
+    presetBar.setVisible (false);   // bar is the visible preset control; presetBox is the model   // presets are Seaboard-only for now
 
     using CT = roli::Block::ConfigMetaData::ConfigType;
     const auto mk = [] (int id, juce::int32 val, const char* name, CT type, int mn, int mx,
@@ -2723,7 +3157,7 @@ void MainComponent::forceControlPreview()
     stopTimer();
     if (rise2Page != nullptr) { removeChildComponent (rise2Page.get()); rise2Page.reset(); }
     setBlocksControlsVisible (true);
-    presetBox.setVisible (false);
+    presetBar.setVisible (false);   // bar is the visible preset control; presetBox is the model
 
     using CT = roli::Block::ConfigMetaData::ConfigType;
     const auto mk = [] (int id, juce::int32 val, const char* name, CT type, int mn, int mx, const char* group)
@@ -2772,7 +3206,7 @@ void MainComponent::forceLumiPreview()
     stopTimer();
     if (rise2Page != nullptr) { removeChildComponent (rise2Page.get()); rise2Page.reset(); }
     setBlocksControlsVisible (true);
-    presetBox.setVisible (false);   // presets are Seaboard-only for now
+    presetBar.setVisible (false);   // bar is the visible preset control; presetBox is the model   // presets are Seaboard-only for now
 
     using CT = roli::Block::ConfigMetaData::ConfigType;
     const auto mk = [] (int id, juce::int32 val, const char* name, CT type, int mn, int mx,
@@ -2880,7 +3314,7 @@ void MainComponent::forceLightpadPreview()
     stopTimer();
     if (rise2Page != nullptr) { removeChildComponent (rise2Page.get()); rise2Page.reset(); }
     setBlocksControlsVisible (true);
-    presetBox.setVisible (false);   // presets are Seaboard-only for now
+    presetBar.setVisible (false);   // bar is the visible preset control; presetBox is the model   // presets are Seaboard-only for now
 
     using CT = roli::Block::ConfigMetaData::ConfigType;
     const auto mk = [] (int id, juce::int32 val, const char* name, CT type, int mn, int mx,
@@ -2948,94 +3382,319 @@ void MainComponent::forceLightpadPreview()
     resized();
 }
 
+// Feed the Live-keys strip the physical key span and the octave/transpose shift so its C labels read
+// correctly. Called when Live keys opens and whenever Octave/Transpose change.
+void MainComponent::updateLiveStripRange()
+{
+    liveStrip.setRange (48, 24);   // Seaboard Block: 24 keys C3..B4 (matches the device art's keys)
+    keystrokeMap.setRange (48, 24);
+
+    // Live keys shows the physical key you're on, octave-adjusted - so the labels stay on C and track
+    // the Octave setting. Transpose is a MIDI-output transform (it doesn't move which key you press),
+    // so it's deliberately NOT applied here: a C key reads C6, not A#5, whatever the transpose.
+    int oct = 0;
+    if (block != nullptr)
+    {
+        const auto maxId = block->getMaxConfigIndex();
+        for (juce::uint32 id = 0; id < maxId; ++id)
+        {
+            auto meta = block->getLocalConfigMetaData (id);
+            if (juce::String (meta.name) != "Octave") continue;
+            auto pv = pendingValues.find (meta.item);
+            oct = pv != pendingValues.end() ? (int) pv->second : (int) block->getLocalConfigValue (id);
+            break;
+        }
+    }
+    liveStrip.setLabelShift (oct * 12);
+    keystrokeMap.setLabelShift (oct * 12);
+}
+
+void MainComponent::updatePresetBar()
+{
+    const int id = presetBox.getSelectedId();
+    const bool real = id > 0 && id < kPresetSaveAs;
+    presetBar.setName (real ? presetBox.getText() : juce::String ("Preset..."), ! real);
+}
+
+void MainComponent::stepPreset (int dir)
+{
+    const int n = presetBox.getNumItems();
+    int cur = presetBox.getSelectedItemIndex();
+    if (cur < 0) cur = dir > 0 ? -1 : n;   // nothing selected: start before the first / after the last
+    for (int i = cur + dir; i >= 0 && i < n; i += dir)
+    {
+        const int id = presetBox.getItemId (i);   // 0 for headings / separators
+        if (id > 0 && id < kPresetSaveAs)
+        {
+            presetBox.setSelectedItemIndex (i, juce::sendNotification);   // applies + updates the bar
+            return;
+        }
+    }
+}
+
+void MainComponent::updateSensitivityLayout()
+{
+    // Below Fred's ~760 fold the 5D inspector drops below the graph as a horizontal strip, so the
+    // sensitivity card needs to grow. Decide from the grid's available width (the sensitivity card is
+    // full-width, so the graph gets exactly this), and keep the graph's own narrow flag in step.
+    if (sensGraph == nullptr || sensitivityCard == nullptr) return;
+    const int availW = juce::jmax (260, viewport.getWidth() - 14);
+    const bool narrow = availW < 740;
+    sensGraph->setNarrow (narrow);
+    sensitivityCard->setItemHeight (sensGraph.get(),
+                                    narrow ? SensitivityGraph::narrowHeight : SensitivityGraph::fullHeight);
+}
+
+void MainComponent::layoutDrawingTile (juce::Rectangle<int> tile)
+{
+    // Fit the device art (or the compact keystroke map) inside the tile, and - when the Device|Keys
+    // toggle shows - reserve a column for it on the right so it always clears the drawing, never
+    // floating over it. Keeps the drawing tile self-contained on both the BLOCKS and RISE pages.
+    const int padX = grab::theme::space::tilePadX, padY = grab::theme::space::tilePadY;
+    const bool showToggle = keyboardView.isVisible();   // keyboardView visibility == "has a keyboard device"
+    viewToggle.setVisible (showToggle);
+    keystrokeMap.setVisible (showToggle && drawingIsMap);
+
+    auto drawArea = tile.reduced (padX, 6);   // small vertical inset so the art fills the compact band
+    if (showToggle)
+    {
+        auto col = drawArea.removeFromRight (viewToggle.preferredWidth());
+        viewToggle.setBounds (col.removeFromTop (viewToggle.preferredHeight()));
+        drawArea.removeFromRight (grab::theme::space::gutter);   // gap between art and toggle
+    }
+    // Keep the graphic from growing beyond the band if the tile is ever taller than Fred's device zone.
+    const int artMaxH = 116;
+    if (drawArea.getHeight() > artMaxH)
+        drawArea = drawArea.withSizeKeepingCentre (drawArea.getWidth(), artMaxH);
+
+    // Show the device art or the compact keystroke map; the hidden one gets no bounds.
+    if (showToggle && drawingIsMap) { keystrokeMap.setBounds (drawArea); keyboardView.setBounds ({}); }
+    else if (keyboardView.isVisible()) keyboardView.setBounds (drawArea);
+}
+
+void MainComponent::setDrawingView (bool map)
+{
+    if (drawingIsMap == map)
+        return;
+    drawingIsMap = map;
+    viewToggle.setIndex (map ? 1 : 0, false);
+    if (map) updateLiveStripRange();   // make sure the compact map has the right range/labels
+    resized();
+    setTransient (map ? grab::u8 ("Showing the keystroke map.")
+                      : grab::u8 ("Showing the device drawing."), false);
+}
+
+void MainComponent::enterLiveKeys (bool on)
+{
+    if (liveKeys == on || rise2Page != nullptr)   // BLOCKS keyboard page only (for now)
+        return;
+    if (on && ! keyboardView.isVisible())          // only a keyboard device can be "played"
+        return;
+    liveKeys = on;
+
+    // Fred's layout: the sensitivity curves stay (the viewport is clipped to just that card) and the
+    // Live-keys strip fills the space below, replacing only the control cards. The top band stays too.
+    viewport.setScrollBarsShown (! on, false);   // no scrolling while clipped to the sensitivity card
+    liveStrip.setVisible (on);
+    liveKeysLabel.setVisible (on);
+    backToSettingsBtn.setVisible (on);
+    if (on) { liveStrip.clearTouches(); updateLiveStripRange(); }
+
+    setTransient (on ? "Live keys: play the device to see where and how hard you press."
+                     : "Back to the settings.", ! on);
+    resized();
+    repaint();
+}
+
+namespace
+{
+    // The bento top band: three tiles (device drawing | dashboard | controls). Shared by the BLOCKS
+    // and RISE pages so they stay identical. splitTopBand removes the band (+ its gutter) from r.
+    struct TopBand  { juce::Rectangle<int> band, draw, dash, ctrl; };
+    struct CtrlSlots { juce::Rectangle<int> preset, reload, save, autosave, tools, conn, status, liveView, read; };
+
+    TopBand splitTopBand (juce::Rectangle<int>& r)
+    {
+        const int gutter = grab::theme::space::gutter;
+        TopBand tb;
+
+        // Narrow (Fred's < 760 fold): the drawing goes full-width on its own row, then the dashboard
+        // and controls sit side by side beneath it - three tiles across becomes one-over-two.
+        if (r.getWidth() < 740)
+        {
+            const int drawH = 120;    // full-width drawing row (matches the full band)
+            const int infoH = 120;    // dashboard / controls row
+            tb.band = r.removeFromTop (drawH + gutter + infoH);
+            r.removeFromTop (gutter);
+            auto band = tb.band;
+            band.removeFromRight (14);   // align with the scrolling cards (the viewport reserves the scrollbar)
+            tb.draw = band.removeFromTop (drawH);
+            band.removeFromTop (gutter);
+            const int ctrlW = juce::jlimit (210, 300, band.getWidth() * 2 / 5);
+            tb.ctrl = band.removeFromRight (ctrlW); band.removeFromRight (gutter);
+            tb.dash = band;   // dashboard takes the rest of the info row
+            return tb;
+        }
+
+        tb.band = r.removeFromTop (120);   // Fred's device zone height; the art centres at ~96px
+        r.removeFromTop (gutter);
+        auto band = tb.band;
+        band.removeFromRight (14);   // align with the scrolling cards below (the viewport reserves the scrollbar)
+        // Fred's toprow proportions: controls a fixed 240, the drawing the widest fixed tile, the
+        // dashboard flexible in the middle (at 920 this gives 446 / 210 / 240).
+        const int ctrlW = 240;
+        tb.ctrl = band.removeFromRight (ctrlW); band.removeFromRight (gutter);
+        const int drawW = juce::jlimit (280, 446, band.getWidth() - 200);   // keep >=200 for the dashboard
+        tb.draw = band.removeFromLeft (drawW); band.removeFromLeft (gutter);
+        tb.dash = band;   // the dashboard fills the flexible middle
+        return tb;
+    }
+
+    CtrlSlots splitCtrlSlots (juce::Rectangle<int> ctrlTile)
+    {
+        const int padX = grab::theme::space::tilePadX;
+        const int rowH = 30, gap = 5;
+        auto c = ctrlTile.reduced (padX, 10);
+        CtrlSlots s;
+        s.preset = c.removeFromTop (rowH); c.removeFromTop (gap);
+        auto rs = c.removeFromTop (rowH);
+        s.reload = rs.removeFromLeft (juce::jmin (92, rs.getWidth() / 2)); rs.removeFromLeft (gap); s.save = rs;
+        c.removeFromTop (gap);
+        // Fred's dev-act: [live view][read] | Autosave switch | [tools], all 30px icons but Autosave.
+        auto at = c.removeFromTop (rowH);
+        s.liveView = at.removeFromLeft (30);
+        s.read     = at.removeFromLeft (30);
+        at.removeFromLeft (8);
+        s.tools    = at.removeFromRight (30);
+        s.autosave = at;
+        s.conn   = {};   // connection type lives in the device menu now
+        s.status = {};   // status is shown in the footer (Fred's layout), freeing the band to 3 rows
+        return s;
+    }
+}
+
 void MainComponent::resized()
 {
     footer.setBounds (getLocalBounds().removeFromBottom (26));   // full-width strip at the very bottom
-    auto r = getLocalBounds().withTrimmedBottom (26).reduced (8);
-    // Shared top strip (both pages): persistent device bar on the left, transient status filling the
-    // rest on the right. One home for device/battery info; no more per-page duplicates.
-    auto topRow = r.removeFromTop (28);
-    deviceInfo.setBounds (topRow.removeFromLeft (juce::jmin (600, topRow.getWidth() * 3 / 5)));
-    topRow.removeFromLeft (12);
-    statusLabel.setBounds (topRow);
-    r.removeFromTop (4);
-
-    // The keyboard graphic (keyboard devices only) sits above the config content.
-    auto placeKeyboard = [this] (juce::Rectangle<int>& area)
-    {
-        if (keyboardView.isVisible())
-        {
-            // Size the keyboard to fill the width at the device's own aspect, capped at a max height
-            // (and a share of the available space), so wide devices (GRAND, with its surround) aren't
-            // crushed into a thin strip and smaller devices can show larger. The view centres its art.
-            const float aspect = juce::jmax (0.1f, keyboardView.contentAspect());
-            const int   maxH   = juce::jmin (210, juce::roundToInt (area.getHeight() * 0.42f));
-            const int   h      = juce::jlimit (96, juce::jmax (96, maxH),
-                                               juce::roundToInt (area.getWidth() / aspect));
-            keyboardView.setBounds (area.removeFromTop (h));
-            area.removeFromTop (8);
-        }
-    };
+    auto r = getLocalBounds().withTrimmedBottom (26).reduced (grab::theme::space::gutter);
+    drawTileR = dashTileR = ctrlTileR = {};   // cleared unless the three-tile band is built below
 
     // The RISE page owns its own reload/save/info/viewport, so when it's shown lay out
     // only the controls that still apply (Diagnose, Transport, Advanced) and hand it the
     // rest of the window. (The BLOCKS-only controls are hidden by setBlocksControlsVisible.)
     if (rise2Page != nullptr)
     {
-        auto row = r.removeFromTop (30);
-        diagnoseBtn.setBounds (row.removeFromLeft (100).reduced (2, 0));
-        row.removeFromLeft (8);
-        advancedBtn.setBounds (row.removeFromRight (92).reduced (2, 0));
-        row.removeFromRight (10);
-        transportLabel.setBounds (row.removeFromLeft (130));
-        transportBox.setBounds (row.removeFromLeft (92).reduced (2, 0));
-        // The "ROLI device:" switcher also appears here so you can switch away from the RISE/GRAND
-        // without restarting (fillDeviceBox hides it when there's nothing to switch to).
-        if (blockBox.isVisible())
+        // Same three-tile bento as the BLOCKS page. The RISE page fills the whole content area (and
+        // passes clicks through to this band); MainComponent owns the drawing / dashboard / Tools /
+        // Connection / status, and hands Rise2 the slots for its own Preset / Read / Save / Autosave.
+        deviceInfo.setStyle (DeviceInfoBar::Style::dashboard);
+        toolsIconBtn.setVisible (true);   // re-shown here (setBlocksControlsVisible hid it for this page)
+        advancedBtn.setBounds ({}); diagnoseBtn.setBounds ({}); contributeBtn.setBounds ({});
+        transportLabel.setBounds ({}); blockLabel.setBounds ({});
+
+        const auto full = r;            // the page covers the whole content area
+        rise2Page->setBounds (full);
+
+        auto work = full;               // compute the band within a copy; work -> below-band area
+        const auto tb = splitTopBand (work);
+        drawTileR = tb.draw; dashTileR = tb.dash; ctrlTileR = tb.ctrl;
+        const int padX = grab::theme::space::tilePadX, padY = grab::theme::space::tilePadY;
+
+        layoutDrawingTile (tb.draw);   // reserve the toggle's column so it clears the art here too
         {
-            row.removeFromLeft (10);
-            blockLabel.setBounds (row.removeFromLeft (84));
-            blockBox.setBounds (row.reduced (2, 0));
+            auto d = tb.dash.reduced (padX, padY);
+            if (deviceMenuBtn.isVisible()) { deviceMenuBtn.setBounds (d.removeFromTop (24)); d.removeFromTop (4); }
+            deviceInfo.setBounds (d);
         }
-        r.removeFromTop (6);
-        placeKeyboard (r);
-        rise2Page->setBounds (r);
+        const auto s = splitCtrlSlots (tb.ctrl);
+        toolsIconBtn.setBounds (s.tools);
+        transportBox.setBounds ({});   // connection type is in the DeviceMenu callout now
+        statusLabel.setBounds (s.status);
+
+        const auto off = full.getPosition();   // Rise2 children are in its local coords
+        rise2Page->setBentoControls (s.preset - off, s.reload - off, s.save - off, s.autosave - off,
+                                     work.getY() - full.getY());
         return;
     }
 
-    auto buttons = r.removeFromTop (30);
-    const int bw = 165;
-    reloadButton.setBounds (buttons.removeFromLeft (bw).reduced (2, 0));
-    saveButton  .setBounds (buttons.removeFromLeft (150).reduced (2, 0));
-    autosaveToggle.setBounds (buttons.removeFromLeft (90).reduced (2, 0));
-    buttons.removeFromLeft (8);
-    presetBox.setBounds (buttons.removeFromLeft (190).reduced (2, 0));
-    r.removeFromTop (6);
+    // --- Bento top row: three tiles, device drawing | dashboard | controls ---------------------
+    deviceInfo.setStyle (DeviceInfoBar::Style::dashboard);
+    // These three live in the Tools menu now; keep them as hidden logic owners on this page.
+    advancedBtn.setBounds ({}); diagnoseBtn.setBounds ({}); contributeBtn.setBounds ({});
+    transportLabel.setBounds ({}); blockLabel.setBounds ({});
 
-    auto trow = r.removeFromTop (26);
-    contributeBtn.setBounds (trow.removeFromRight (100).reduced (2, 0));
-    advancedBtn.setBounds (trow.removeFromRight (92).reduced (2, 0));
-    trow.removeFromRight (10);
-    transportLabel.setBounds (trow.removeFromLeft (130));
-    transportBox.setBounds (trow.removeFromLeft (92).reduced (2, 0));
-    trow.removeFromLeft (8);
-    diagnoseBtn.setBounds (trow.removeFromLeft (100).reduced (2, 0));
-    trow.removeFromLeft (10);
-    blockLabel.setBounds (trow.removeFromLeft (84));
-    blockBox.setBounds (trow.reduced (2, 0));
-    r.removeFromTop (6);
+    const int padX = grab::theme::space::tilePadX, padY = grab::theme::space::tilePadY;
+    const auto tb = splitTopBand (r);
+    drawTileR = tb.draw; dashTileR = tb.dash; ctrlTileR = tb.ctrl;
 
-    placeKeyboard (r);
+    // Drawing tile: the device art centred by KeyboardView, with the Device|Keys view toggle in a
+    // reserved column on the right so it sits beside the art rather than over it.
+    layoutDrawingTile (tb.draw);
+
+    // Dashboard tile: the device-name dropdown heading on top, then the labelled device facts.
+    {
+        auto d = tb.dash.reduced (padX, padY);
+        if (deviceMenuBtn.isVisible()) { deviceMenuBtn.setBounds (d.removeFromTop (24)); d.removeFromTop (4); }
+        deviceInfo.setBounds (d);
+    }
+
+    // Controls tile: preset; read + save; autosave + tools; transient status.
+    // (Connection type moved into the DeviceMenu callout, per Fred.)
+    {
+        const auto s = splitCtrlSlots (tb.ctrl);
+        presetBox.setBounds (s.preset);   // model: bounds anchor the popup; presetBar is drawn on top
+        presetBar.setBounds (s.preset);
+        reloadButton.setBounds (s.reload);
+        saveButton.setBounds (s.save);
+        liveViewBtn.setBounds (s.liveView);
+        readIconBtn.setBounds (s.read);
+        autosaveToggle.setBounds (s.autosave);
+        toolsIconBtn.setBounds (s.tools);
+        transportBox.setBounds ({});   // model only; menu drives it
+        statusLabel.setBounds (s.status);
+    }
+
+    // Live keys: keep the sensitivity curves (viewport clipped to that card), dock the strip below.
+    if (liveKeys)
+    {
+        viewport.setBounds (r);                               // full width so the grid lays out correctly
+        updateSensitivityLayout();
+        layoutCardGrid (viewport, rowHolder, cards, "Sensitivity");   // positions the sensitivity card at the top
+        const int sensH = sensitivityCard != nullptr ? sensitivityCard->getBottom() : 240;
+
+        auto area = r;
+        viewport.setBounds (area.removeFromTop (juce::jmin (sensH, area.getHeight())));   // show just the sensitivity
+        viewport.setViewPosition (0, 0);
+        area.removeFromTop (grab::theme::space::gutter);
+
+        auto head = area.removeFromTop (22);
+        backToSettingsBtn.setBounds (head.removeFromRight (150));
+        liveKeysLabel.setBounds (head);
+        area.removeFromTop (8);
+        liveStrip.setBounds (area);          // fills the rest of the window below the curves
+        busyLabel.setBounds (area);
+        return;
+    }
+
     viewport.setBounds (r);
     busyLabel.setBounds (r);   // overlay centred over the content area (shown during a reset)
+    updateSensitivityLayout();
 
     // Control-block page (has a "Buttons" card): give that card the width and keep MIDI Settings slim,
-    // so its busy per-button rows fit without a very wide window. Everything else uses the normal grid.
-    bool controlPage = false;
+    // so its busy per-button rows fit without a very wide window. The Seaboard keyboard page lays its
+    // settings cards in two 50% columns (MIDI output | Expression, then Keyboard | Play mode).
+    // Everything else uses the responsive grid.
+    bool controlPage = false, seaboardPage = false, hasExpr = false;
     for (auto& c : cards)
-        if (c->getTitle() == "Buttons") { controlPage = true; break; }
+    {
+        if (c->getTitle() == "Buttons")     controlPage  = true;
+        if (c->getTitle() == "MIDI output") seaboardPage = true;
+        if (c->getTitle() == "Expression")  hasExpr      = true;
+    }
     if (controlPage)
         layoutControlCards (viewport, rowHolder, cards, "Buttons");
+    else if (seaboardPage && hasExpr)
+        layoutTwoColumnCards (viewport, rowHolder, cards, "Sensitivity");
     else
         layoutCardGrid (viewport, rowHolder, cards, "Sensitivity");
 }
@@ -3043,4 +3702,24 @@ void MainComponent::resized()
 void MainComponent::paint (juce::Graphics& g)
 {
     g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
+
+    // The bento top-row tiles (BLOCKS page). Empty rects on the RISE page / when there's no art.
+    g.setColour (grab::theme::panel);
+    for (auto t : { drawTileR, dashTileR, ctrlTileR })
+        if (! t.isEmpty())
+            g.fillRoundedRectangle (t.toFloat(), grab::theme::radius::tile);
+
+    // The controls (MPE) tile: Fred's row rules - a horizontal divider between each of the three
+    // rows (preset / sync+save / actions) and a vertical one splitting the sync status from Save.
+    if (! ctrlTileR.isEmpty())
+    {
+        const auto s = splitCtrlSlots (ctrlTileR);
+        g.setColour (grab::theme::divider);
+        const float lx = (float) s.preset.getX(), rx = (float) s.preset.getRight();
+        auto hline = [&] (int yMid) { g.fillRect (juce::Rectangle<float> (lx, (float) yMid - 0.5f, rx - lx, 1.0f)); };
+        hline ((s.preset.getBottom() + s.reload.getY()) / 2);
+        hline ((s.save.getBottom()  + s.autosave.getY()) / 2);
+        const float vx = (float) (s.reload.getRight() + s.save.getX()) * 0.5f;
+        g.fillRect (juce::Rectangle<float> (vx - 0.5f, (float) s.reload.getY(), 1.0f, (float) s.reload.getHeight()));
+    }
 }

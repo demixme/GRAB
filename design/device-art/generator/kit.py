@@ -498,7 +498,17 @@ def assemble(name, family, low, count, kit, man, pitch=None):
     tiles, th = fam["tiles"], fam["tiles"]["tileHeight"]
     sx, sy = pitch / TW, kh / th
     sur = fam["surround"]
-    parts = [place(kit[f"{sur}-mid"], fam["left"] - 1, 0, (W - fam["left"] - fam["right"] + 2) / MID, 1),   # 1px overlap: no seams
+    midW = W - fam["left"] - fam["right"] + 2
+    # The Seaboard Block's chassis is plain fills (no even-odd), so a non-uniformly scaled mid slice
+    # renders a hairline-thin, slightly-taller strip with visible joins in JUCE. The model is a fixed
+    # size, so regenerate the mid at its real width (scale 1) - it then renders exactly like the caps.
+    if family == "block":
+        md = Doc(midW, H, "block-mid (full width)", {})
+        body_slice(md, 0, midW, S["devices"]["block"]["bodyRadius"], tones("block", "body"))
+        mid = place(md, fam["left"] - 1, 0)
+    else:
+        mid = place(kit[f"{sur}-mid"], fam["left"] - 1, 0, midW / MID, 1)   # 1px overlap: no seams
+    parts = [mid,
              place(kit[f"{sur}-left"], 0, 0),
              place(kit[f"{sur}-right"], W - fam["right"], 0)]
     if "ornament" in fam:

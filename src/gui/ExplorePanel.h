@@ -49,7 +49,7 @@ public:
 
         logView.setMultiLine (true);
         logView.setReadOnly (true);
-        logView.setFont (juce::Font (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), 12.0f, 0)));
+        logView.setFont (grab::theme::type::fontAt (14.0f));
         logView.setCaretVisible (false);
         addAndMakeVisible (logView);
 

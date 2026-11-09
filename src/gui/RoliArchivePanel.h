@@ -29,7 +29,7 @@ public:
     {
         addAndMakeVisible (title);
         title.setText ("Archive my ROLI downloads", juce::dontSendNotification);
-        title.setFont (juce::Font (juce::FontOptions (19.0f)).boldened());
+        title.setFont (grab::theme::type::fontAt (19.0f, 2));
         title.setColour (juce::Label::textColourId, grab::theme::accent);
 
         addAndMakeVisible (info);

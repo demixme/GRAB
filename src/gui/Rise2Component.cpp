@@ -1,7 +1,8 @@
 #include "Rise2Component.h"
 #include "MainComponent.h"
 #include "SectionCard.h"
-#include "FaderPanel.h"
+#include "SensitivityGraph.h"
+#include "CcCardGrid.h"
 #include "Help.h"
 #include "GrabPaths.h"
 
@@ -176,6 +177,37 @@ bool isGrandField (juce::uint32 id)
         || id == kOctave || id == kGlideTracking || id == kPressTracking;
 }
 
+// Fred's section + order for a RISE/GRAND field (design/ui/prototype/template.html device tiles).
+// Unmapped ids (the 5D sensitivities, fixed velocity) stay in "Sensitivity".
+juce::String fredGroupRise (juce::uint32 id)
+{
+    switch (id)
+    {
+        case kMode: case kZone: case kChannel: case kMembers: case kBend:                return "MIDI output";
+        case kGlideTracking: case kPressTracking: case kSlideMode: case kSlideCc:         return "Expression";
+        case kOctave: case kTranspose: case kSemitoneLegato:                              return "Keyboard";
+        case kFaderLeftCc: case kFaderMiddleCc: case kFaderRightCc:
+        case kXyXCc: case kXyYCc: case kPedalCc:                                          return "Controller CCs";
+        case kPortForwarding: case kPortThrottle:                                         return "Ports & power";
+        case kPedal1Cc: case kPedal2Cc: case kPedal3Cc:                                   return "Pedals";
+        default:                                                                          return "Sensitivity";
+    }
+}
+int fredOrderRise (juce::uint32 id)
+{
+    switch (id)
+    {
+        case kMode: return 0; case kZone: return 1; case kChannel: return 2; case kMembers: return 3; case kBend: return 4;
+        case kGlideTracking: return 0; case kPressTracking: return 1; case kSlideMode: return 2; case kSlideCc: return 3;
+        case kOctave: return 0; case kTranspose: return 1; case kSemitoneLegato: return 2;
+        case kFaderLeftCc: return 0; case kFaderMiddleCc: return 1; case kFaderRightCc: return 2;
+        case kXyXCc: return 3; case kXyYCc: return 4; case kPedalCc: return 5;
+        case kPortForwarding: return 0; case kPortThrottle: return 1;
+        case kPedal1Cc: return 0; case kPedal2Cc: return 1; case kPedal3Cc: return 2;
+        default: return 0;
+    }
+}
+
 const Field* findField (juce::uint32 id)
 {
     for (auto& f : fields())
@@ -224,6 +256,12 @@ bool isFaderField (juce::uint32 id)
 juce::String shortFaderLabel (juce::String n)
 {
     return n.replace (" Fader CC", "").replace ("XY Pad ", "").replace (" CC", "");
+}
+
+// Fred's CC-card label: "Left Fader CC" -> "Left fader", "XY Pad X CC" -> "XY pad X", "Pedal CC" -> "Pedal".
+juce::String ccCardLabel (juce::String n)
+{
+    return n.replace (" CC", "").replace ("Fader", "fader").replace ("Pad", "pad");
 }
 
 constexpr int rowHeight = 30;
@@ -284,6 +322,11 @@ Rise2Component::Rise2Component (seaprobe::RawLogger& loggerToUse, juce::String p
     liveCc.fill (-1);   // no CC data yet
     touchNote.fill (-1); touchZ.fill (0.0f); touchBend.fill (0.0f); touchStrike.fill (0.0f);
     touchSlide.fill (0.5f);   // Slide centred until the device reports a position
+
+    // Bento: this page fills the whole content area but lets clicks fall through to the drawing /
+    // dashboard / Tools / Connection that MainComponent overlays on the top band; our own children
+    // (buttons, combos, viewport) still receive mouse normally.
+    setInterceptsMouseClicks (false, true);
     // statusLabel / infoLabel are no longer shown here - status + device info are routed up to
     // MainComponent's shared top bar (onStatus / onDeviceInfo). The members stay as harmless
     // fallbacks for the rare pre-wiring call.
@@ -686,8 +729,7 @@ void Rise2Component::onState (rise2::State s)
         expected.clear();
         // Clear any rows a prior read built, so nothing stale shows under the message.
         rows.clear();
-        curveRow.reset();
-        curves.clear();
+        sensGraph.reset();
         sectionHeaders.clear();
         layoutOrder.clear();
         rowHolder.removeAllChildren();
@@ -707,7 +749,7 @@ void Rise2Component::onState (rise2::State s)
 
     if (expected.empty())
     {
-        setStatus ("Read " + juce::String ((int) rows.size() + (int) curves.size()) + " settings from the device."
+        setStatus ("Read " + juce::String ((int) rows.size() + (sensGraph != nullptr ? (int) sensGraph->sensIds().size() : 0)) + " settings from the device."
                    + (oldRise ? juce::String ("  Writes enabled (confirmed from a RISE 25 capture); "
                                               "min/max aren't shown - not reported reliably on this firmware.")
                               : juce::String()));
@@ -747,12 +789,12 @@ rise2::Messages Rise2Component::writeFor (juce::uint32 id, juce::int32 v) const
 
 void Rise2Component::rebuildRows()
 {
-    cards.clear();          // un-parents the rows/curves/faders it holds
-    faderPanel.reset();
-    faders.clear();
+    cards.clear();          // un-parents the rows/graph/CC cards it holds
+    sensitivityCard = nullptr;
+    ccGrid.reset();
+    ccCards.clear();
     rows.clear();
-    curveRow.reset();
-    curves.clear();
+    sensGraph.reset();
     rowHolder.removeAllChildren();
 
     // Snapshot the current values before clearing. The GRAND accepts Transpose / Press Mode / Glide
@@ -774,11 +816,17 @@ void Rise2Component::rebuildRows()
     const auto include = [this] (juce::uint32 id)
     { return grand ? isGrandField (id) : ! isGrandOnlyField (id); };
 
-    const char* groupOrder[] = { "Sensitivity", "MIDI Settings", "Play mode", "MIDI CC Assignments", "Pedals", "Power" };
+    const char* groupOrder[] = { "Sensitivity", "MIDI output", "Expression", "Keyboard",
+                                 "Controller CCs", "Pedals", "Ports & power" };
     for (auto* g : groupOrder)
     {
         const juce::String group (g);
         auto card = std::make_unique<SectionCard> (group);
+        if (group == "Sensitivity")
+        {
+            card->setGraphRow (true);   // transparent holder: the graph + inspector are two sibling tiles
+            sensitivityCard = card.get();
+        }
 
         auto addRow = [&] (const Field& f)
         {
@@ -798,58 +846,48 @@ void Rise2Component::rebuildRows()
 
         if (group == "Sensitivity")
         {
-            curveRow = std::make_unique<CurveRow>();
+            auto sg = std::make_unique<SensitivityGraph> (onChange);
             for (auto& d : dims)
             {
                 if (! include (d.id)) continue;   // GRAND: no Strike/Slide curve
                 const bool hasMinMax = d.minId != 0 && minMaxReliable && ! grand;   // old RISE / GRAND can't read min/max back
-                const int minId = hasMinMax ? (int) d.minId : -1;
-                const int maxId = hasMinMax ? (int) d.maxId : -1;
-                curves.push_back (curveRow->add (std::make_unique<CurveComponent> (
-                    d.label, juce::Colour (d.colour), d.id, deviceValues[d.id],
-                    minId, hasMinMax ? deviceValues[d.minId] : 0,
-                    maxId, hasMinMax ? deviceValues[d.maxId] : 127, onChange)));
+                sg->addDimension (d.id, d.label, juce::Colour (d.colour), deviceValues[d.id],
+                                  hasMinMax ? (int) d.minId : 0, hasMinMax ? deviceValues[d.minId] : 0,
+                                  hasMinMax ? (int) d.maxId : 0, hasMinMax ? deviceValues[d.maxId] : 127);
             }
-            card->addItem (*curveRow, 130);
+            if (! sg->isEmpty())
+            {
+                card->addItem (*sg, SensitivityGraph::fullHeight);
+                sensGraph = std::move (sg);
+            }
         }
 
-        if (group == "MIDI CC Assignments")
+        if (group == "Controller CCs")
         {
-            // Three touch faders as vertical faders + the XY pad as a 2D control; pedal is a row.
-            // Each shows a live meter of its assigned CC (animated from the device's MIDI).
-            faderPanel = std::make_unique<FaderPanel>();
+            // Fred's Controller CCs: a 3-up grid of CC cards (faders, XY pad axes and the pedal are
+            // each just a CC-number assignment - name on top, value + -/+ below).
+            ccGrid = std::make_unique<grab::CcGrid>();
             for (auto& f : fields())
-                if (juce::String (f.group) == group && isFaderField (f.id) && include (f.id)
-                    && f.id != kXyXCc && f.id != kXyYCc)
+                if (fredGroupRise (f.id) == group && ! isCurve (f.id) && include (f.id))
                 {
-                    auto* fader = faderPanel->add (std::make_unique<Fader> (
-                        f.id, shortFaderLabel (f.name), deviceValues[f.id], f.lo, f.hi, onChange));
-                    fader->setTooltip (grab::helpForParameter (f.name));
-                    faders.push_back (fader);
+                    auto* cc = ccGrid->add (f.id, ccCardLabel (f.name), deviceValues[f.id], f.lo, f.hi, onChange);
+                    cc->setTooltip (grab::helpForParameter (f.name));
+                    ccCards.push_back (cc);
                 }
-            if (include (kXyXCc))
-            {
-                auto* pad = faderPanel->setXYPad (std::make_unique<XYPad> (
-                    kXyXCc, kXyYCc, deviceValues[kXyXCc], deviceValues[kXyYCc], onChange));
-                pad->setTooltip (grab::helpForParameter ("XY Pad X CC"));
-            }
-            faderPanel->setLiveSource (liveCc.data());
-            faderPanel->onLive = [this] (float l, float m, float r, float x, float y)
-            {
-                if (onPanel != nullptr) onPanel (l, m, r, x, y);   // mirror the hardware onto the device graphic
-            };
-            if (! faderPanel->faders.empty() || faderPanel->xy != nullptr)
-                card->addItem (*faderPanel, 150);
-
-            for (auto& f : fields())
-                if (juce::String (f.group) == group && ! isFaderField (f.id) && ! isCurve (f.id) && include (f.id))
-                    addRow (f);
+            if (! ccGrid->isEmpty())
+                card->addItem (*ccGrid, ccGrid->preferredHeight());
         }
         else
         {
+            // Collect this section's fields and lay them in Fred's order.
+            std::vector<const Field*> inGroup;
             for (auto& f : fields())
-                if (juce::String (f.group) == group && ! isCurve (f.id) && ! isCurveMinMax (f.id) && include (f.id))
-                    addRow (f);
+                if (fredGroupRise (f.id) == group && ! isCurve (f.id) && ! isCurveMinMax (f.id) && include (f.id))
+                    inGroup.push_back (&f);
+            std::stable_sort (inGroup.begin(), inGroup.end(),
+                              [] (const Field* a, const Field* b) { return fredOrderRise (a->id) < fredOrderRise (b->id); });
+            for (auto* f : inGroup)
+                addRow (*f);
         }
 
         if (! card->isEmpty())   // skip a section with no fields for this device (e.g. Pedals on a RISE)
@@ -870,12 +908,7 @@ void Rise2Component::onItemChanged (juce::uint32 id, juce::int32 v)
     for (auto& r : rows)
         if (r->getId() == id)
             r->setChangedFromDevice (differs);
-    for (auto* c : curves)
-        if (c->getId() == id)
-            c->setChanged (differs);
-    for (auto* f : faders)
-        if (f->getId() == id)
-            f->setChanged (differs);
+    if (sensGraph != nullptr) sensGraph->setChanged (id, differs);
     updateEnabled();
 
     // Live-write, Dashboard-style: queue the edit and let the throttle send it within ~75 ms,
@@ -930,8 +963,12 @@ void Rise2Component::flushLiveWrites()
     }
 
     for (auto& r : rows)   r->setChangedFromDevice (deviceValues[r->getId()] != pendingValues[r->getId()]);
-    for (auto* c : curves) c->setChanged (deviceValues[c->getId()] != pendingValues[c->getId()]);
-    for (auto* f : faders) f->setChanged (deviceValues[f->getId()] != pendingValues[f->getId()]);
+    if (sensGraph != nullptr)
+        for (auto cid : sensGraph->sensIds())
+            sensGraph->setChanged (cid, deviceValues[cid] != pendingValues[cid]);
+    // CC cards self-track against their baseline; after a write lands that baseline is the new
+    // device value, so advance it (clears the card's changed dot + the card header's "N changed").
+    for (auto* c : ccCards) c->setDeviceValue (deviceValues[c->getId()]);
     updateEnabled();
 }
 
@@ -1070,14 +1107,14 @@ int Rise2Component::applyPresetValues (const std::map<juce::uint32, juce::int32>
         const bool differs = deviceValues[id] != v;
         for (auto& r : rows)
             if (r->getId() == id) { r->setValue (v); r->setChangedFromDevice (differs); }
-        for (auto* c : curves)
+        if (sensGraph != nullptr)
         {
-            if (c->getId()    == id)       { c->setSensitivity (v); c->setChanged (differs); }
-            if (c->getMinId() == (int) id) c->setMin (v);
-            if (c->getMaxId() == (int) id) c->setMax (v);
+            sensGraph->setValue (id, v);
+            sensGraph->setMinMax (id, v);
+            sensGraph->setChanged (id, differs);   // no-op unless id is a sensitivity id
         }
-        for (auto* f : faders)
-            if (f->getId() == id) { f->setValue (v); f->setChanged (differs); }
+        for (auto* c : ccCards)
+            if (c->getId() == id) { c->setValue (v); c->setDeviceValue (v); }   // device value = new baseline
         if (live && differs)
             dirtyWrites.insert (id);
         ++applied;
@@ -1257,11 +1294,35 @@ void Rise2Component::setStatus (const juce::String& s)
     else          statusLabel.setText (s, juce::dontSendNotification);
 }
 
+void Rise2Component::setBentoControls (juce::Rectangle<int> preset, juce::Rectangle<int> reload,
+                                       juce::Rectangle<int> save, juce::Rectangle<int> autosave,
+                                       int viewportTop)
+{
+    bentoPreset = preset; bentoReload = reload; bentoSave = save; bentoAutosave = autosave;
+    bentoViewportTop = viewportTop;
+    resized();
+}
+
 void Rise2Component::resized()
 {
     auto r = getLocalBounds();
-    // Status + device info now live in MainComponent's shared top bar, so the RISE page starts
-    // straight at its controls (no local status/info row here any more).
+
+    if (bentoViewportTop >= 0)
+    {
+        // Bento: MainComponent placed the drawing / dashboard / Tools / Connection on the top band
+        // and handed us the control slots; we just drop our four controls in and start the viewport
+        // below the band.
+        presetBox.setBounds (bentoPreset);
+        reloadButton.setBounds (bentoReload);
+        saveButton.setBounds (bentoSave);
+        autosaveToggle.setBounds (bentoAutosave);
+        viewport.setBounds (r.withTop (bentoViewportTop));
+        updateSensitivityLayout();
+        layoutTwoColumnCards (viewport, rowHolder, cards, "Sensitivity");
+        return;
+    }
+
+    // Legacy single-row layout (no bento band).
     auto buttons = r.removeFromTop (30);
     reloadButton.setBounds (buttons.removeFromLeft (165).reduced (2, 0));
     saveButton  .setBounds (buttons.removeFromLeft (150).reduced (2, 0));
@@ -1271,5 +1332,16 @@ void Rise2Component::resized()
     r.removeFromTop (6);
 
     viewport.setBounds (r);
-    layoutCardGrid (viewport, rowHolder, cards, "Sensitivity");
+    updateSensitivityLayout();
+    layoutTwoColumnCards (viewport, rowHolder, cards, "Sensitivity");
+}
+
+void Rise2Component::updateSensitivityLayout()
+{
+    if (sensGraph == nullptr || sensitivityCard == nullptr) return;
+    const int availW = juce::jmax (260, viewport.getWidth() - 14);
+    const bool narrow = availW < 740;
+    sensGraph->setNarrow (narrow);
+    sensitivityCard->setItemHeight (sensGraph.get(),
+                                    narrow ? SensitivityGraph::narrowHeight : SensitivityGraph::fullHeight);
 }
