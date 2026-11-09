@@ -166,13 +166,21 @@ public:
         for (auto& k : knobR)
             if (k.area.contains (e.position)) { drag = k.target; dragStart = valueFor (d, k.target); applyKnob (e); return; }
 
-        // Clicking another dimension's curve selects it; otherwise drag the selected curve
-        // (end nodes if near, else the sensitivity).
+        // A min / max handle grabs first, even when it sits exactly on the plot edge (mn = 0 at the
+        // bottom-left, mx = 127 at the top-right) - there plotR.contains() rejects the point, which is
+        // why the handles used to feel un-draggable.
+        if (const Drag nodeDrag = pickPlotNode (d, e.position); nodeDrag != Drag::none)
+        {
+            drag = nodeDrag; dragStart = valueFor (d, drag); applyPlot (e); return;
+        }
+
+        // Otherwise, inside the plot: clicking another dimension's curve selects it, else drag the
+        // selected curve's sensitivity (its body).
         if (plotR.toFloat().contains (e.position))
         {
             const int hit = curveAtPoint (e.position);
             if (hit >= 0 && hit != selected) { selected = hit; drag = Drag::none; repaint(); return; }
-            drag = pickPlotDrag (d, e.position);
+            drag = Drag::sens;
             dragStart = valueFor (d, drag);
             applyPlot (e);
         }
@@ -433,6 +441,23 @@ private:
                           juce::PathStrokeType (1.5f), xform);
         }
 
+        // Dotted "default" curve: the selected dimension's page-load baseline, shown only once the curve
+        // has been moved - so you can see how far you've taken it. Only ever the selected dimension.
+        if (edited (sel))
+        {
+            auto base = grab::sensitivityCurvePath (sel.name, sel.initSens,
+                                                    (float) sel.initMn / 127.0f, (float) sel.initMx / 127.0f);
+            if (! base.isEmpty())
+            {
+                base.applyTransform (xform);
+                juce::Path dashed;
+                const float dl[] = { 4.0f, 4.0f };
+                juce::PathStrokeType (1.5f).createDashedStroke (dashed, base, dl, 2);
+                g.setColour (sel.colour.withAlpha (0.5f));
+                g.fillPath (dashed);
+            }
+        }
+
         // selected curve: soft fill under it, then a thick stroke
         const auto path = grab::sensitivityCurvePath (sel.name, sel.sens, (float) sel.mn / 127.0f, (float) sel.mx / 127.0f);
         {
@@ -488,13 +513,15 @@ private:
             }
         }
 
-        // end nodes for the selected dimension (Fred's .node: a 10px rounded square, 2px coloured stroke)
+        // Min / Max handles for the selected dimension (Fred's .node): a 10px rounded square, infilled
+        // in the dimension hue because it's the selected curve. A display-coloured gap sets it off the
+        // line. Drag these to move the output floor / ceiling (circular dots are live keypresses).
         if (sel.hasNodes() && sel.sens > 0)
             for (auto p : { toPlot ({ 0.0f, (float) sel.mn / 127.0f }), toPlot ({ 1.0f, (float) sel.mx / 127.0f }) })
             {
                 auto box = juce::Rectangle<float> (10.0f, 10.0f).withCentre (p);
-                g.setColour (display);    g.fillRoundedRectangle (box, 2.0f);
-                g.setColour (sel.colour); g.drawRoundedRectangle (box.reduced (1.0f), 2.0f, 2.0f);
+                g.setColour (display);    g.fillRoundedRectangle (box.expanded (2.0f), 3.0f);
+                g.setColour (sel.colour); g.fillRoundedRectangle (box, 2.0f);
             }
 
         // axes: labels + 0 / 64 / 127 ticks
@@ -705,14 +732,15 @@ private:
         return best;
     }
 
-    Drag pickPlotDrag (const Dim& d, juce::Point<float> pos) const
+    // The min / max handle under the point (within a generous grab radius), or none.
+    Drag pickPlotNode (const Dim& d, juce::Point<float> pos) const
     {
         if (d.hasNodes() && d.sens > 0)
         {
             if (pos.getDistanceFrom (toPlot ({ 0.0f, (float) d.mn / 127.0f })) < 16.0f) return Drag::minNode;
             if (pos.getDistanceFrom (toPlot ({ 1.0f, (float) d.mx / 127.0f })) < 16.0f) return Drag::maxNode;
         }
-        return Drag::sens;
+        return Drag::none;
     }
 
     void applyPlot (const juce::MouseEvent& e)
