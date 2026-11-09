@@ -18,6 +18,7 @@
 #include "Stepper.h"
 #include "Changeable.h"
 #include "DeviceMenu.h"
+#include "DeviceNameButton.h"
 #include "ColourWell.h"
 #include "DeviceInfoBar.h"
 #include "SectionCard.h"
@@ -274,7 +275,7 @@ private:
     juce::ComboBox     transportBox;
     juce::Label        blockLabel;
     juce::ComboBox     blockBox;        // selection model behind the pill (kept; drives onDeviceBoxChanged)
-    juce::TextButton   deviceMenuBtn;   // dashboard-tile pill: shows the current device, opens the rich menu
+    grab::DeviceNameButton deviceMenuBtn;   // dashboard heading: the device name + chevron, opens the rich menu
     void showDeviceMenu();              // open Fred's DeviceMenu callout (devices + connection type)
     juce::Array<grab::DeviceMenu::Item> buildDeviceMenuItems() const;
     void updateLiveStripRange();        // feed the Live-keys strip the key span + octave/transpose shift

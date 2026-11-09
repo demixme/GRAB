@@ -89,11 +89,8 @@ private:
         using namespace grab::theme;
         auto r = getLocalBounds();
 
-        g.setColour (ink);
-        g.setFont (type::font (type::Role::title));
-        g.drawText (fName, r.removeFromTop (22), juce::Justification::topLeft, true);
-        r.removeFromTop (6);
-
+        // The device name is the dropdown heading (DeviceNameButton), placed above this tile by the
+        // layout, so the dashboard body is just the labelled facts.
         const int rowH = 20;
         auto row = [&] (const juce::String& key, const juce::String& val, bool batteryRow = false)
         {

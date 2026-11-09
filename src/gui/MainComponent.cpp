@@ -1222,7 +1222,7 @@ void MainComponent::fillDeviceBox (int selectId)
     if (show && sel >= 0 && sel < (int) deviceEntries.size())
     {
         auto label = deviceEntries[(size_t) sel].label.upToFirstOccurrenceOf ("  ", false, false).trim();
-        deviceMenuBtn.setButtonText (label + "   " + juce::String (juce::CharPointer_UTF8 ("\xe2\x8c\x84")));
+        deviceMenuBtn.setButtonText (label);   // the chevron is drawn by DeviceNameButton
     }
     deviceMenuBtn.setVisible (show);
     resized();   // the pill's visibility affects the dashboard tile layout
@@ -3478,7 +3478,7 @@ void MainComponent::resized()
         layoutDrawingTile (tb.draw);   // reserve the toggle's column so it clears the art here too
         {
             auto d = tb.dash.reduced (padX, padY);
-            if (deviceMenuBtn.isVisible()) deviceMenuBtn.setBounds (d.removeFromBottom (30));
+            if (deviceMenuBtn.isVisible()) { deviceMenuBtn.setBounds (d.removeFromTop (24)); d.removeFromTop (6); }
             deviceInfo.setBounds (d);
         }
         const auto s = splitCtrlSlots (tb.ctrl);
@@ -3506,11 +3506,10 @@ void MainComponent::resized()
     // reserved column on the right so it sits beside the art rather than over it.
     layoutDrawingTile (tb.draw);
 
-    // Dashboard tile: vertical device info, with the ROLI-device switcher below it when present.
+    // Dashboard tile: the device-name dropdown heading on top, then the labelled device facts.
     {
         auto d = tb.dash.reduced (padX, padY);
-        if (deviceMenuBtn.isVisible())
-            deviceMenuBtn.setBounds (d.removeFromBottom (30));
+        if (deviceMenuBtn.isVisible()) { deviceMenuBtn.setBounds (d.removeFromTop (24)); d.removeFromTop (6); }
         deviceInfo.setBounds (d);
     }
 
