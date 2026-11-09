@@ -4,8 +4,9 @@
 write.** The RISE 2 was verified on fw 2.0.2 (macOS); the original RISE returns the **same
 224-byte state dump** and uses the **same `0x78 3D` / RPN / NRPN write protocol**, confirmed
 from a contributed RISE 25 Dashboard capture (see "Write protocol confirmed" below). The one
-caveat on the original: the Strike/Press/Lift **min/max block reads back as zeros**, so GRAB
-hides those (they're writable, just not readable on that firmware).
+caveat on the original: the Strike/Press/Lift **min/max block reads back as zeros** and the
+firmware **ignores those writes** (verified in MIDI Monitor — even ROLI Dashboard's own drags
+have no effect), so GRAB hides them on fw 1.x and shows only the Sensitivity knob.
 
 The **Seaboard GRAND is fully supported (v0.1.52)** — a `0x78` RISE-family device with a compact
 **87-byte `3A` reply** (vs the RISE's 224). Its config is the RISE's `3D` / RPN / NRPN protocol with
@@ -143,9 +144,9 @@ and the 49 — and most offsets above decode correctly against it:
 
 Because the port is named `ROLI Seaboard RISE 49`, `rise2::isRisePort()` already matches
 it, so GRAB (≥ 0.1.9) routes it to the RISE page rather than the BLOCKS path. GRAB treats
-any fw 1.x RISE as editable and **hides only** the Strike/Press/Lift min/max block (it reads
-back as zeros on that firmware — writable, just not readable), via `isCurveMinMax()` in
-`Rise2Component.cpp`.
+any fw 1.x RISE as editable and **hides only** the Strike/Press/Lift min/max block — the RISE 1
+firmware **ignores those writes** and reads them back as zeros (verified in MIDI Monitor; Dashboard
+can't change them either), via `isCurveMinMax()` + `minMaxReliable` in `Rise2Component.cpp`.
 
 **Field-confirmed post-release (Oct 2026, GRAB 0.1.21, macOS).** An independent, in-the-wild
 RISE 49 auto-explore capture reproduced the same `3A` reply: model `RISE1.001.1.0`, firmware
