@@ -3527,6 +3527,7 @@ namespace
             tb.band = r.removeFromTop (drawH + gutter + infoH);
             r.removeFromTop (gutter);
             auto band = tb.band;
+            band.removeFromRight (14);   // align with the scrolling cards (the viewport reserves the scrollbar)
             tb.draw = band.removeFromTop (drawH);
             band.removeFromTop (gutter);
             const int ctrlW = juce::jlimit (210, 300, band.getWidth() * 2 / 5);
@@ -3538,6 +3539,7 @@ namespace
         tb.band = r.removeFromTop (120);   // Fred's device zone height; the art centres at ~96px
         r.removeFromTop (gutter);
         auto band = tb.band;
+        band.removeFromRight (14);   // align with the scrolling cards below (the viewport reserves the scrollbar)
         // Fred's toprow proportions: controls a fixed 240, the drawing the widest fixed tile, the
         // dashboard flexible in the middle (at 920 this gives 446 / 210 / 240).
         const int ctrlW = 240;
