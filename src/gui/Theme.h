@@ -322,6 +322,37 @@ public:
                           left, ydent, b.getWidth() - left * 2, b.getHeight() - ydent * 2,
                           juce::Justification::centred, 2);
     }
+
+    // Fred's .combo: a flat sunken well (no outline), rounded, with a down chevron in the label
+    // colour on the right. Hover lifts to wellHover.
+    void drawComboBox (juce::Graphics& g, int width, int height, bool,
+                       int, int, int, int, juce::ComboBox& box) override
+    {
+        using namespace grab::theme;
+        auto r = juce::Rectangle<float> (0.0f, 0.0f, (float) width, (float) height);
+        g.setColour (box.isMouseOver (true) ? wellHover : well);
+        g.fillRoundedRectangle (r, (float) radius::control);
+
+        const float cx = (float) width - 16.0f, cy = (float) height * 0.5f, w = 4.0f, h = 2.5f;
+        juce::Path chev;
+        chev.startNewSubPath (cx - w, cy - h);
+        chev.lineTo          (cx,     cy + h);
+        chev.lineTo          (cx + w, cy - h);
+        g.setColour (box.isEnabled() ? label : disabled);
+        g.strokePath (chev, juce::PathStrokeType (1.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    }
+
+    juce::Font getComboBoxFont (juce::ComboBox&) override
+    {
+        return grab::theme::type::font (grab::theme::type::Role::control);
+    }
+
+    void positionComboBoxText (juce::ComboBox& box, juce::Label& label) override
+    {
+        label.setBounds (12, 0, box.getWidth() - 12 - 26, box.getHeight());
+        label.setFont (grab::theme::type::font (grab::theme::type::Role::control));
+        label.setJustificationType (juce::Justification::centredLeft);
+    }
 };
 
 } // namespace grab
