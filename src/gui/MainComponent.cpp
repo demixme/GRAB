@@ -1234,8 +1234,9 @@ void MainComponent::fillDeviceBox (int selectId)
     const bool show = ! deviceEntries.empty();
     if (show && sel >= 0 && sel < (int) deviceEntries.size())
     {
-        auto label = deviceEntries[(size_t) sel].label.upToFirstOccurrenceOf ("  ", false, false).trim();
-        deviceMenuBtn.setButtonText (label);   // the chevron is drawn by DeviceNameButton
+        auto label = deviceEntries[(size_t) sel].label.upToFirstOccurrenceOf ("  ", false, false)
+                                                      .upToFirstOccurrenceOf (" (", false, false).trim();
+        deviceMenuBtn.setButtonText (label);   // the chevron is drawn by DeviceNameButton (no cluster suffix)
     }
     deviceMenuBtn.setVisible (show);
     resized();   // the pill's visibility affects the dashboard tile layout
@@ -3473,11 +3474,13 @@ namespace
         tb.band = r.removeFromTop (150);   // compact band (Fred's ~120 device zone); the art centres smaller
         r.removeFromTop (gutter);
         auto band = tb.band;
-        const int ctrlW = juce::jlimit (200, 260, band.getWidth() / 4);
-        const int dashW = juce::jlimit (200, 300, band.getWidth() / 4);
+        // Fred's toprow proportions: controls a fixed 240, the drawing the widest fixed tile, the
+        // dashboard flexible in the middle (at 920 this gives 446 / 210 / 240).
+        const int ctrlW = 240;
         tb.ctrl = band.removeFromRight (ctrlW); band.removeFromRight (gutter);
-        tb.dash = band.removeFromRight (dashW); band.removeFromRight (gutter);
-        tb.draw = band;   // the device drawing takes the remaining (widest) space
+        const int drawW = juce::jlimit (280, 446, band.getWidth() - 200);   // keep >=200 for the dashboard
+        tb.draw = band.removeFromLeft (drawW); band.removeFromLeft (gutter);
+        tb.dash = band;   // the dashboard fills the flexible middle
         return tb;
     }
 

@@ -168,16 +168,20 @@ namespace grab::theme
             float h = 13.0f;
             juce::Typeface::Ptr tf = detail::regular();
 
+            // JUCE renders the Red Hat SemiBold ~1.33x larger than the Regular at the same point
+            // height (a per-typeface metrics quirk), so the SemiBold title role carries a correction
+            // to land at the same visual size as the body text - matching Fred's 13px titles.
+            float corr = 1.0f;
             switch (r)
             {
                 case Role::readout: h = 20.0f; tf = detail::medium();   break;  // knob readouts (weight 500)
-                case Role::title:   h = 13.0f; tf = detail::semibold(); break;  // tile titles, device name (weight 600)
+                case Role::title:   h = 13.0f; tf = detail::semibold(); corr = 0.75f; break;  // tile titles, device name (weight 600)
                 case Role::body:    h = 13.0f; break;  // row names, buttons, menus, chips (weight 400)
                 case Role::control: h = 12.0f; break;  // values inside controls
                 case Role::caption: h = 11.0f; break;  // device facts, units, axis labels, status bar
             }
 
-            return juce::Font { juce::FontOptions().withTypeface (tf).withPointHeight (h * uiScale) };
+            return juce::Font { juce::FontOptions().withTypeface (tf).withPointHeight (h * uiScale * corr) };
         }
     }
 
