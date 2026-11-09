@@ -10,7 +10,7 @@ instruments configurable and self-documents their protocol.
 
 <p align="center">
   <img src="docs/grab-screenshot.png" width="560"
-       alt="GRAB configuring a Seaboard Block: colour-coded 5D sensitivity curves with live touch rings on the keyboard graphic, and MIDI settings, pitch and play-mode cards below.">
+       alt="GRAB configuring a Seaboard Block in its FabFilter-style UI: one 5D sensitivity graph overlaying all five curves with live keypress dots, a Min/Sensitivity/Max inspector, the device drawing with touch rings, and MIDI output / expression / keyboard / play-mode cards below.">
 </p>
 
 ## Where it's at — v0.1.97
