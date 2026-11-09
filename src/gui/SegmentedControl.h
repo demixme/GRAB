@@ -62,8 +62,8 @@ namespace grab
         {
             using namespace grab::theme;
             auto r = getLocalBounds().toFloat();
-            g.setColour (well);
-            g.fillRoundedRectangle (r, radius::control);
+            g.setColour (well);                               // Fred's .seg track
+            g.fillRoundedRectangle (r, 12.0f);
 
             const int n = juce::jmax (1, labels.size());
             const float segW = r.getWidth() / (float) n;
@@ -71,12 +71,11 @@ namespace grab
             for (int i = 0; i < labels.size(); ++i)
             {
                 auto seg = juce::Rectangle<float> (r.getX() + segW * (float) i, r.getY(), segW, r.getHeight());
-                if (i == selected)
-                {
-                    g.setColour (segmentOn);
-                    g.fillRoundedRectangle (seg.reduced (2.0f), radius::segmentInner);
-                }
-                g.setColour (i == selected ? ink : ink2);
+                const bool sel = (i == selected);
+                const bool hov = (i == hovered && ! sel);
+                if (sel)      { g.setColour (segmentOn);   g.fillRoundedRectangle (seg.reduced (3.0f), 9.0f); }
+                else if (hov) { g.setColour (raisedHover); g.fillRoundedRectangle (seg.reduced (3.0f), 9.0f); }
+                g.setColour (sel || hov ? ink : ink2);
                 g.drawText (labels[i], seg, juce::Justification::centred, true);
             }
         }
@@ -87,10 +86,22 @@ namespace grab
             setSelectedIndex (juce::jlimit (0, n - 1, (int) (e.position.x / (getWidth() / (float) n))), true);
         }
 
+        void mouseMove  (const juce::MouseEvent& e) override { updateHover (e.position.x); }
+        void mouseEnter (const juce::MouseEvent& e) override { updateHover (e.position.x); }
+        void mouseExit  (const juce::MouseEvent&) override   { if (hovered != -1) { hovered = -1; repaint(); } }
+
     private:
+        void updateHover (float x)
+        {
+            const int n = juce::jmax (1, labels.size());
+            int i = (x < 0.0f || x >= (float) getWidth()) ? -1 : juce::jlimit (0, n - 1, (int) (x / (getWidth() / (float) n)));
+            if (i != hovered) { hovered = i; repaint(); }
+        }
+
         juce::StringArray labels;
         juce::Array<int>  values;   // empty => segment index is the value
         int selected = 0;
+        int hovered  = -1;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SegmentedControl)
     };
