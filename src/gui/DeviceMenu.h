@@ -133,7 +133,7 @@ namespace grab
                 g.drawText (it.meta, r.removeFromRight (118), juce::Justification::centredRight);
             }
             g.setColour (it.selected ? ink : ink2);
-            g.setFont (type::font (type::Role::control));
+            g.setFont (type::font (type::Role::body));
             g.drawText (it.name, r, juce::Justification::centredLeft, true);
         }
 

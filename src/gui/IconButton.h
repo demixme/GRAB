@@ -22,10 +22,11 @@ public:
     {
         using namespace grab::theme;
         auto r = getLocalBounds().toFloat();
-        const bool hot = isOver || isDown || isMouseButtonDown();
+        const bool pressed = isDown || isMouseButtonDown();
+        const bool hot = isOver || pressed;
         if (hot)
         {
-            g.setColour (raisedHover);
+            g.setColour (pressed ? segmentOn : raisedHover);
             g.fillRoundedRectangle (r.reduced (2.0f), 8.0f);
         }
 

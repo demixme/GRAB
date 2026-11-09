@@ -23,7 +23,7 @@ public:
         const juce::String name = getButtonText();
         const int nameW = juce::GlyphArrangement::getStringWidthInt (g.getCurrentFont(), name);
 
-        const int padL = 2, gap = 6, chevW = 10, padR = 8;
+        const int padL = 2, gap = 8, chevW = 10, padR = 8;
         auto pill = getLocalBounds();
         pill = pill.withWidth (juce::jmin (pill.getWidth(), padL + nameW + gap + chevW + padR));
 

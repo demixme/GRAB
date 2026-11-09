@@ -75,7 +75,7 @@ namespace grab
                 const bool hov = (i == hovered && ! sel);
                 if (sel)      { g.setColour (segmentOn);   g.fillRoundedRectangle (seg.reduced (3.0f), 9.0f); }
                 else if (hov) { g.setColour (raisedHover); g.fillRoundedRectangle (seg.reduced (3.0f), 9.0f); }
-                g.setColour (sel || hov ? ink : ink2);
+                g.setColour (sel || hov ? ink : label);
                 g.drawText (labels[i], seg, juce::Justification::centred, true);
             }
         }

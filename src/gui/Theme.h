@@ -180,6 +180,13 @@ namespace grab::theme
 
             return juce::Font { juce::FontOptions().withTypeface (tf).withPointHeight (h * uiScale) };
         }
+
+        // A role at Red Hat Medium (weight 500) - Fred sets his numeric values and .btn.primary this way.
+        inline juce::Font fontMedium (Role r)
+        {
+            const float h = r == Role::readout ? 20.0f : r == Role::control ? 12.0f : r == Role::caption ? 11.0f : 13.0f;
+            return juce::Font { juce::FontOptions().withTypeface (detail::medium()).withPointHeight (h * uiScale) };
+        }
     }
 
     // ---- Back-compat aliases (pre-redesign symbols; repointed onto the tokens above) -------
@@ -291,41 +298,41 @@ public:
         auto r = b.getLocalBounds().toFloat().reduced (0.5f);
         const float corner = radius::control;
         const bool on      = b.getToggleState();
+        const bool en      = b.isEnabled();
         const bool ghost   = (bool) b.getProperties().getWithDefault ("ghost",   false);
         const bool primary = (bool) b.getProperties().getWithDefault ("primary", false);
-        const bool lit     = on || (primary && b.isEnabled());
+        const bool outline = (bool) b.getProperties().getWithDefault ("outline", false);
 
         if (ghost) return;   // a text-only link (Revert / In sync): no fill, no outline
 
-        juce::Colour fill = lit            ? ((isOver || isDown) ? primaryHover : primaryFill)
-                          : (isOver || isDown) ? raisedHover : raised;
-        if (! b.isEnabled())
-            fill = raised.withAlpha (0.45f);
-
+        // Fred's .btn: flat raised fill, no border. Hover -> raised-hover, pressed/toggled -> segment-on
+        // grey (near-white is reserved for .btn.primary). Disabled keeps the full raised fill (text dims).
+        juce::Colour fill = (primary && en) ? ((isOver || isDown) ? primaryHover : primaryFill)
+                          : ! en            ? raised
+                          : (isDown || on)  ? segmentOn
+                          : isOver          ? raisedHover
+                          :                   raised;
         g.setColour (fill);
         g.fillRoundedRectangle (r, corner);
 
-        // A hairline edge only when raised above the surface; a lit (near-white) button needs none.
-        if (! lit)
+        if (outline && en && ! primary)   // only an explicit .btn.outline opts into a ring
         {
             g.setColour (isOver || isDown ? divider.brighter (0.2f) : divider);
             g.drawRoundedRectangle (r, corner, 1.0f);
         }
     }
 
-    // Keep the toggled-on (near-white) button legible: dark text on the primary fill.
     void drawButtonText (juce::Graphics& g, juce::TextButton& b, bool isOver, bool isDown) override
     {
         using namespace grab::theme;
         const bool on      = b.getToggleState();
         const bool primary = (bool) b.getProperties().getWithDefault ("primary", false);
-        const bool lit     = on || (primary && b.isEnabled());
-        auto col = ! b.isEnabled() ? disabled
-                 : lit             ? primaryText
-                 : (isOver || isDown) ? ink
-                 :                   ink2;
+        auto col = ! b.isEnabled()         ? disabled
+                 : (primary && b.isEnabled()) ? primaryText         // dark on the near-white primary fill
+                 : (on || isOver || isDown) ? ink                   // toggled / pressed / hover
+                 :                            ink2;
         g.setColour (col);
-        g.setFont (type::font (type::Role::body));
+        g.setFont (primary && b.isEnabled() ? type::fontMedium (type::Role::body) : type::font (type::Role::body));
 
         const int ydent = juce::jmin (4, b.getHeight() / 4);
         const int cnrSz = juce::jmin (b.getHeight(), b.getWidth()) / 2;
@@ -361,11 +368,11 @@ public:
             sw = { (float) area.getX(), (float) area.getCentreY() - th * 0.5f, tw, th };
         }
 
-        g.setColour (! en ? switchOff.withAlpha (0.5f) : on ? primaryFill : (isOver ? switchOffHover : switchOff));
+        g.setColour (! en ? segmentOn : on ? primaryFill : (isOver ? switchOffHover : switchOff));
         g.fillRoundedRectangle (sw, th * 0.5f);
         const float kr = th - 6.0f;
         const float kx = on ? sw.getRight() - kr - 3.0f : sw.getX() + 3.0f;
-        g.setColour (! en ? ink.withAlpha (0.5f) : on ? primaryText : ink);
+        g.setColour (! en ? disabled : on ? primaryText : ink);
         g.fillEllipse (kx, sw.getY() + 3.0f, kr, kr);
     }
 

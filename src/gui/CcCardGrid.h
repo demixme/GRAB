@@ -63,11 +63,12 @@ public:
         if (chg)
         {
             const int nw = juce::GlyphArrangement::getStringWidthInt (g.getCurrentFont(), name);
+            const float d = (float) size::changedDot;
             g.setColour (ink);
-            g.fillEllipse ((float) juce::jmin (10 + nw + 6, getWidth() - 12), 9.0f, 5.0f, 5.0f);
+            g.fillEllipse ((float) juce::jmin (10 + nw + 6, getWidth() - 12), 10.0f - d * 0.5f, d, d);
         }
 
-        g.setFont (type::font (type::Role::control));
+        g.setFont (type::fontMedium (type::Role::control));
         g.setColour (ink);
         g.drawText (juce::String (value), valueR.withTrimmedLeft (10), juce::Justification::centredLeft);
 
@@ -97,7 +98,7 @@ private:
     void drawStep (juce::Graphics& g, juce::Rectangle<int> z, bool plus, bool en)
     {
         using namespace grab::theme;
-        g.setColour (en ? ink2 : disabled);
+        g.setColour (en ? label : disabled);
         const auto c = z.getCentre().toFloat();
         const float r = 4.0f;
         g.drawLine (c.x - r, c.y, c.x + r, c.y, 1.5f);
