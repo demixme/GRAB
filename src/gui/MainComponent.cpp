@@ -369,10 +369,11 @@ void ConfigRow::setChangedFromDevice (bool c)
 
 void ConfigRow::resized()
 {
-    auto r = getLocalBounds().reduced (4, 2);
+    auto r = getLocalBounds().reduced (4, 1);
     if (! buttonCfg)
     {
-        // Fred's .row: the label flexes on the left, a fixed ~200px control column on the right.
+        // Fred's .row: the label flexes on the left, a fixed ~200px control column on the right; the
+        // control fills the row height (~32px), not a thin strip.
         const int ctrlW = juce::jlimit (140, 200, r.getWidth() - 100);
         auto c = r.removeFromRight (ctrlW);
         r.removeFromRight (12);   // gap between the label and the control
@@ -380,6 +381,7 @@ void ConfigRow::resized()
         if (control != nullptr) control->setBounds (c);
         return;
     }
+    r = getLocalBounds().reduced (4, 2);   // button rows keep their original vertical inset
 
     // Button rows pack a lot into one row, so give the "Button N" label a slim column and hand the
     // rest to the CC/behaviour line and the default/min/max steppers (otherwise the steppers truncate).
@@ -422,7 +424,7 @@ void ConfigRow::paint (juce::Graphics& g)
 }
 
 //==============================================================================
-static constexpr int rowHeight = 30;
+static constexpr int rowHeight = 34;   // control fills ~32px (Fred's size.control), not a thin 26px
 static constexpr int buttonRowHeight = 74;   // Control-block button rows: CC+behaviour over default/min/max, two lines of captions
 static constexpr int sectionHeaderHeight = 30;
 
