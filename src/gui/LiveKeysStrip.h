@@ -47,6 +47,16 @@ public:
         repaint();
     }
 
+    /** The device keybed's width/height, so the big Live-keys view holds the device's proportions
+        instead of stretching (Seaboard Block art is 600x300 -> 2.0). */
+    void setKeybedAspect (float widthOverHeight)
+    {
+        widthOverHeight = juce::jlimit (1.0f, 6.0f, widthOverHeight);
+        if (std::abs (widthOverHeight - keybedAspect) < 0.001f) return;
+        keybedAspect = widthOverHeight;
+        repaint();
+    }
+
     /** A live touch. nx across the keyboard (0..1), ny along the key / slide (0..1), z pressure
         (0..1), strike 0..1 (initial contact), glide -1..1 (signed pitch bend). end removes it.
         fingerId is any stable per-finger key. */
@@ -75,7 +85,18 @@ public:
         // A fixed readout row at the bottom-left (Fred's layout), below the keybed.
         auto content = full;
         auto readoutRow = compact ? juce::Rectangle<int>() : content.removeFromBottom (34);
-        auto keysR = content.reduced (compact ? 12 : 18, compact ? 10 : 14);   // fills the space below the curves
+        auto area = content.reduced (compact ? 12 : 18, compact ? 10 : 14);
+
+        // Keep the device's wide-and-short keybed proportions instead of stretching to fill the tall
+        // area: fit a keybedAspect:1 rectangle (centred), so the slide range matches the real keywave
+        // depth and the glide strips sit at the keybed's top/bottom edges.
+        auto keysR = area;
+        if (! compact)
+        {
+            int kw = area.getWidth(), kh = juce::roundToInt ((float) kw / keybedAspect);
+            if (kh > area.getHeight()) { kh = area.getHeight(); kw = juce::roundToInt ((float) kh * keybedAspect); }
+            keysR = juce::Rectangle<int> (kw, kh).withCentre (area.getCentre());
+        }
         const float x0 = (float) keysR.getX(), w = (float) keysR.getWidth();
         const float top = (float) keysR.getY(), h = (float) keysR.getHeight();
         const float tickH = h * (compact ? 0.42f : 0.5f);
@@ -113,7 +134,9 @@ public:
         {
             auto& t = kv.second;
             const float cx = x0 + t.dx * w;
-            const float cy = top + juce::jlimit (0.0f, 1.0f, t.dy) * h * 0.78f + h * 0.11f;
+            // Slide spans the full keybed height now that the keybed is device-proportioned: the glide
+            // strips (ny 0 and 1) land at the top/bottom edges, matching the device graphic.
+            const float cy = top + juce::jlimit (0.04f, 0.96f, t.dy) * h;
             const float a  = t.releasing ? juce::jlimit (0.0f, 1.0f, t.fade) : 1.0f;
 
             const float strikeR = (compact ? 2.0f : 4.0f)  + juce::jlimit (0.0f, 1.0f, t.strike) * (compact ? 7.0f : 24.0f);
@@ -227,6 +250,7 @@ private:
     }
 
     bool compact = false;
+    float keybedAspect = 2.0f;   // device keybed width/height (Seaboard Block art is 600x300)
     int  low = 48, count = 25;   // C3, two octaves (sensible default until setRange)
     int  shift = 0;              // octave*12 + transpose, added to displayed note names
     int  latestId = -1;          // the most recently pressed finger (its readout is the one shown)
