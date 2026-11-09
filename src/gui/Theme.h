@@ -235,6 +235,12 @@ public:
         setColour (juce::ComboBox::arrowColourId,      ink2);
         setColour (juce::ComboBox::buttonColourId,     well);
 
+        setColour (juce::PopupMenu::backgroundColourId,            panel);
+        setColour (juce::PopupMenu::textColourId,                  ink2);
+        setColour (juce::PopupMenu::highlightedBackgroundColourId, raisedHover);
+        setColour (juce::PopupMenu::highlightedTextColourId,       ink);
+        setColour (juce::PopupMenu::headerTextColourId,            label);
+
         setColour (juce::TextButton::buttonColourId,   raised);
         setColour (juce::TextButton::buttonOnColourId, segmentOn);
         setColour (juce::TextButton::textColourOffId,  ink2);
@@ -361,6 +367,85 @@ public:
         label.setBounds (12, 0, box.getWidth() - 12 - 26, box.getHeight());
         label.setFont (grab::theme::type::font (grab::theme::type::Role::control));
         label.setJustificationType (juce::Justification::centredLeft);
+    }
+
+    // ---- Popup menus (Fred's .menu): a rounded panel, items with a 7px rounded hover/selected pill,
+    //      a left checkmark on the ticked item, and caption-grey section headers. --------------------
+    void drawPopupMenuBackground (juce::Graphics& g, int width, int height) override
+    {
+        using namespace grab::theme;
+        auto r = juce::Rectangle<float> (0.0f, 0.0f, (float) width, (float) height).reduced (0.5f);
+        g.fillAll (juce::Colours::transparentBlack);
+        g.setColour (panel);
+        g.fillRoundedRectangle (r, 10.0f);
+        g.setColour (divider);
+        g.drawRoundedRectangle (r, 10.0f, 1.0f);
+    }
+
+    juce::Font getPopupMenuFont() override { return grab::theme::type::font (grab::theme::type::Role::body); }
+
+    void getIdealPopupMenuItemSize (const juce::String& text, bool isSeparator, int,
+                                    int& idealWidth, int& idealHeight) override
+    {
+        if (isSeparator) { idealWidth = 60; idealHeight = 11; return; }
+        idealHeight = 32;
+        idealWidth  = juce::GlyphArrangement::getStringWidthInt (getPopupMenuFont(), text) + 28 + 18;
+    }
+
+    void drawPopupMenuSectionHeader (juce::Graphics& g, const juce::Rectangle<int>& area,
+                                     const juce::String& sectionName) override
+    {
+        using namespace grab::theme;
+        g.setColour (label);
+        g.setFont (type::font (type::Role::caption));
+        g.drawText (sectionName, area.reduced (10, 0).withTrimmedBottom (3),
+                    juce::Justification::bottomLeft, true);
+    }
+
+    void drawPopupMenuItem (juce::Graphics& g, const juce::Rectangle<int>& area,
+                            bool isSeparator, bool isActive, bool isHighlighted, bool isTicked,
+                            bool hasSubMenu, const juce::String& text, const juce::String& shortcutKeyText,
+                            const juce::Drawable*, const juce::Colour*) override
+    {
+        using namespace grab::theme;
+        if (isSeparator)
+        {
+            auto s = area.withSizeKeepingCentre (area.getWidth() - 10, 1);
+            g.setColour (divider);
+            g.fillRect (s);
+            return;
+        }
+
+        auto r = area.reduced (4, 1);
+        if (isHighlighted && isActive) { g.setColour (raisedHover); g.fillRoundedRectangle (r.toFloat(), 7.0f); }
+        else if (isTicked)             { g.setColour (segmentOn);   g.fillRoundedRectangle (r.toFloat(), 7.0f); }
+
+        if (isTicked)   // left checkmark
+        {
+            const float cx = (float) r.getX() + 16.0f, cy = (float) r.getCentreY();
+            juce::Path check;
+            check.startNewSubPath (cx - 4.0f, cy + 0.5f);
+            check.lineTo          (cx - 1.0f, cy + 3.5f);
+            check.lineTo          (cx + 4.5f, cy - 3.5f);
+            g.setColour (ink);
+            g.strokePath (check, juce::PathStrokeType (1.6f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        }
+
+        g.setColour (! isActive ? disabled : (isHighlighted || isTicked) ? ink : ink2);
+        g.setFont (getPopupMenuFont());
+        auto textR = r.withTrimmedLeft (28).withTrimmedRight (hasSubMenu || shortcutKeyText.isNotEmpty() ? 22 : 10);
+        g.drawText (text, textR, juce::Justification::centredLeft, true);
+
+        if (hasSubMenu)   // right chevron
+        {
+            const float cx = (float) r.getRight() - 12.0f, cy = (float) r.getCentreY(), w = 2.5f, h = 3.5f;
+            juce::Path chev;
+            chev.startNewSubPath (cx - w, cy - h);
+            chev.lineTo          (cx + w, cy);
+            chev.lineTo          (cx - w, cy + h);
+            g.setColour (label);
+            g.strokePath (chev, juce::PathStrokeType (1.4f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        }
     }
 };
 
