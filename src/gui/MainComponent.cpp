@@ -97,6 +97,18 @@ ConfigRow::ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value
     nameLabel.setText (toSentenceCase (displayName), juce::dontSendNotification);
     addAndMakeVisible (nameLabel);
 
+    // Coloured dots after the label link the setting to the 5D dimension(s) it affects (Fred's design);
+    // a setting can touch more than one (e.g. "Glide & slide tracking").
+    {
+        using namespace grab::theme;
+        const auto& n = meta.name;
+        if (n.containsIgnoreCase ("strike")) dimDots.push_back (strike);
+        if (n.containsIgnoreCase ("glide"))  dimDots.push_back (glide);
+        if (n.containsIgnoreCase ("slide"))  dimDots.push_back (slide);
+        if (n.containsIgnoreCase ("press"))  dimDots.push_back (press);   // "Press mode", "Pressure tracking"
+        if (n.containsIgnoreCase ("lift"))   dimDots.push_back (lift);
+    }
+
     if (buttonCfg)
     {
         // Composite: CC + mode + default/min/max, which together are the packed button int. Matches
@@ -412,14 +424,27 @@ void ConfigRow::resized()
 
 void ConfigRow::paint (juce::Graphics& g)
 {
-    // A small accent dot on the left marks a value you've changed from what the device reported.
-    // It persists (unlike the old orange flash, which cleared the instant a live-write landed) and
-    // clears on Reload from device or a right-click / double-click reset.
+    using namespace grab::theme;
+    if (buttonCfg) return;
+
+    // After the label text: coloured dots for the 5D dimension(s) this setting affects, then a white
+    // dot if the value has been changed from the device value (Fred's design - markers on the right).
+    const juce::Font f = type::font (type::Role::body);
+    const int tw = juce::GlyphArrangement::getStringWidthInt (f, nameLabel.getText());
+    float dx = (float) nameLabel.getX() + (float) juce::jmin (tw, nameLabel.getWidth()) + 8.0f;
+    const float cy = (float) getHeight() * 0.5f;
+
+    for (auto col : dimDots)
+    {
+        g.setColour (col);
+        g.fillEllipse (dx, cy - 3.0f, 6.0f, 6.0f);
+        dx += 10.0f;
+    }
+
     if (getValue() != initialValue)
     {
-        const float d = 5.0f;
-        g.setColour (grab::theme::accent);
-        g.fillEllipse (2.0f, ((float) getHeight() - d) * 0.5f, d, d);
+        g.setColour (ink);
+        g.fillEllipse (dx, cy - 2.5f, 5.0f, 5.0f);
     }
 }
 

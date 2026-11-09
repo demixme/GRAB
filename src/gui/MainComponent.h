@@ -104,6 +104,7 @@ private:
     juce::Component* control = nullptr;
     ChangeFn change;
     bool changed = false;
+    std::vector<juce::Colour> dimDots;   // 5D dimension hues this setting affects, shown after the label
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ConfigRow)
 };
