@@ -18,7 +18,7 @@ public:
     {
         addAndMakeVisible (title);
         title.setText ("BLOCKS app inspector - experimental", juce::dontSendNotification);
-        title.setFont (juce::Font (juce::FontOptions (19.0f)).boldened());
+        title.setFont (grab::theme::type::fontAt (19.0f, 2));
         title.setColour (juce::Label::textColourId, grab::theme::accent);
 
         led = std::make_unique<LEDGridComponent> (app);
@@ -129,13 +129,13 @@ private:
 
     void add (Style s, const juce::String& text)
     {
-        juce::Font f (juce::FontOptions (14.5f));
+        juce::Font f = grab::theme::type::fontAt (15.0f);
         juce::Colour col = grab::theme::textPrimary;
         switch (s)
         {
-            case H1:   f = juce::Font (juce::FontOptions (16.5f)).boldened(); col = grab::theme::accent; break;
-            case H2:   f = juce::Font (juce::FontOptions (14.5f)).boldened();                            break;
-            case Note: f = juce::Font (juce::FontOptions (13.0f)); col = grab::theme::textPrimary.withAlpha (0.7f); break;
+            case H1:   f = grab::theme::type::fontAt (17.0f, 2); col = grab::theme::accent; break;
+            case H2:   f = grab::theme::type::fontAt (15.0f, 2);                            break;
+            case Note: f = grab::theme::type::fontAt (15.0f); col = grab::theme::textPrimary.withAlpha (0.7f); break;
             case Body: default: break;
         }
         body.setFont (f);

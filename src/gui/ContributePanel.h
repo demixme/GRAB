@@ -27,7 +27,7 @@ public:
 
         jsonView.setMultiLine (true);
         jsonView.setReadOnly (true);
-        jsonView.setFont (juce::Font (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), 12.0f, 0)));
+        jsonView.setFont (grab::theme::type::fontAt (14.0f));
         jsonView.setCaretVisible (false);
         addAndMakeVisible (jsonView);
 

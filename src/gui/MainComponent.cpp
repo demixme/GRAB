@@ -1768,7 +1768,7 @@ void MainComponent::openDialog (juce::Component* panel, const juce::String& titl
     o.dialogTitle = title;
     o.dialogBackgroundColour = getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId);
     o.escapeKeyTriggersCloseButton = true;
-    o.useNativeTitleBar = true;
+    o.useNativeTitleBar = false;   // JUCE-drawn title bar: dark, matches the window, no OS app icon
     o.resizable = true;
     o.launchAsync();
 }
@@ -1849,7 +1849,7 @@ void MainComponent::openCaptureWindow()
     };
 
     auto* w = new CaptureWindow (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
-    w->setUsingNativeTitleBar (true);
+    w->setUsingNativeTitleBar (false);   // themed title bar + close button, matching the other dialogs
     w->setContentOwned (new CapturePanel (std::move (describe)), true);
     w->setResizable (true, false);
     w->centreAroundComponent (this, w->getWidth(), w->getHeight());

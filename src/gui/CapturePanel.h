@@ -233,9 +233,9 @@ private:
                    : columnId == colValue ? grab::theme::accent
                    : columnId == colKind  ? (e.isConfig ? grab::theme::accent : grab::theme::textSecondary)
                                           : grab::theme::textSecondary);
-        const bool mono = (columnId == colRaw || columnId == colTime);
-        g.setFont (mono ? juce::Font (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), 12.0f, juce::Font::plain))
-                        : juce::Font (juce::FontOptions (13.0f)));
+        const bool mono = (columnId == colRaw || columnId == colTime);   // hex / timestamps: keep monospace
+        g.setFont (mono ? juce::Font (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), 13.0f, juce::Font::plain))
+                        : grab::theme::type::fontAt (14.0f));
         g.drawText (text, 4, 0, width - 8, height, juce::Justification::centredLeft, true);
     }
 

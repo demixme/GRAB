@@ -181,6 +181,15 @@ namespace grab::theme
             return juce::Font { juce::FontOptions().withTypeface (tf).withPointHeight (h * uiScale) };
         }
 
+        // Red Hat at an arbitrary pixel size (same metric correction as the Role fonts). Used by the
+        // modal panels' text areas so their prose is the app font, not the OS default. weight: 0 =
+        // regular, 1 = medium, 2 = semibold.
+        inline juce::Font fontAt (float px, int weight = 0)
+        {
+            juce::Typeface::Ptr tf = weight >= 2 ? detail::semibold() : weight == 1 ? detail::medium() : detail::regular();
+            return juce::Font { juce::FontOptions().withTypeface (tf).withPointHeight (px * uiScale) };
+        }
+
         // A role at Red Hat Medium (weight 500) - Fred sets his numeric values and .btn.primary this way.
         inline juce::Font fontMedium (Role r)
         {
@@ -452,7 +461,69 @@ public:
 
     int getCallOutBoxBorderSize (const juce::CallOutBox&) override { return 12; }
 
+    // Dialogs (openDialog) use a JUCE-drawn title bar instead of the OS one, so it matches the dark
+    // window and carries no application icon. The bar is left blank - each panel paints its own
+    // heading, so repeating the title here would just say it twice.
+    void drawDocumentWindowTitleBar (juce::DocumentWindow&, juce::Graphics& g,
+                                     int /*w*/, int /*h*/, int /*titleSpaceX*/, int /*titleSpaceW*/,
+                                     const juce::Image* /*icon*/, bool /*drawTitleTextOnLeft*/) override
+    {
+        g.fillAll (grab::theme::window);
+    }
+
+    // The title-bar close / min / max buttons for those JUCE-drawn bars: blend with the title bar
+    // (no OS red), a white glyph, a subtle hover fill. Close gets a red hover (the usual affordance).
+    juce::Button* createDocumentWindowButton (int buttonType) override
+    {
+        struct TitleBarButton  : public juce::Button
+        {
+            explicit TitleBarButton (int t) : juce::Button ({}), kind (t) {}
+            void paintButton (juce::Graphics& g, bool over, bool down) override
+            {
+                using namespace grab::theme;
+                auto r = getLocalBounds().toFloat();
+                const bool isClose = kind == juce::DocumentWindow::closeButton;
+                if (over || down)
+                {
+                    g.setColour (isClose ? juce::Colour (0xffe03131).withAlpha (down ? 1.0f : 0.9f) : raisedHover);
+                    g.fillRect (r);
+                }
+                const float cx = r.getCentreX(), cy = r.getCentreY();
+                const float s  = juce::jmin (r.getWidth(), r.getHeight()) * 0.2f;
+                juce::Path p;
+                if (isClose)
+                {
+                    p.startNewSubPath (cx - s, cy - s); p.lineTo (cx + s, cy + s);
+                    p.startNewSubPath (cx + s, cy - s); p.lineTo (cx - s, cy + s);
+                }
+                else if (kind == juce::DocumentWindow::minimiseButton)
+                {
+                    p.startNewSubPath (cx - s, cy + s); p.lineTo (cx + s, cy + s);
+                }
+                else
+                {
+                    p.addRectangle (cx - s, cy - s, s * 2.0f, s * 2.0f);
+                }
+                g.setColour (ink);
+                g.strokePath (p, juce::PathStrokeType (1.4f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+            }
+            int kind;
+        };
+        return new TitleBarButton (buttonType);
+    }
+
     juce::Font getPopupMenuFont() override { return grab::theme::type::font (grab::theme::type::Role::body); }
+
+    // Every juce::Label (dialog intros, field labels, status lines) renders in Red Hat, not the OS
+    // default - so the modal panels match the app. Size is preserved; a label that already set a Red
+    // Hat font (e.g. a bold heading) is left as-is so its weight survives.
+    juce::Font getLabelFont (juce::Label& label) override
+    {
+        auto f = label.getFont();
+        if (f.getTypefaceName().containsIgnoreCase ("Red Hat")) return f;
+        return juce::Font { juce::FontOptions().withTypeface (grab::theme::type::detail::regular())
+                                               .withHeight (f.getHeight()) };
+    }
 
     void getIdealPopupMenuItemSize (const juce::String& text, bool isSeparator, int,
                                     int& idealWidth, int& idealHeight) override

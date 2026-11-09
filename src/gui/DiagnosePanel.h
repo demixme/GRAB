@@ -19,7 +19,7 @@ public:
     {
         addAndMakeVisible (title);
         title.setText ("Diagnose connection", juce::dontSendNotification);
-        title.setFont (juce::Font (juce::FontOptions (20.0f)).boldened());
+        title.setFont (grab::theme::type::fontAt (20.0f, 2));
         title.setColour (juce::Label::textColourId, grab::theme::accent);
 
         addAndMakeVisible (body);
@@ -27,7 +27,7 @@ public:
         body.setReadOnly (true);
         body.setScrollbarsShown (true);
         body.setCaretVisible (false);
-        body.setFont (juce::Font (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), 13.0f, 0)));
+        body.setFont (grab::theme::type::fontAt (15.0f));
         body.setColour (juce::TextEditor::backgroundColourId, grab::theme::panelBgAlt);
         body.setColour (juce::TextEditor::textColourId,       grab::theme::textPrimary);
         body.setColour (juce::TextEditor::outlineColourId,    grab::theme::outline);

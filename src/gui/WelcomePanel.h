@@ -16,7 +16,7 @@ public:
     {
         addAndMakeVisible (title);
         title.setText ("GRAB " + grab::u8 ("-") + " how you can help", juce::dontSendNotification);
-        title.setFont (juce::Font (juce::FontOptions (20.0f)).boldened());
+        title.setFont (grab::theme::type::fontAt (20.0f, 2));
         title.setColour (juce::Label::textColourId, grab::theme::accent);
 
         addAndMakeVisible (body);
@@ -67,14 +67,14 @@ private:
 
     void add (Style s, const char* utf8)
     {
-        juce::Font   f (juce::FontOptions (15.0f));
+        juce::Font   f = grab::theme::type::fontAt (15.5f);
         juce::Colour col = grab::theme::textPrimary;
         switch (s)
         {
-            case H1:    f = juce::Font (juce::FontOptions (17.0f)).boldened(); col = grab::theme::accent;        break;
-            case H2:    f = juce::Font (juce::FontOptions (15.0f)).boldened();                                   break;
-            case Click: col = grab::theme::accent;                                                               break;
-            case Note:  f = juce::Font (juce::FontOptions (13.5f)); col = grab::theme::textPrimary.withAlpha (0.72f); break;
+            case H1:    f = grab::theme::type::fontAt (18.0f, 2); col = grab::theme::accent;        break;
+            case H2:    f = grab::theme::type::fontAt (15.5f, 2);                                   break;
+            case Click: col = grab::theme::accent;                                                 break;
+            case Note:  f = grab::theme::type::fontAt (15.5f); col = grab::theme::textPrimary.withAlpha (0.72f); break;
             case Body:  default: break;
         }
         body.setFont (f);
