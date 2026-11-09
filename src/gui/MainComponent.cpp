@@ -277,6 +277,7 @@ ConfigRow::ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value
         control->addMouseListener (this, true);
 
     nameLabel.setFont (grab::theme::type::font (grab::theme::type::Role::body));
+    nameLabel.setMinimumHorizontalScale (1.0f);   // never horizontally compress a long label (JUCE's default squashes)
     refreshChangedLook();   // start dim (ink2); brightens to ink when changed
 }
 

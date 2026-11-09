@@ -158,30 +158,26 @@ namespace grab::theme
         // px size IS the em square. JUCE's legacy withHeight() instead sizes ascent+descent, and with
         // Red Hat Display's tall metrics (1.32 em) that renders glyphs ~24% small - and historically
         // differed between Windows and macOS (CoreText), which is why a per-platform fudge was needed.
-        // withPointHeight() sizes the em square directly and identically on both platforms, so these
-        // numbers now render at the same visual size as the browser design. uiScale is the single knob
-        // to nudge the whole type ramp up or down.
-        inline constexpr float uiScale = 1.0f;
+        // withPointHeight() renders ~1.33x large here (it sizes in typographic points, 1pt ~= 1.33px,
+        // not CSS px) for EVERY weight, so the whole ramp carries a single 0.75 correction to land at
+        // Fred's px sizes. This is the one knob for the whole type ramp.
+        inline constexpr float uiScale = 0.75f;
 
         inline juce::Font font (Role r)
         {
             float h = 13.0f;
             juce::Typeface::Ptr tf = detail::regular();
 
-            // JUCE renders the Red Hat SemiBold ~1.33x larger than the Regular at the same point
-            // height (a per-typeface metrics quirk), so the SemiBold title role carries a correction
-            // to land at the same visual size as the body text - matching Fred's 13px titles.
-            float corr = 1.0f;
             switch (r)
             {
                 case Role::readout: h = 20.0f; tf = detail::medium();   break;  // knob readouts (weight 500)
-                case Role::title:   h = 13.0f; tf = detail::semibold(); corr = 0.75f; break;  // tile titles, device name (weight 600)
+                case Role::title:   h = 13.0f; tf = detail::semibold(); break;  // tile titles, device name (weight 600)
                 case Role::body:    h = 13.0f; break;  // row names, buttons, menus, chips (weight 400)
                 case Role::control: h = 12.0f; break;  // values inside controls
                 case Role::caption: h = 11.0f; break;  // device facts, units, axis labels, status bar
             }
 
-            return juce::Font { juce::FontOptions().withTypeface (tf).withPointHeight (h * uiScale * corr) };
+            return juce::Font { juce::FontOptions().withTypeface (tf).withPointHeight (h * uiScale) };
         }
     }
 
