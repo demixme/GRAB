@@ -62,6 +62,7 @@ private:
 
     void fireChange();
     void resetToDevice();   // revert to the device value and write it (double-/right-click)
+    void refreshChangedLook();   // label tone (ink2 -> ink when changed) + the changed dot
 
     juce::uint32 id;
     ConfigType   type;

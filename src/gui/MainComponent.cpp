@@ -59,6 +59,30 @@ int lowNoteForKeyCount (int keyCount)
     const int octs = juce::jlimit (1, 8, (keyCount + 6) / 12);
     return 72 - 12 * (octs / 2);   // ROLI keyboards sit an octave above the naive centre (see riseKeyRange)
 }
+
+// Fred's rule: sentence case everywhere, capitals only for acronyms and product names. Keep the
+// first word as-is (it's either a normal word, correctly capitalised to start the phrase, or an
+// acronym); for later words, lower-case the first letter unless the whole word is an acronym
+// (all-caps, e.g. MIDI / MPE / CC) or has no lower-casable letter (e.g. "No.").
+static juce::String toSentenceCase (const juce::String& s)
+{
+    auto words = juce::StringArray::fromTokens (s, " ", "");
+    for (int i = 1; i < words.size(); ++i)
+    {
+        auto& w = words.getReference (i);
+        if (w.isEmpty()) continue;
+        bool allCaps = true, hasLetter = false;
+        for (auto c : w)
+            if (juce::CharacterFunctions::isLetter (c))
+            {
+                hasLetter = true;
+                if (! juce::CharacterFunctions::isUpperCase (c)) { allCaps = false; break; }
+            }
+        if (hasLetter && allCaps && w.length() >= 2) continue;   // acronym, keep it
+        w = w.substring (0, 1).toLowerCase() + w.substring (1);
+    }
+    return words.joinIntoString (" ");
+}
 }
 
 //==============================================================================
@@ -67,7 +91,7 @@ ConfigRow::ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value
     : buttonCfg (buttonConfig), id (meta.item), type (meta.type), range (meta.range),
       initialValue (value), change (std::move (onChange))
 {
-    nameLabel.setText (meta.name, juce::dontSendNotification);
+    nameLabel.setText (toSentenceCase (meta.name), juce::dontSendNotification);
     addAndMakeVisible (nameLabel);
 
     if (buttonCfg)
@@ -220,6 +244,16 @@ ConfigRow::ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value
         tc->setTooltip (help);
     if (control != nullptr)
         control->addMouseListener (this, true);
+
+    nameLabel.setFont (grab::theme::type::font (grab::theme::type::Role::body));
+    refreshChangedLook();   // start dim (ink2); brightens to ink when changed
+}
+
+void ConfigRow::refreshChangedLook()
+{
+    nameLabel.setColour (juce::Label::textColourId,
+                         getValue() != initialValue ? grab::theme::ink : grab::theme::ink2);
+    repaint();
 }
 
 void ConfigRow::mouseDown (const juce::MouseEvent& e)
@@ -241,6 +275,7 @@ void ConfigRow::resetToDevice()
 
 void ConfigRow::fireChange()
 {
+    refreshChangedLook();
     if (change != nullptr)
         change (id, getValue());
 }
@@ -273,6 +308,7 @@ void ConfigRow::setValue (juce::int32 v)
         defSlider.setValue ((double) buttonVal  (v), juce::dontSendNotification);
         minSlider.setValue ((double) buttonMin  (v), juce::dontSendNotification);
         maxSlider.setValue ((double) buttonMax  (v), juce::dontSendNotification);
+        refreshChangedLook();
         return;
     }
     switch (type)
@@ -286,6 +322,7 @@ void ConfigRow::setValue (juce::int32 v)
         case ConfigType::colour:  colourWell.setSwatchColour (juce::Colour ((juce::uint32) v)); break;
         default:                  readOnly.setText (juce::String (v) + "  (read-only)", juce::dontSendNotification); break;
     }
+    refreshChangedLook();
 }
 
 void ConfigRow::setChangedFromDevice (bool c)
