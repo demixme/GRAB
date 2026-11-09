@@ -101,14 +101,13 @@ private:
 };
 
 //==============================================================================
-/** Three weighted columns: `fullWidthTitle` spans the top, then `col0Title` (38%) and `col1Title`
-    (38%) each get their own column and everything else stacks in the third (24%). Falls back to the
-    responsive grid when the window is too narrow for three columns. Used by the Seaboard keyboard
-    page so the wide MIDI output / Expression cards get the room their controls need. */
-inline void layoutWeightedCards (juce::Viewport& viewport, juce::Component& rowHolder,
-                                 const std::vector<std::unique_ptr<SectionCard>>& cards,
-                                 const juce::String& fullWidthTitle,
-                                 const juce::String& col0Title, const juce::String& col1Title);
+/** Two equal 50% columns: `fullWidthTitle` spans the top, then the rest flow in order - first card
+    top-left, second top-right, third below the first, and so on (MIDI output | Expression, then
+    Keyboard | Play mode). Falls back to a single column when the window is too narrow. Used by the
+    Seaboard keyboard page so the wide cards get half the width each. */
+inline void layoutTwoColumnCards (juce::Viewport& viewport, juce::Component& rowHolder,
+                                  const std::vector<std::unique_ptr<SectionCard>>& cards,
+                                  const juce::String& fullWidthTitle);
 
 /** Lay cards out in `rowHolder` (the viewed component of `viewport`): the card whose title
     is `fullWidthTitle` spans the full width at the top, the rest flow into up to three
@@ -151,26 +150,21 @@ inline void layoutCardGrid (juce::Viewport& viewport, juce::Component& rowHolder
     rowHolder.setSize (availW, juce::jmax (total, viewport.getHeight()));
 }
 
-inline void layoutWeightedCards (juce::Viewport& viewport, juce::Component& rowHolder,
-                                 const std::vector<std::unique_ptr<SectionCard>>& cards,
-                                 const juce::String& fullWidthTitle,
-                                 const juce::String& col0Title, const juce::String& col1Title)
+inline void layoutTwoColumnCards (juce::Viewport& viewport, juce::Component& rowHolder,
+                                  const std::vector<std::unique_ptr<SectionCard>>& cards,
+                                  const juce::String& fullWidthTitle)
 {
     const int gap    = grab::theme::space::gutter;
     const int availW = juce::jmax (260, viewport.getWidth() - 14);
 
-    if (availW < 760)   // too narrow for three columns: use the responsive grid
+    if (availW < 560)   // too narrow for two columns: one stacked column
     {
         layoutCardGrid (viewport, rowHolder, cards, fullWidthTitle);
         return;
     }
 
-    const int inner = availW - 2 * gap;
-    const int w0 = juce::roundToInt (inner * 0.38f);
-    const int w1 = juce::roundToInt (inner * 0.38f);
-    const int w2 = inner - w0 - w1;
-    const int x[3] = { 0, w0 + gap, w0 + gap + w1 + gap };
-    const int w[3] = { w0, w1, w2 };
+    const int colW = (availW - gap) / 2;
+    const int x[2] = { 0, colW + gap };
 
     int topY = 0;
     SectionCard* full = nullptr;
@@ -182,18 +176,17 @@ inline void layoutWeightedCards (juce::Viewport& viewport, juce::Component& rowH
         topY = full->getBottom() + gap;
     }
 
-    int colBottom[3] = { topY, topY, topY };
+    int colBottom[2] = { topY, topY };
+    int idx = 0;
     for (auto& c : cards)
     {
         if (c.get() == full) continue;
-        const int col = c->getTitle() == col0Title ? 0 : c->getTitle() == col1Title ? 1 : 2;
-        c->setBounds (x[col], colBottom[col], w[col], c->contentHeight());
+        const int col = idx++ % 2;   // in order: first top-left, second top-right, then next row
+        c->setBounds (x[col], colBottom[col], colW, c->contentHeight());
         colBottom[col] = c->getBottom() + gap;
     }
 
-    int total = topY;
-    for (int b : colBottom) total = juce::jmax (total, b);
-    rowHolder.setSize (availW, juce::jmax (total, viewport.getHeight()));
+    rowHolder.setSize (availW, juce::jmax (juce::jmax (colBottom[0], colBottom[1]), viewport.getHeight()));
 }
 
 //==============================================================================
