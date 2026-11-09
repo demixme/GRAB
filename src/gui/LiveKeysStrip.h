@@ -104,10 +104,9 @@ public:
         // proportioned) keybed, so the ring lands exactly where the device shows it. White keys are
         // faint dividers, black keys short ticks, and each key that *sounds* as a C (physical + octave
         // + transpose) is labelled - so labels, the ring and the readout all agree and track octave.
-        // The Seaboard's keys (the keywaves) sit in a band between flat glide strips at the top and
-        // bottom, so the key dividers and the slide ring live in that band, not the full height.
-        const float ky0 = top + kKeyBandTop * h;
-        const float ky1 = top + kKeyBandBot * h;
+        // The Seaboard's keys sit in a band below the top glide strip; the black keys are shorter.
+        const float ky0 = top + kKeyBandTop  * h;
+        const float ky1 = top + kBlackKeyBot * h;   // black-key divider lines are short (raised notes)
 
         g.setFont (grab::theme::type::font (compact ? grab::theme::type::Role::caption
                                                     : grab::theme::type::Role::body));
@@ -255,9 +254,10 @@ private:
 
     bool compact = false;
     float keybedAspect = 2.0f;   // device keybed width/height (Seaboard Block art is 600x300)
-    // The keywave band within the keybed (the raised notes): flat glide strip above kKeyBandTop and
-    // a larger flat area below kKeyBandBot. Calibrated from a finger at the top/bottom of a key.
-    static constexpr float kKeyBandTop = 0.12f, kKeyBandBot = 0.78f;
+    // The key band within the keybed, calibrated from a finger at the top/bottom of a key. The slide
+    // ring spans the white-key length [kKeyBandTop, kKeyBandBot]; the black keys are shorter raised
+    // notes, so their divider lines stop at kBlackKeyBot (~half the white-key length).
+    static constexpr float kKeyBandTop = 0.12f, kKeyBandBot = 0.78f, kBlackKeyBot = 0.45f;
     int  low = 48, count = 25;   // C3, two octaves (sensible default until setRange)
     int  shift = 0;              // octave*12 + transpose, added to displayed note names
     int  latestId = -1;          // the most recently pressed finger (its readout is the one shown)
