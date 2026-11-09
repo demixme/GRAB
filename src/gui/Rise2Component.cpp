@@ -3,6 +3,7 @@
 #include "SectionCard.h"
 #include "SensitivityGraph.h"
 #include "FaderPanel.h"
+#include "CcCardGrid.h"
 #include "Help.h"
 #include "GrabPaths.h"
 
@@ -256,6 +257,12 @@ bool isFaderField (juce::uint32 id)
 juce::String shortFaderLabel (juce::String n)
 {
     return n.replace (" Fader CC", "").replace ("XY Pad ", "").replace (" CC", "");
+}
+
+// Fred's CC-card label: "Left Fader CC" -> "Left fader", "XY Pad X CC" -> "XY pad X", "Pedal CC" -> "Pedal".
+juce::String ccCardLabel (juce::String n)
+{
+    return n.replace (" CC", "").replace ("Fader", "fader").replace ("Pad", "pad");
 }
 
 constexpr int rowHeight = 30;
@@ -787,6 +794,8 @@ void Rise2Component::rebuildRows()
     sensitivityCard = nullptr;
     faderPanel.reset();
     faders.clear();
+    ccGrid.reset();
+    ccCards.clear();
     rows.clear();
     sensGraph.reset();
     rowHolder.removeAllChildren();
@@ -858,35 +867,18 @@ void Rise2Component::rebuildRows()
 
         if (group == "Controller CCs")
         {
-            // Three touch faders as vertical faders + the XY pad as a 2D control; pedal is a row.
-            // Each shows a live meter of its assigned CC (animated from the device's MIDI).
-            faderPanel = std::make_unique<FaderPanel>();
+            // Fred's Controller CCs: a 3-up grid of CC cards (faders, XY pad axes and the pedal are
+            // each just a CC-number assignment - name on top, value + -/+ below).
+            ccGrid = std::make_unique<grab::CcGrid>();
             for (auto& f : fields())
-                if (fredGroupRise (f.id) == group && isFaderField (f.id) && include (f.id)
-                    && f.id != kXyXCc && f.id != kXyYCc)
+                if (fredGroupRise (f.id) == group && ! isCurve (f.id) && include (f.id))
                 {
-                    auto* fader = faderPanel->add (std::make_unique<Fader> (
-                        f.id, shortFaderLabel (f.name), deviceValues[f.id], f.lo, f.hi, onChange));
-                    fader->setTooltip (grab::helpForParameter (f.name));
-                    faders.push_back (fader);
+                    auto* cc = ccGrid->add (f.id, ccCardLabel (f.name), deviceValues[f.id], f.lo, f.hi, onChange);
+                    cc->setTooltip (grab::helpForParameter (f.name));
+                    ccCards.push_back (cc);
                 }
-            if (include (kXyXCc))
-            {
-                auto* pad = faderPanel->setXYPad (std::make_unique<XYPad> (
-                    kXyXCc, kXyYCc, deviceValues[kXyXCc], deviceValues[kXyYCc], onChange));
-                pad->setTooltip (grab::helpForParameter ("XY Pad X CC"));
-            }
-            faderPanel->setLiveSource (liveCc.data());
-            faderPanel->onLive = [this] (float l, float m, float r, float x, float y)
-            {
-                if (onPanel != nullptr) onPanel (l, m, r, x, y);   // mirror the hardware onto the device graphic
-            };
-            if (! faderPanel->faders.empty() || faderPanel->xy != nullptr)
-                card->addItem (*faderPanel, 150);
-
-            for (auto& f : fields())
-                if (fredGroupRise (f.id) == group && ! isFaderField (f.id) && ! isCurve (f.id) && include (f.id))
-                    addRow (f);
+            if (! ccGrid->isEmpty())
+                card->addItem (*ccGrid, ccGrid->preferredHeight());
         }
         else
         {
@@ -1127,6 +1119,8 @@ int Rise2Component::applyPresetValues (const std::map<juce::uint32, juce::int32>
         }
         for (auto* f : faders)
             if (f->getId() == id) { f->setValue (v); f->setChanged (differs); }
+        for (auto* c : ccCards)
+            if (c->getId() == id) { c->setValue (v); c->setDeviceValue (v); }   // device value = new baseline
         if (live && differs)
             dirtyWrites.insert (id);
         ++applied;
