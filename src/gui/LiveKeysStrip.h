@@ -255,8 +255,9 @@ private:
 
     bool compact = false;
     float keybedAspect = 2.0f;   // device keybed width/height (Seaboard Block art is 600x300)
-    // The keywave band within the keybed: flat glide strips above kKeyBandTop and below kKeyBandBot.
-    static constexpr float kKeyBandTop = 0.12f, kKeyBandBot = 0.88f;
+    // The keywave band within the keybed (the raised notes): flat glide strip above kKeyBandTop and
+    // a larger flat area below kKeyBandBot. Calibrated from a finger at the top/bottom of a key.
+    static constexpr float kKeyBandTop = 0.12f, kKeyBandBot = 0.78f;
     int  low = 48, count = 25;   // C3, two octaves (sensible default until setRange)
     int  shift = 0;              // octave*12 + transpose, added to displayed note names
     int  latestId = -1;          // the most recently pressed finger (its readout is the one shown)
