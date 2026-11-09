@@ -24,22 +24,26 @@ public:
     /** Height this card needs to show its title and all its rows. */
     int contentHeight() const
     {
-        int h = kPadTop + kTitleH + kGap;
+        int h = graphRow ? 0 : (kPadTop + kTitleH + kGap);
         for (auto& it : items) h += it.second + kGap;
-        return h + kPadBottom - kGap;
+        return h + (graphRow ? 0 : kPadBottom) - kGap;
     }
 
     const juce::String& getTitle() const { return title; }
 
-    /** The graph tile is recessed (darker than the others); set on the Sensitivity card. */
-    void setRecessed (bool r) { recessed = r; }
+    /** The Sensitivity "graph row": a transparent holder whose child paints its own two tiles
+        (dark graph + lighter inspector) on the window gutter, full-width and with no card title -
+        so the inspector reads as a sibling tile, not something embedded in the big dark panel. */
+    void setGraphRow (bool r) { graphRow = r; }
 
     void paint (juce::Graphics& g) override
     {
+        if (graphRow) return;   // transparent: sits on the window bg, child paints its own tiles
+
         auto r = getLocalBounds().toFloat();
-        // Borderless tile on the window gutters (the "bento" look): just a filled rounded panel,
-        // the graph tile a step darker. No outline - the tone step off the window does the work.
-        g.setColour (recessed ? grab::theme::display : grab::theme::panel);
+        // Borderless tile on the window gutters (the "bento" look): a filled rounded panel.
+        // No outline - the tone step off the window does the work.
+        g.setColour (grab::theme::panel);
         g.fillRoundedRectangle (r, grab::theme::radius::tile);
 
         g.setColour (grab::theme::ink);
@@ -50,8 +54,12 @@ public:
 
     void resized() override
     {
-        auto b = getLocalBounds().reduced (kPadX, 0);
-        b.removeFromTop (kPadTop + kTitleH + kGap);
+        auto b = getLocalBounds();
+        if (! graphRow)
+        {
+            b = b.reduced (kPadX, 0);
+            b.removeFromTop (kPadTop + kTitleH + kGap);
+        }
         for (auto& it : items)
         {
             it.first->setBounds (b.removeFromTop (it.second));
@@ -61,7 +69,7 @@ public:
 
 private:
     juce::String title;
-    bool recessed = false;
+    bool graphRow = false;
     std::vector<std::pair<juce::Component*, int>> items;
     static constexpr int kTitleH = 18, kPadTop = 12, kPadBottom = 14, kPadX = 16, kGap = 8;
 

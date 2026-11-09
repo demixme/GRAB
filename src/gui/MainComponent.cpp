@@ -2079,7 +2079,7 @@ void MainComponent::rebuildRows()
     {
         auto card = std::make_unique<SectionCard> (g.isEmpty() ? "Other" : g);
         if (g == "Sensitivity")
-            card->setRecessed (true);   // the 5D graph tile is recessed (darker) in the bento
+            card->setGraphRow (true);   // transparent holder: the graph + inspector are two sibling tiles
 
         auto emitRow = [&] (const Item& item)
         {

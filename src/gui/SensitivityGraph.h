@@ -258,7 +258,8 @@ private:
     void layoutRegions()
     {
         auto b = getLocalBounds();
-        const int inspW = juce::jlimit (190, 260, b.getWidth() / 4);
+        // Fred's inspector is a fixed 240px tile; narrow only when the window can't spare it.
+        const int inspW = b.getWidth() >= 700 ? 240 : juce::jlimit (190, 240, b.getWidth() / 4);
         inspR = b.removeFromRight (inspW);
         b.removeFromRight (grab::theme::space::gutter);
         graphR = b;
@@ -291,14 +292,16 @@ private:
             innerB.removeFromBottom (12);          // bottom padding
 
             // Fred's .kwell: a single sunken (tileInset) well pinned to the bottom of the inspector,
-            // holding the knobs on top and - under a divider - the fixed-velocity row.
-            const int fixH = hasFixedVel ? 38 : 0;
+            // holding the knobs on top and - under a divider - the fixed-velocity row. Fixed velocity
+            // is a Strike-only control (fixRow = n === 'Strike' in Fred's design).
+            const bool fv = hasFixedVel && d.name == "Strike";
+            const int fixH = fv ? 38 : 0;
             knobCardR = innerB.removeFromBottom (108 + fixH);
 
             auto win = knobCardR.reduced (8, 0);   // .kwell horizontal padding
             win.removeFromTop (8);
             win.removeFromBottom (6);
-            if (hasFixedVel)       // fixed-velocity row (.kfix), inside the well, under a divider
+            if (fv)                // fixed-velocity row (.kfix), inside the well, under a divider
             {
                 auto fvRow = win.removeFromBottom (32);
                 fvDivider = { (float) knobCardR.getX() + 10.0f, (float) fvRow.getY() - 3.0f,
@@ -339,6 +342,13 @@ private:
         using namespace grab::theme;
         auto& sel = dims[(size_t) selected];
         auto pr = plotR.toFloat();
+
+        // The graph tile: a recessed (display) rounded tile with a 1px inner grid edge - a sibling
+        // of the inspector tile, both sitting on the window gutter (Fred's graphrow).
+        g.setColour (display);
+        g.fillRoundedRectangle (graphR.toFloat(), radius::tile);
+        g.setColour (grid);
+        g.drawRoundedRectangle (graphR.toFloat().reduced (0.5f), radius::tile, 1.0f);
 
         // grid
         g.setColour (grid);
@@ -483,17 +493,20 @@ private:
 
         auto b = inspR.reduced (16, 14);
 
-        // name (+ a changed dot) + Reset
-        auto head = b.removeFromTop (22);
+        // Fred's .insp-h: a hue dot, the name in ink (not coloured), an optional changed dot, Reset.
+        auto head = b.removeFromTop (28);
         auto titleR = head.removeFromLeft (head.getWidth() - 56);
+        auto dotA = titleR.removeFromLeft (10);
+        titleR.removeFromLeft (8);
         g.setColour (d.colour);
+        g.fillEllipse (juce::Rectangle<float> (10.0f, 10.0f).withCentre ({ (float) dotA.getCentreX(), (float) head.getCentreY() }));
+        g.setColour (ink);
         g.setFont (grab::theme::type::font (grab::theme::type::Role::title));
         g.drawText (d.name, titleR, juce::Justification::centredLeft);
         if (edited (d))
         {
             const int nameW = juce::GlyphArrangement::getStringWidthInt (g.getCurrentFont(), d.name);
-            g.setColour (ink);
-            g.fillEllipse ((float) (titleR.getX() + nameW + 8), (float) titleR.getCentreY() - 2.5f, 5.0f, 5.0f);
+            g.fillEllipse ((float) (titleR.getX() + nameW + 8), (float) head.getCentreY() - 3.0f, 6.0f, 6.0f);
         }
         // Reset: always present (context button), lit only when the dimension has been edited.
         resetR = head.toFloat();
@@ -525,8 +538,9 @@ private:
             paintKnob (g, k.area, d.colour, v, lab);
         }
 
-        // Fixed velocity (.kfix): a divider, then label, optional value, and a switch - inside the well.
-        if (hasFixedVel)
+        // Fixed velocity (.kfix): a divider, then label, optional value, and a switch - inside the
+        // well, and only on Strike (Fred's design).
+        if (hasFixedVel && d.name == "Strike")
         {
             g.setColour (divider);
             g.drawLine (fvDivider, 1.0f);
