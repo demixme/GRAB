@@ -3603,7 +3603,7 @@ void MainComponent::resized()
         layoutDrawingTile (tb.draw);   // reserve the toggle's column so it clears the art here too
         {
             auto d = tb.dash.reduced (padX, padY);
-            if (deviceMenuBtn.isVisible()) { deviceMenuBtn.setBounds (d.removeFromTop (24)); d.removeFromTop (6); }
+            if (deviceMenuBtn.isVisible()) { deviceMenuBtn.setBounds (d.removeFromTop (24)); d.removeFromTop (4); }
             deviceInfo.setBounds (d);
         }
         const auto s = splitCtrlSlots (tb.ctrl);
@@ -3634,7 +3634,7 @@ void MainComponent::resized()
     // Dashboard tile: the device-name dropdown heading on top, then the labelled device facts.
     {
         auto d = tb.dash.reduced (padX, padY);
-        if (deviceMenuBtn.isVisible()) { deviceMenuBtn.setBounds (d.removeFromTop (24)); d.removeFromTop (6); }
+        if (deviceMenuBtn.isVisible()) { deviceMenuBtn.setBounds (d.removeFromTop (24)); d.removeFromTop (4); }
         deviceInfo.setBounds (d);
     }
 
@@ -3708,4 +3708,18 @@ void MainComponent::paint (juce::Graphics& g)
     for (auto t : { drawTileR, dashTileR, ctrlTileR })
         if (! t.isEmpty())
             g.fillRoundedRectangle (t.toFloat(), grab::theme::radius::tile);
+
+    // The controls (MPE) tile: Fred's row rules - a horizontal divider between each of the three
+    // rows (preset / sync+save / actions) and a vertical one splitting the sync status from Save.
+    if (! ctrlTileR.isEmpty())
+    {
+        const auto s = splitCtrlSlots (ctrlTileR);
+        g.setColour (grab::theme::divider);
+        const float lx = (float) s.preset.getX(), rx = (float) s.preset.getRight();
+        auto hline = [&] (int yMid) { g.fillRect (juce::Rectangle<float> (lx, (float) yMid - 0.5f, rx - lx, 1.0f)); };
+        hline ((s.preset.getBottom() + s.reload.getY()) / 2);
+        hline ((s.save.getBottom()  + s.autosave.getY()) / 2);
+        const float vx = (float) (s.reload.getRight() + s.save.getX()) * 0.5f;
+        g.fillRect (juce::Rectangle<float> (vx - 0.5f, (float) s.reload.getY(), 1.0f, (float) s.reload.getHeight()));
+    }
 }

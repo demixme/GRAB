@@ -176,17 +176,24 @@ inline void layoutTwoColumnCards (juce::Viewport& viewport, juce::Component& row
         topY = full->getBottom() + gap;
     }
 
-    int colBottom[2] = { topY, topY };
-    int idx = 0;
+    // Lay the remaining cards out as true rows of two: both cards in a row take the taller one's
+    // height, so each row reads as a uniform band (rather than two independently flowing columns).
+    std::vector<SectionCard*> flow;
     for (auto& c : cards)
+        if (c.get() != full) flow.push_back (c.get());
+
+    int rowTop = topY;
+    for (size_t i = 0; i < flow.size(); i += 2)
     {
-        if (c.get() == full) continue;
-        const int col = idx++ % 2;   // in order: first top-left, second top-right, then next row
-        c->setBounds (x[col], colBottom[col], colW, c->contentHeight());
-        colBottom[col] = c->getBottom() + gap;
+        SectionCard* a = flow[i];
+        SectionCard* b = (i + 1 < flow.size()) ? flow[i + 1] : nullptr;
+        const int h = b != nullptr ? juce::jmax (a->contentHeight(), b->contentHeight()) : a->contentHeight();
+        a->setBounds (x[0], rowTop, colW, h);
+        if (b != nullptr) b->setBounds (x[1], rowTop, colW, h);
+        rowTop += h + gap;
     }
 
-    rowHolder.setSize (availW, juce::jmax (juce::jmax (colBottom[0], colBottom[1]), viewport.getHeight()));
+    rowHolder.setSize (availW, juce::jmax (rowTop, viewport.getHeight()));
 }
 
 //==============================================================================

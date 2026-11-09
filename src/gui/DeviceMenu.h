@@ -122,7 +122,19 @@ namespace grab
 
             auto iconR = r.removeFromLeft (iconW).reduced (2);
             if (auto* d = artFor (it.artFile))
+            {
+                // A small drop shadow so the device thumbnail sits above the row (matches the big art).
+                const auto db = d->getDrawableBounds();
+                if (! db.isEmpty())
+                {
+                    const auto placed = juce::RectanglePlacement (juce::RectanglePlacement::centred)
+                                            .appliedTo (db, iconR.toFloat());
+                    juce::Path shape;
+                    shape.addRoundedRectangle (placed, juce::jmax (2.0f, placed.getHeight() * 0.12f));
+                    juce::DropShadow (juce::Colours::black.withAlpha (0.45f), 5, { 0, 2 }).drawForPath (g, shape);
+                }
                 d->drawWithin (g, iconR.toFloat(), juce::RectanglePlacement::centred, 1.0f);
+            }
             r.removeFromLeft (8);
 
             // Name (left) and metadata (right, dimmer).

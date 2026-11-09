@@ -93,7 +93,7 @@ private:
         // layout, so the dashboard body is just the labelled facts.
         // Fred's .dr: key on the left (label colour), value right-aligned to the card edge (ink2),
         // both at caption size - and on the battery row the pill sits just left of the %.
-        const int rowH = 20;
+        const int rowH = 16;
         const juce::Font capFont = type::font (type::Role::caption);
         auto row = [&] (const juce::String& key, const juce::String& val, bool batteryRow = false)
         {

@@ -261,7 +261,20 @@ public:
         for (auto& t : ts)
         {
             juce::Rectangle<float> foot (ox + t.ux * scale, oy + t.uy * scale, t.uw * scale, t.uh * scale);
-            drawTile (g, t, foot.reduced (0.5f), liveTouches, chord, highlight, highlight && isSel (t.uid));
+            auto body = foot.reduced (0.5f);
+
+            // Soft drop shadow so the device reads as sitting above the tile (Fred's design). The
+            // chassis is ~ a rounded rectangle, so a blurred rounded-rect of the footprint, offset
+            // down, gives the halo; the opaque art then covers the body, leaving only the glow.
+            {
+                juce::Path shape;
+                shape.addRoundedRectangle (body, juce::jmax (4.0f, body.getHeight() * 0.10f));
+                juce::DropShadow (juce::Colours::black.withAlpha (0.5f),
+                                  juce::jmax (8,  (int) (body.getHeight() * 0.18f)),
+                                  { 0, juce::jmax (3, (int) (body.getHeight() * 0.07f)) }).drawForPath (g, shape);
+            }
+
+            drawTile (g, t, body, liveTouches, chord, highlight, highlight && isSel (t.uid));
         }
     }
 
