@@ -1330,7 +1330,7 @@ void Rise2Component::resized()
         autosaveToggle.setBounds (bentoAutosave);
         viewport.setBounds (r.withTop (bentoViewportTop));
         updateSensitivityLayout();
-        layoutCardGrid (viewport, rowHolder, cards, "Sensitivity");
+        layoutTwoColumnCards (viewport, rowHolder, cards, "Sensitivity");
         return;
     }
 
@@ -1345,7 +1345,7 @@ void Rise2Component::resized()
 
     viewport.setBounds (r);
     updateSensitivityLayout();
-    layoutCardGrid (viewport, rowHolder, cards, "Sensitivity");
+    layoutTwoColumnCards (viewport, rowHolder, cards, "Sensitivity");
 }
 
 void Rise2Component::updateSensitivityLayout()
