@@ -21,6 +21,7 @@
 #include <vector>
 
 class KeyboardView  : public juce::Component,
+                      public juce::SettableTooltipClient,
                       private juce::Timer
 {
 public:

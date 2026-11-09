@@ -14,7 +14,8 @@
 namespace grab
 {
 
-class PresetBar  : public juce::Component
+class PresetBar  : public juce::Component,
+                   public juce::SettableTooltipClient
 {
 public:
     PresetBar() = default;
