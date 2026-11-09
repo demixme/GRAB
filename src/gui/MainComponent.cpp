@@ -3390,7 +3390,9 @@ namespace
         // and controls sit side by side beneath it - three tiles across becomes one-over-two.
         if (r.getWidth() < 740)
         {
-            const int drawH = 132;    // full-width drawing row (the 96px art centres with padding)
+            // Keep the drawing at least its full-view size (don't shrink the graphic just because the
+            // window is narrow); the full-width row is taller so the art never renders smaller.
+            const int drawH = 196;    // full-width drawing row, same height as the full band
             const int infoH = 196;    // dashboard / controls row (fits the controls stack)
             tb.band = r.removeFromTop (drawH + gutter + infoH);
             r.removeFromTop (gutter);
