@@ -936,6 +936,7 @@ void MainComponent::setStatus (const juce::String& s)
 {
     ++statusGen;   // cancel any pending auto-clear from a previous transient
     statusLabel.setText (s, juce::dontSendNotification);
+    footer.setStatus (s);   // shown in the footer (Fred's layout), not the control tile
 }
 
 // A status message that fades back to idle on its own (so "Reading..." / "Saved" never stick). The
@@ -944,11 +945,15 @@ void MainComponent::setTransient (const juce::String& s, bool autoClear)
 {
     const int gen = ++statusGen;
     statusLabel.setText (s, juce::dontSendNotification);
+    footer.setStatus (s);
     if (autoClear)
         juce::Timer::callAfterDelay (2600, [this, gen, safe = juce::Component::SafePointer<MainComponent> (this)]
         {
             if (safe != nullptr && statusGen == gen)
+            {
                 statusLabel.setText ({}, juce::dontSendNotification);
+                footer.setStatus ({});
+            }
         });
 }
 
@@ -1235,7 +1240,8 @@ void MainComponent::fillDeviceBox (int selectId)
     if (show && sel >= 0 && sel < (int) deviceEntries.size())
     {
         auto label = deviceEntries[(size_t) sel].label.upToFirstOccurrenceOf ("  ", false, false)
-                                                      .upToFirstOccurrenceOf (" (", false, false).trim();
+                                                      .upToFirstOccurrenceOf (" (", false, false).trim()
+                                                      .replace ("BLOCK", "Block");   // ROLI brands "Block" proper-case (RISE/GRAND stay caps)
         deviceMenuBtn.setButtonText (label);   // the chevron is drawn by DeviceNameButton (no cluster suffix)
     }
     deviceMenuBtn.setVisible (show);
@@ -2254,6 +2260,7 @@ void MainComponent::rebuildRows()
 
     resized(); // positions the cards and sizes rowHolder
     saveButton.setEnabled (false);
+    updateSaveEnabled();   // set the Save/Revert button text ("In sync" when freshly loaded)
     updateLumiKeyboardColours();   // (re)light the LUMI/Piano keyboard from the freshly-read config
 
     // The read is done: refresh the shared device bar (incl. the item count) and clear any lingering
@@ -3458,8 +3465,8 @@ namespace
         // and controls sit side by side beneath it - three tiles across becomes one-over-two.
         if (r.getWidth() < 740)
         {
-            const int drawH = 150;    // full-width drawing row (compact, matches the full band)
-            const int infoH = 150;    // dashboard / controls row (fits the compact controls stack)
+            const int drawH = 120;    // full-width drawing row (matches the full band)
+            const int infoH = 120;    // dashboard / controls row
             tb.band = r.removeFromTop (drawH + gutter + infoH);
             r.removeFromTop (gutter);
             auto band = tb.band;
@@ -3471,7 +3478,7 @@ namespace
             return tb;
         }
 
-        tb.band = r.removeFromTop (150);   // compact band (Fred's ~120 device zone); the art centres smaller
+        tb.band = r.removeFromTop (120);   // Fred's device zone height; the art centres at ~96px
         r.removeFromTop (gutter);
         auto band = tb.band;
         // Fred's toprow proportions: controls a fixed 240, the drawing the widest fixed tile, the
@@ -3487,7 +3494,7 @@ namespace
     CtrlSlots splitCtrlSlots (juce::Rectangle<int> ctrlTile)
     {
         const int padX = grab::theme::space::tilePadX;
-        const int rowH = 28, gap = 6;
+        const int rowH = 30, gap = 5;
         auto c = ctrlTile.reduced (padX, 10);
         CtrlSlots s;
         s.preset = c.removeFromTop (rowH); c.removeFromTop (gap);
@@ -3496,9 +3503,8 @@ namespace
         c.removeFromTop (gap);
         auto at = c.removeFromTop (rowH);
         s.autosave = at.removeFromLeft ((at.getWidth() - gap) / 2); at.removeFromLeft (gap); s.tools = at;
-        c.removeFromTop (gap);
-        s.conn = {};                       // connection type lives in the device menu now
-        s.status = c.removeFromTop (16);   // thin status line at the bottom
+        s.conn   = {};   // connection type lives in the device menu now
+        s.status = {};   // status is shown in the footer (Fred's layout), freeing the band to 3 rows
         return s;
     }
 }

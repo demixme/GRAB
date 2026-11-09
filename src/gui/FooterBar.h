@@ -56,10 +56,14 @@ public:
             area.removeFromRight (12);   // gap before the hint text
         }
 
-        const bool hasText = text.isNotEmpty();
-        g.setColour (hasText ? grab::theme::textPrimary : grab::theme::textSecondary);
-        g.drawText (hasText ? text : hint, area, juce::Justification::centredLeft, true);
+        // Left: a transient status message if any, else the hovered control's help, else the hint.
+        const juce::String left = status.isNotEmpty() ? status : text.isNotEmpty() ? text : hint;
+        const bool strong = status.isNotEmpty() || text.isNotEmpty();
+        g.setColour (strong ? grab::theme::textPrimary : grab::theme::textSecondary);
+        g.drawText (left, area, juce::Justification::centredLeft, true);
     }
+
+    void setStatus (const juce::String& s) { if (status != s) { status = s; repaint(); } }
 
     void mouseUp (const juce::MouseEvent& e) override
     {
@@ -79,7 +83,7 @@ private:
         if (tip != text) { text = tip; repaint(); }
     }
 
-    juce::String text;
+    juce::String text, status;
     const juce::String hint { "Hover a control for what it does.  Double-click or right-click to reset it." };
     juce::String versionText, updateText, releasesUrl;
     juce::Rectangle<int> cornerBounds;

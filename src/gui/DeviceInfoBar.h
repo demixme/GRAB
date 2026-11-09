@@ -91,23 +91,29 @@ private:
 
         // The device name is the dropdown heading (DeviceNameButton), placed above this tile by the
         // layout, so the dashboard body is just the labelled facts.
+        // Fred's .dr: key on the left (label colour), value right-aligned to the card edge (ink2),
+        // both at caption size - and on the battery row the pill sits just left of the %.
         const int rowH = 20;
+        const juce::Font capFont = type::font (type::Role::caption);
         auto row = [&] (const juce::String& key, const juce::String& val, bool batteryRow = false)
         {
             auto line = r.removeFromTop (rowH);
             g.setColour (label);
-            g.setFont (type::font (type::Role::caption));
+            g.setFont (capFont);
             g.drawText (key, line.removeFromLeft (84), juce::Justification::centredLeft);
+
+            const int valW = juce::GlyphArrangement::getStringWidthInt (capFont, val) + 2;
+            auto valR = line.removeFromRight (valW);
+            g.setColour (ink2);
+            g.setFont (capFont);
+            g.drawText (val, valR, juce::Justification::centredRight, true);
 
             if (batteryRow && battery >= 0.0f)
             {
-                auto b = line.toFloat().withWidth (25.0f).withSizeKeepingCentre (25.0f, 12.0f);
+                line.removeFromRight (6);
+                auto b = line.removeFromRight (25).toFloat().withSizeKeepingCentre (25.0f, 12.0f);
                 drawBattery (g, b);
-                line.removeFromLeft (33);
             }
-            g.setColour (ink);
-            g.setFont (type::font (type::Role::body));
-            g.drawText (val, line, juce::Justification::centredLeft, true);
         };
 
         if (fTransport.isNotEmpty()) row ("Connection", fTransport);
