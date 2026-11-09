@@ -2829,6 +2829,18 @@ void MainComponent::populatePresetBox()
 
     presetBox.setSelectedId (0, juce::dontSendNotification);
     lastRealPresetId = 0;
+    // Default the bar to the first real preset (MPE) for display rather than the "Preset..."
+    // placeholder - it does not apply the preset (the device config was just read).
+    for (int i = 0; i < presetBox.getNumItems(); ++i)
+    {
+        const int id = presetBox.getItemId (i);
+        if (id > 0 && id < kPresetSaveAs)
+        {
+            presetBox.setSelectedId (id, juce::dontSendNotification);
+            lastRealPresetId = id;
+            break;
+        }
+    }
     updatePresetBar();
     resized();
 }
@@ -3397,16 +3409,15 @@ void MainComponent::layoutDrawingTile (juce::Rectangle<int> tile)
     viewToggle.setVisible (showToggle);
     keystrokeMap.setVisible (showToggle && drawingIsMap);
 
-    auto drawArea = tile.reduced (padX, padY);
+    auto drawArea = tile.reduced (padX, 6);   // small vertical inset so the art fills the compact band
     if (showToggle)
     {
         auto col = drawArea.removeFromRight (viewToggle.preferredWidth());
         viewToggle.setBounds (col.removeFromTop (viewToggle.preferredHeight()));
         drawArea.removeFromRight (grab::theme::space::gutter);   // gap between art and toggle
     }
-    // Cap the graphic's height so it reads at Fred's compact size, centred in the tile (the keybed is
-    // wide, so without this it fills the tile and dominates the band).
-    const int artMaxH = 104;
+    // Keep the graphic from growing beyond the band if the tile is ever taller than Fred's device zone.
+    const int artMaxH = 116;
     if (drawArea.getHeight() > artMaxH)
         drawArea = drawArea.withSizeKeepingCentre (drawArea.getWidth(), artMaxH);
 
