@@ -277,22 +277,22 @@ private:
             graphR = b;
         }
 
-        // Graph internals: chip row on top, then the plot inset for the axes.
+        // Graph internals: Fred's .chips row on top (a bit taller, chips inset from the tile edge with
+        // a bottom divider), then the plot inset for the axes.
         auto gr = graphR;
-        chipRow = gr.removeFromTop (30);
-        gr.removeFromTop (6);
-        plotR = gr.withTrimmedLeft (54).withTrimmedBottom (34).withTrimmedRight (8).withTrimmedTop (4);
+        chipRow = gr.removeFromTop (46);
+        plotR = gr.withTrimmedLeft (54).withTrimmedBottom (34).withTrimmedRight (8).withTrimmedTop (8);
 
         // Chip rects (measured with the body font): room for the dot, the name, its value and the
-        // changed dot, so a long name like "Strike" never truncates.
+        // changed dot, so a long name like "Strike" never truncates. Inset from the tile edge.
         chipR.clear();
         juce::Font cf = grab::theme::type::font (grab::theme::type::Role::body);
         const int valW = juce::GlyphArrangement::getStringWidthInt (cf, "127");
-        int x = chipRow.getX();
+        int x = chipRow.getX() + 10;
         for (auto& d : dims)
         {
             const int w = 20 + juce::GlyphArrangement::getStringWidthInt (cf, d.name) + 6 + valW + 16;
-            chipR.push_back (juce::Rectangle<float> ((float) x, (float) chipRow.getY() + 2.0f, (float) w, 26.0f));
+            chipR.push_back (juce::Rectangle<float> ((float) x, (float) chipRow.getCentreY() - 15.0f, (float) w, 30.0f));
             x += w + 8;
         }
 
@@ -408,6 +408,7 @@ private:
         g.fillRoundedRectangle (graphR.toFloat(), radius::tile);
         g.setColour (grid);
         g.drawRoundedRectangle (graphR.toFloat().reduced (0.5f), radius::tile, 1.0f);
+        g.fillRect (graphR.getX() + 8, chipRow.getBottom(), graphR.getWidth() - 16, 1);   // chips row divider
 
         // grid
         g.setColour (grid);
@@ -521,7 +522,7 @@ private:
             auto r = chipR[i];
             const bool on = (int) i == selected;
             const bool dimmed = d.name == "Lift" && liftUnsupported;   // device doesn't report lift
-            if (on) { g.setColour (segmentOn); g.fillRoundedRectangle (r, r.getHeight() * 0.5f); }
+            if (on) { g.setColour (segmentOn); g.fillRoundedRectangle (r, 9.0f); }   // curved corners, not a full lozenge
 
             g.setColour (dimmed ? d.colour.withAlpha (0.4f) : d.colour);
             g.fillEllipse (r.getX() + 9.0f, r.getCentreY() - 4.0f, 8.0f, 8.0f);
