@@ -237,6 +237,11 @@ ConfigRow::ConfigRow (const roli::Block::ConfigMetaData& meta, juce::int32 value
             {
                 slider.setSliderStyle (juce::Slider::LinearHorizontal);
                 slider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 56, 22);
+                // Fred shows the slider value as plain text (no boxed field), with its unit.
+                slider.setColour (juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
+                slider.setColour (juce::Slider::textBoxOutlineColourId,    juce::Colours::transparentBlack);
+                slider.setColour (juce::Slider::textBoxTextColourId,       grab::theme::ink);
+                if (meta.name == "Pitch Bend Range") slider.setTextValueSuffix (" st");
                 slider.setRange ((double) range.getStart(), (double) range.getEnd(), 1.0);
                 slider.setValue ((double) value, juce::dontSendNotification);
                 slider.setDoubleClickReturnValue (true, (double) value);  // double-click reverts to the device value
@@ -280,6 +285,7 @@ void ConfigRow::refreshChangedLook()
     nameLabel.setColour (juce::Label::textColourId,
                          getValue() != initialValue ? grab::theme::ink : grab::theme::ink2);
     repaint();
+    if (auto* card = getParentComponent()) card->repaint();   // keep the card's "N changed" count live
 }
 
 void ConfigRow::mouseDown (const juce::MouseEvent& e)
@@ -2255,6 +2261,7 @@ void MainComponent::onItemChanged (juce::uint32 id, juce::int32 value)
         if (r->getId() == id)
             r->setChangedFromDevice (differs);
     if (sensGraph != nullptr) sensGraph->setChanged (id, differs);
+    for (auto& c : cards) c->repaint();   // refresh each card's "N changed" header count
     updateSaveEnabled();
     updateLumiKeyboardColours();   // live-light the keyboard as scale/key/colours/mode are edited
     pushChordGhosts();             // live-update the chord ghosts as Chord mode is edited

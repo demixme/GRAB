@@ -16,6 +16,7 @@
 #include "SensitivityGraph.h"
 #include "SegmentedControl.h"
 #include "Stepper.h"
+#include "Changeable.h"
 #include "DeviceMenu.h"
 #include "ColourWell.h"
 #include "DeviceInfoBar.h"
@@ -37,7 +38,8 @@
 //==============================================================================
 /** One editable config item: label + the control appropriate to its type. */
 class ConfigRow  : public juce::Component,
-                   public juce::SettableTooltipClient
+                   public juce::SettableTooltipClient,
+                   public grab::Changeable
 {
 public:
     using ChangeFn = std::function<void (juce::uint32 id, juce::int32 value)>;
@@ -57,6 +59,7 @@ public:
     juce::int32  getValue() const;
     void setValue (juce::int32 v);          // updates control without firing change
     void setChangedFromDevice (bool changed);
+    int  changedCount() const override { return getValue() != initialValue ? 1 : 0; }
 
 private:
     using ConfigType = roli::Block::ConfigMetaData::ConfigType;

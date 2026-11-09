@@ -7,6 +7,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "Theme.h"
+#include "Changeable.h"
 
 #include <memory>
 #include <utility>
@@ -46,10 +47,24 @@ public:
         g.setColour (grab::theme::panel);
         g.fillRoundedRectangle (r, grab::theme::radius::tile);
 
+        auto titleRow = getLocalBounds().reduced (kPadX, 0).withTop (kPadTop).withHeight (kTitleH);
+
+        // Fred's tile header .cnt: "N changed", right-aligned in the label colour, when anything here
+        // differs from the device.
+        int n = 0;
+        for (auto& it : items)
+            if (auto* ch = dynamic_cast<grab::Changeable*> (it.first))
+                n += ch->changedCount();
+        if (n > 0)
+        {
+            g.setColour (grab::theme::label);
+            g.setFont (grab::theme::type::font (grab::theme::type::Role::caption));
+            g.drawText (juce::String (n) + " changed", titleRow, juce::Justification::centredRight);
+        }
+
         g.setColour (grab::theme::ink);
         g.setFont (grab::theme::type::font (grab::theme::type::Role::title));
-        g.drawText (title, getLocalBounds().reduced (kPadX, 0).withTop (kPadTop).withHeight (kTitleH),
-                    juce::Justification::centredLeft);
+        g.drawText (title, titleRow, juce::Justification::centredLeft);
     }
 
     void resized() override
