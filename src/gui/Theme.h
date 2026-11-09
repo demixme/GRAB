@@ -375,12 +375,27 @@ public:
     {
         using namespace grab::theme;
         auto r = juce::Rectangle<float> (0.0f, 0.0f, (float) width, (float) height).reduced (0.5f);
-        g.fillAll (juce::Colours::transparentBlack);
+        // The menu window isn't transparent on Windows, so cover its (white) backdrop with the window
+        // tone first; the rounded panel then reads with dark corners rather than white ones.
+        g.fillAll (window);
         g.setColour (panel);
         g.fillRoundedRectangle (r, 10.0f);
         g.setColour (divider);
         g.drawRoundedRectangle (r, 10.0f, 1.0f);
     }
+
+    // Device menu callout: no arrow, a rounded panel like the popup menus (not JUCE's default box).
+    void drawCallOutBoxBackground (juce::CallOutBox&, juce::Graphics& g, const juce::Path& path, juce::Image&) override
+    {
+        using namespace grab::theme;
+        juce::DropShadow (juce::Colours::black.withAlpha (0.45f), 18, {}).drawForPath (g, path);
+        g.setColour (panel);
+        g.fillPath (path);
+        g.setColour (divider);
+        g.strokePath (path, juce::PathStrokeType (1.0f));
+    }
+
+    int getCallOutBoxBorderSize (const juce::CallOutBox&) override { return 12; }
 
     juce::Font getPopupMenuFont() override { return grab::theme::type::font (grab::theme::type::Role::body); }
 

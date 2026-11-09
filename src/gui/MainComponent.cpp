@@ -1331,6 +1331,7 @@ void MainComponent::showDeviceMenu()
 
     auto& box = juce::CallOutBox::launchAsynchronously (std::move (menu),
                                                         deviceMenuBtn.getScreenBounds(), nullptr);
+    box.setArrowSize (0.0f);   // a plain rounded dropdown, not a pointer callout (Fred's design)
     box.setDismissalMouseClicksAreAlwaysConsumed (true);
 }
 
