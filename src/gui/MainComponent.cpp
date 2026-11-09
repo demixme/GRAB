@@ -534,6 +534,8 @@ MainComponent::MainComponent()
     reloadButton.setButtonText   (TRANS ("Reload from device"));
     saveButton.setButtonText     (TRANS ("Save to device"));
     autosaveToggle.setButtonText (TRANS ("Autosave"));
+    saveButton.getProperties().set   ("primary", true);   // Fred's primary (near-white) Save button
+    reloadButton.getProperties().set ("ghost",   true);   // Fred's Revert / In sync text link
     contributeBtn.setButtonText  (TRANS ("Contribute..."));
     advancedBtn.setButtonText    (TRANS ("Advanced..."));
     diagnoseBtn.setButtonText    (TRANS ("Diagnose..."));
@@ -2346,16 +2348,23 @@ void MainComponent::updateSaveEnabled()
     if (savedFlash)   // during the "Saved" flash the button is intentionally lit; don't fight it
         return;
 
-    bool any = false;
+    int n = 0;
     for (auto& kv : pendingValues)
     {
         auto d = deviceValues.find (kv.first);
         if (d != deviceValues.end() && d->second != kv.second)
-            any = true;
+            ++n;
     }
-    // Autosave on: edits write themselves, so Save is just the flash target (stays disabled, no
-    // strobing). Off: Save lights up when there are unsaved edits and writes them on click.
+    const bool any = n > 0;
+
+    // Fred's save row: a primary "Save N changes" button (disabled "Save to device" when in sync),
+    // and a Revert link that reloads from the device - quiet "In sync" when there's nothing to revert.
+    // Autosave on: edits write themselves, so Save stays the (disabled) flash target, no strobing.
     saveButton.setEnabled (! autosaveToggle.getToggleState() && any);
+    saveButton.setButtonText (any ? TRANS ("Save ") + juce::String (n) + (n == 1 ? TRANS (" change") : TRANS (" changes"))
+                                  : TRANS ("Save to device"));
+    reloadButton.setButtonText (any ? TRANS ("Revert") : TRANS ("In sync"));
+    reloadButton.setEnabled (any);
 
     // The preset bar's "Edited" badge: a preset is loaded and something now differs from the device.
     presetBar.setEdited (any && lastRealPresetId > 0 && lastRealPresetId < kPresetSaveAs);
@@ -3480,7 +3489,7 @@ namespace
         CtrlSlots s;
         s.preset = c.removeFromTop (rowH); c.removeFromTop (gap);
         auto rs = c.removeFromTop (rowH);
-        s.reload = rs.removeFromLeft ((rs.getWidth() - gap) / 2); rs.removeFromLeft (gap); s.save = rs;
+        s.reload = rs.removeFromLeft (juce::jmin (92, rs.getWidth() / 2)); rs.removeFromLeft (gap); s.save = rs;
         c.removeFromTop (gap);
         auto at = c.removeFromTop (rowH);
         s.autosave = at.removeFromLeft ((at.getWidth() - gap) / 2); at.removeFromLeft (gap); s.tools = at;

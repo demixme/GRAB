@@ -283,20 +283,23 @@ public:
         using namespace grab::theme;
         auto r = b.getLocalBounds().toFloat().reduced (0.5f);
         const float corner = radius::control;
-        const bool on = b.getToggleState();
+        const bool on      = b.getToggleState();
+        const bool ghost   = (bool) b.getProperties().getWithDefault ("ghost",   false);
+        const bool primary = (bool) b.getProperties().getWithDefault ("primary", false);
+        const bool lit     = on || (primary && b.isEnabled());
 
-        juce::Colour fill = on     ? primaryFill
-                          : isDown ? raisedHover
-                          : isOver ? raisedHover
-                          :          raised;
+        if (ghost) return;   // a text-only link (Revert / In sync): no fill, no outline
+
+        juce::Colour fill = lit            ? ((isOver || isDown) ? primaryHover : primaryFill)
+                          : (isOver || isDown) ? raisedHover : raised;
         if (! b.isEnabled())
             fill = raised.withAlpha (0.45f);
 
         g.setColour (fill);
         g.fillRoundedRectangle (r, corner);
 
-        // A hairline edge only when raised above the surface; selected (near-white) needs none.
-        if (! on)
+        // A hairline edge only when raised above the surface; a lit (near-white) button needs none.
+        if (! lit)
         {
             g.setColour (isOver || isDown ? divider.brighter (0.2f) : divider);
             g.drawRoundedRectangle (r, corner, 1.0f);
@@ -307,9 +310,11 @@ public:
     void drawButtonText (juce::Graphics& g, juce::TextButton& b, bool isOver, bool isDown) override
     {
         using namespace grab::theme;
-        const bool on = b.getToggleState();
+        const bool on      = b.getToggleState();
+        const bool primary = (bool) b.getProperties().getWithDefault ("primary", false);
+        const bool lit     = on || (primary && b.isEnabled());
         auto col = ! b.isEnabled() ? disabled
-                 : on              ? primaryText
+                 : lit             ? primaryText
                  : (isOver || isDown) ? ink
                  :                   ink2;
         g.setColour (col);
