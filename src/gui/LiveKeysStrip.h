@@ -99,12 +99,16 @@ public:
         }
         const float x0 = (float) keysR.getX(), w = (float) keysR.getWidth();
         const float top = (float) keysR.getY(), h = (float) keysR.getHeight();
-        const float tickH = h * (compact ? 0.42f : 0.5f);
 
         // Piano layout, matching the device graphic: a touch's nx maps linearly across the (piano-
         // proportioned) keybed, so the ring lands exactly where the device shows it. White keys are
         // faint dividers, black keys short ticks, and each key that *sounds* as a C (physical + octave
         // + transpose) is labelled - so labels, the ring and the readout all agree and track octave.
+        // The Seaboard's keys (the keywaves) sit in a band between flat glide strips at the top and
+        // bottom, so the key dividers and the slide ring live in that band, not the full height.
+        const float ky0 = top + kKeyBandTop * h;
+        const float ky1 = top + kKeyBandBot * h;
+
         g.setFont (grab::theme::type::font (compact ? grab::theme::type::Role::caption
                                                     : grab::theme::type::Role::body));
         for (int s = 0; s < count; ++s)
@@ -114,7 +118,7 @@ public:
             if (isBlack (n))
             {
                 g.setColour (grid);
-                g.fillRect (juce::Rectangle<float> (fx - (compact ? 0.5f : 1.0f), top, compact ? 1.0f : 2.0f, tickH));
+                g.fillRect (juce::Rectangle<float> (fx - (compact ? 0.5f : 1.0f), ky0, compact ? 1.0f : 2.0f, ky1 - ky0));
                 continue;
             }
             if (posMod (n + shift, 12) == 0)   // a key that sounds as a C
@@ -134,9 +138,9 @@ public:
         {
             auto& t = kv.second;
             const float cx = x0 + t.dx * w;
-            // Slide spans the full keybed height now that the keybed is device-proportioned: the glide
-            // strips (ny 0 and 1) land at the top/bottom edges, matching the device graphic.
-            const float cy = top + juce::jlimit (0.04f, 0.96f, t.dy) * h;
+            // Slide maps across the keywave band (between the glide strips), so the ring tracks the
+            // keys the same way the device graphic does.
+            const float cy = top + (kKeyBandTop + juce::jlimit (0.0f, 1.0f, t.dy) * (kKeyBandBot - kKeyBandTop)) * h;
             const float a  = t.releasing ? juce::jlimit (0.0f, 1.0f, t.fade) : 1.0f;
 
             const float strikeR = (compact ? 2.0f : 4.0f)  + juce::jlimit (0.0f, 1.0f, t.strike) * (compact ? 7.0f : 24.0f);
@@ -251,6 +255,8 @@ private:
 
     bool compact = false;
     float keybedAspect = 2.0f;   // device keybed width/height (Seaboard Block art is 600x300)
+    // The keywave band within the keybed: flat glide strips above kKeyBandTop and below kKeyBandBot.
+    static constexpr float kKeyBandTop = 0.12f, kKeyBandBot = 0.88f;
     int  low = 48, count = 25;   // C3, two octaves (sensible default until setRange)
     int  shift = 0;              // octave*12 + transpose, added to displayed note names
     int  latestId = -1;          // the most recently pressed finger (its readout is the one shown)
