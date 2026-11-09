@@ -3385,6 +3385,24 @@ namespace
     {
         const int gutter = grab::theme::space::gutter;
         TopBand tb;
+
+        // Narrow (Fred's < 760 fold): the drawing goes full-width on its own row, then the dashboard
+        // and controls sit side by side beneath it - three tiles across becomes one-over-two.
+        if (r.getWidth() < 740)
+        {
+            const int drawH = 132;    // full-width drawing row (the 96px art centres with padding)
+            const int infoH = 196;    // dashboard / controls row (fits the controls stack)
+            tb.band = r.removeFromTop (drawH + gutter + infoH);
+            r.removeFromTop (gutter);
+            auto band = tb.band;
+            tb.draw = band.removeFromTop (drawH);
+            band.removeFromTop (gutter);
+            const int ctrlW = juce::jlimit (210, 300, band.getWidth() * 2 / 5);
+            tb.ctrl = band.removeFromRight (ctrlW); band.removeFromRight (gutter);
+            tb.dash = band;   // dashboard takes the rest of the info row
+            return tb;
+        }
+
         tb.band = r.removeFromTop (196);   // fits the controls stack / dashboard; the 96px art centres
         r.removeFromTop (gutter);
         auto band = tb.band;
