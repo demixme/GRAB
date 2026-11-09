@@ -86,6 +86,11 @@ public:
         rebuildLegacy();
     }
 
+    // The current keybed span (set by setKeyboardRange), so the mini keystroke-map / Live-keys strips
+    // can match it for a RISE/GRAND. keyCount 0 = whole octaves (strip falls back to its own default).
+    int getKeyboardLow()   const { return legacyLow; }
+    int getKeyboardCount() const { return legacyKeys; }
+
     // Live RISE panel positions (normalised 0..1, or <0 for no data): three touch faders + XY pad.
     // Fed from Rise2Component's performance MIDI so the device graphic's own panel mirrors the
     // hardware. Message-thread only (the FaderPanel's 30 Hz poll), read in paint() - no lock needed.
