@@ -75,6 +75,13 @@ public:
 
     void clearTouches() { touches.clear(); repaint(); }
 
+    /** nx (0..1) for a MIDI note, matching the drawn key layout - for feeding note-based touches
+        (RISE/GRAND have no surface x, only a note). Clamped to the displayed range. */
+    float nxForNote (int midiNote) const
+    {
+        return juce::jlimit (0.0f, 1.0f, pianoX (juce::jlimit (0, count - 1, midiNote - low)));
+    }
+
     void paint (juce::Graphics& g) override
     {
         using namespace grab::theme;

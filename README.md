@@ -13,10 +13,31 @@ instruments configurable and self-documents their protocol.
        alt="GRAB configuring a Seaboard Block: colour-coded 5D sensitivity curves with live touch rings on the keyboard graphic, and MIDI settings, pitch and play-mode cards below.">
 </p>
 
-## Where it's at — v0.1.85
-**Live editing** (changes write as you make them, like Dashboard), a unified **Preset** menu
+## Where it's at — v0.1.97
+A **rebuilt interface (UI V2)** — a FabFilter-style studio layout designed by *fictionfred* — on top
+of **live editing** (changes write as you make them, like Dashboard), a unified **Preset** menu
 (ROLI presets + your own saved presets, per device), and **factory reset** for Blocks — on
 **Windows, macOS and Linux**.
+
+**New in v0.1.97 — a new interface (UI V2):**
+- **Rebuilt settings page, FabFilter-style** (designed by *fictionfred*). One **5D sensitivity graph**
+  overlays all five curves (Strike / Glide / Slide / Press / Lift), colour-coded, the selected one lit
+  and editable — **drag the curve body or its square Min / Max handles**, with a dotted "default" line
+  showing where it started and **live keypress dots** riding the curve as you play. The selected
+  dimension's **Min / Sensitivity / Max dials** sit in their own inspector panel with a plain-English
+  description of what it does.
+- **Bento top band** — the device drawing (now with a soft drop shadow), a device **dropdown** over a
+  battery / firmware / settings dashboard, and an **MPE / preset** card (preset switcher, Reload, Save,
+  Autosave).
+- **Tidied cards** — MIDI output, Expression, Keyboard, Controller CCs and the rest laid out in two
+  even columns; integers as **steppers** (− / ＋), zones and modes as **segmented** pills, colours as
+  wells, and every setting flagged with a dot when it differs from the device.
+- **One consistent theme** — Red Hat typography, Fred's radii and colours, pill switches, and **dark
+  themed dialogs** (Diagnose, Contribute, Capture MIDI, How-you-can-help) with no OS title-bar chrome.
+- **Live keys / keystroke map** — play the device to see where and how hard; now wired on **RISE / GRAND**
+  too, not just BLOCKS.
+- *(v0.1.86–0.1.96 built this out incrementally on the `feat/track-b-zones` branch; v0.1.97 is the first
+  full release of it.)*
 
 **New in v0.1.85:**
 - **Developer Control Block + Control Block presets.** GRAB now draws the **Developer** block (numbered
@@ -145,7 +166,8 @@ GRAB, use **Contribute…**, **Advanced ▸ Capture MIDI**, **Advanced ▸ How y
 | **Airwave** | ◻️ out of scope — a host-side camera/gesture controller that only sends MIDI CCs, so there's nothing on the device to configure (GRAB includes Airwave notes + a CC tester under Advanced) |
 | Multiple BLOCKS (DNA-connected cluster) | ✅ the **whole arrangement is drawn** in its real X/Y layout; **click a block to select it**. Identical chained blocks share one config (writes fan out to the chain). **DNA-joined Seaboards over Bluetooth** are detected **live** — drawn touching when joined, apart when separated (over USB only the cabled block is reachable, with a hint to switch to Auto) |
 | Seaboard **RISE 25/49** (original) | ✅ live read/write + ROLI presets — same `0x78`/RPN protocol as the RISE 2, confirmed on a RISE 25 (one caveat: min/max aren't shown — this firmware doesn't report them back) · [RISE-GRAND.md](RISE-GRAND.md) |
-| Seaboard **GRAND** | ✅ supported (v0.1.52) — **4D** (Strike/Glide/Press/Lift, no slide), 3 pedals; its own `0x78`/RPN dialect, fully mapped from Dashboard captures. Read + write for **MIDI mode, channel & count, pitch bend, transpose, glide, pedals**, plus write-only **octave & glide/press tracking** (the GRAND doesn't report those back), and live keyboard touch. Enormous thanks to **BabeleDunnit** for the captures · [RISE-GRAND.md](RISE-GRAND.md) · [issue #6](../../issues/6) |
+| Seaboard **GRAND** | ✅ supported (v0.1.52) — **4D** (Strike/Glide/Press/Lift, no slide), 3 pedals; its own `0x78`/RPN dialect, fully mapped from Dashboard captures. Read + write for **MIDI mode, channel & count, pitch bend, transpose, glide, pedals**, plus write-only **octave & glide/press tracking** (the GRAND doesn't report those back), and live keyboard touch. Confirmed on a **GRAND 62** (the Stage/Studio-era board). Enormous thanks to **BabeleDunnit** for the captures · [RISE-GRAND.md](RISE-GRAND.md) · [issue #6](../../issues/6) |
+| ↳ **First Edition GRAND 88** | ⚠️ *not yet confirmed* — the original 88-key GRAND is the older model. On Windows it has been seen to **not answer the ROLI identify at all** (it stays silent, so GRAB can't read it). This isn't a GRAB decode bug — the protocol is the same — but likely older firmware and/or a Windows-MIDI quirk. Use **Windows MIDI Services** (Windows 11 25H2+), close ROLI Dashboard / DAWs, and try the **latest** GRAB; a Mac cleanly separates "Windows problem" from "this firmware". If yours answers, a capture would confirm it for everyone · [issue #14](../../issues/14) |
 
 Got an **unsupported** device? Run GRAB, open **Advanced… ▸ Help add device (auto-explore)**
 → **Run & submit** — one click, read-only, and it's how the next devices get added.
@@ -195,7 +217,9 @@ usable whatever happens to ROLI's software and servers.
   Block setup) — those need more reports. The **original Seaboard RISE** is **read/write** (same protocol as the
   RISE 2, confirmed on a RISE 25; min/max aren't shown); the **GRAND** is **fully configurable**
   (read + write for mode, channel, bend, transpose, glide and pedals; octave & tracking are
-  write-only as the GRAND doesn't report them back) — 4D, no slide.
+  write-only as the GRAND doesn't report them back) — 4D, no slide. Confirmed on a **GRAND 62**;
+  the older **First Edition 88** has been seen to stay silent to the identify on Windows (not a
+  GRAB bug — see the device table and [issue #14](../../issues/14)).
 
 If you just want to tweak your device's settings today, it does that. If you'd like it to
 *grow into* a fuller Dashboard alternative, that's exactly why **contributing a profile**
@@ -301,7 +325,9 @@ A port opened but the device never answered — usually one of:
 > **"ROLI Hardware Driver"** background service; GRAB needs no such driver.)
 - **It's a Seaboard RISE or GRAND** — both use a different protocol (GRAB shows a separate
   RISE page). The **RISE 2** and the **original RISE 25/49** are supported (read/write); the
-  **GRAND** now shows its full settings page too (detection fixed in v0.1.46).
+  **GRAND** now shows its full settings page too (detection fixed in v0.1.46). One known exception:
+  the **First Edition GRAND 88** on Windows can stay **silent to the identify** (nothing comes back),
+  so GRAB can't read it — try Windows MIDI Services / a Mac / the latest build ([issue #14](../../issues/14)).
 - Try the other **Transport** option (USB ↔ BLE).
 
 **Connected, but a setting looks missing / unnamed / wrong** — contribute a profile
@@ -445,8 +471,9 @@ GRAB is built by the community. In particular:
 - **[sbialy](https://github.com/sbialy)** reverse-engineered the **Seaboard RISE 2 protocol** (the
   `0x78` dialect GRAB uses to read and write RISE settings), built the **5D sensitivity-curve
   rendering**, and contributed the **serial/MAC anonymization** and further RISE fixes.
-- **[fictionfred](https://github.com/fictionfred)** captured and decoded the **original RISE (RISE
-  25)** write protocol, which unlocked read/write support for the original Seaboard RISE.
+- **[fictionfred](https://github.com/fictionfred)** designed GRAB's **user interface** (the
+  FabFilter-style studio layout), and captured and decoded the **original RISE (RISE 25)** write
+  protocol, which unlocked read/write support for the original Seaboard RISE.
 - **[BabeleDunnit](https://github.com/BabeleDunnit)** contributed the full **Seaboard GRAND**
   Dashboard capture that cracked the GRAND configuration — confirming it is the RISE `0x78`
   protocol and letting GRAB map its reply and controls ([issue #6](../../issues/6)).

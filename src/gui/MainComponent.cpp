@@ -921,11 +921,13 @@ void MainComponent::connect (seaprobe::Transport transport)
         rise2Page->onKeyCount = [this] (int keyCount)
         {
             keyboardView.setKeyboardRange (lowNoteForKeyCount (keyCount), keyCount);   // exact GRAND size
+            updateLiveStripRange();   // keep the keystroke map / Live-keys strip the same width
             resized();
         };
 
         // Live touch rings from the RISE/GRAND's performance MIDI (they have no BLOCKS touch surface).
         keyboardView.startTouchDisplay();
+        updateLiveStripRange();   // match the strips to this RISE/GRAND's keybed from the start
         rise2Page->onTouch = [this] (int chan, int note, float pressure, float bend, float slide, float strike, bool end)
         {
             // The keybed is C-rooted and may be a partial octave (49-key boards), so KeyboardView maps
@@ -936,6 +938,11 @@ void MainComponent::connect (seaprobe::Transport transport)
             const float y = 1.0f - juce::jlimit (0.0f, 1.0f, slide);
             // Tile 0 is the single RISE/GRAND keybed (not a DNA block).
             keyboardView.setTouch (0, chan, x, y, pressure, strike, end);   // setTouch is thread-safe
+
+            // Also feed the drawing-tile keystroke map and the big Live-keys strip (they map a MIDI
+            // note to the drawn key layout; bend shows as the ring's glide). chan is a stable finger id.
+            keystrokeMap.setTouch (chan, keystrokeMap.nxForNote (note), y, pressure, strike, bend, end);
+            liveStrip.setTouch    (chan, liveStrip.nxForNote (note),    y, pressure, strike, bend, end);
         };
 
         // Mirror the RISE's touch faders + XY pad onto the device graphic (the SVG's own panel layers),
@@ -3386,6 +3393,19 @@ void MainComponent::forceLightpadPreview()
 // correctly. Called when Live keys opens and whenever Octave/Transpose change.
 void MainComponent::updateLiveStripRange()
 {
+    // RISE / GRAND: match the device's real keybed (e.g. RISE 2 = 49 keys) instead of the Seaboard's
+    // 24, so the strip is the right width and note-based touches land on the right keys.
+    if (rise2Page != nullptr)
+    {
+        const int lo  = keyboardView.getKeyboardLow();
+        const int cnt = keyboardView.getKeyboardCount() > 0 ? keyboardView.getKeyboardCount() : 25;
+        liveStrip.setRange (lo, cnt);
+        keystrokeMap.setRange (lo, cnt);
+        liveStrip.setLabelShift (0);       // RISE octave label-tracking can follow later
+        keystrokeMap.setLabelShift (0);
+        return;
+    }
+
     liveStrip.setRange (48, 24);   // Seaboard Block: 24 keys C3..B4 (matches the device art's keys)
     keystrokeMap.setRange (48, 24);
 

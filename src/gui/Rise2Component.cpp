@@ -740,8 +740,9 @@ void Rise2Component::onState (rise2::State s)
     }
 
     // The original RISE (fw 1.x) uses the same write protocol as the RISE 2 (confirmed from a
-    // contributed Dashboard capture), so it is editable too. Its one quirk: the min/max block
-    // reads back as zeros, so those stay hidden even though they are writable.
+    // contributed Dashboard capture), so it is editable too. Some older 1.x firmware read the min/max
+    // block back as zeros; fw 2.x always reports it. rebuildRows() decides per dimension from the
+    // read-back value (show when a real ceiling comes back), so this flag is just the fw-2.x guarantee.
     minMaxReliable = verified;
     rebuildRows();
     presetBox.setEnabled (true);        // settings are shown now, so presets apply
@@ -850,7 +851,13 @@ void Rise2Component::rebuildRows()
             for (auto& d : dims)
             {
                 if (! include (d.id)) continue;   // GRAND: no Strike/Slide curve
-                const bool hasMinMax = d.minId != 0 && minMaxReliable && ! grand;   // old RISE / GRAND can't read min/max back
+                // Show Min/Max when the device actually reports a usable ceiling. fw 2.x always does;
+                // the original RISE (fw 1.x) was thought to read these back as zeros, but newer 1.x
+                // firmware (e.g. a RISE 25 on 1.1.8) does report them - so key off the value, not the
+                // firmware string, and hide only when the whole block really is zero. GRAND never reads
+                // them back, so it stays 1-knob regardless.
+                const bool reportsRange = deviceValues.count (d.maxId) && deviceValues[d.maxId] > 0;
+                const bool hasMinMax = d.minId != 0 && ! grand && (minMaxReliable || reportsRange);
                 sg->addDimension (d.id, d.label, juce::Colour (d.colour), deviceValues[d.id],
                                   hasMinMax ? (int) d.minId : 0, hasMinMax ? deviceValues[d.minId] : 0,
                                   hasMinMax ? (int) d.maxId : 0, hasMinMax ? deviceValues[d.maxId] : 127);
