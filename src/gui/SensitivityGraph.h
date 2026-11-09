@@ -287,21 +287,32 @@ private:
         if (! dims.empty())
         {
             auto& d = dims[(size_t) selected];
-            auto innerB = inspR.reduced (12, 0);
-            innerB.removeFromBottom (12);
-            if (hasFixedVel)       // fixed-velocity row at the very bottom of the panel
+            auto innerB = inspR.reduced (14, 0);   // match the inspector's 14px side padding
+            innerB.removeFromBottom (12);          // bottom padding
+
+            // Fred's .kwell: a single sunken (tileInset) well pinned to the bottom of the inspector,
+            // holding the knobs on top and - under a divider - the fixed-velocity row.
+            const int fixH = hasFixedVel ? 38 : 0;
+            knobCardR = innerB.removeFromBottom (108 + fixH);
+
+            auto win = knobCardR.reduced (8, 0);   // .kwell horizontal padding
+            win.removeFromTop (8);
+            win.removeFromBottom (6);
+            if (hasFixedVel)       // fixed-velocity row (.kfix), inside the well, under a divider
             {
-                auto fvRow = innerB.removeFromBottom (24);
-                fvSwitchR = fvRow.removeFromRight (40).withSizeKeepingCentre (40, 20).toFloat();
-                fvRow.removeFromRight (8);
-                if (fvOn) { fvValueR = fvRow.removeFromRight (32).toFloat(); fvRow.removeFromRight (4); }
+                auto fvRow = win.removeFromBottom (32);
+                fvDivider = { (float) knobCardR.getX() + 10.0f, (float) fvRow.getY() - 3.0f,
+                              (float) knobCardR.getRight() - 10.0f, (float) fvRow.getY() - 3.0f };
+                auto fr = fvRow.reduced (6, 0);
+                fvSwitchR = fr.removeFromRight (34).withSizeKeepingCentre (34, 20).toFloat();
+                fr.removeFromRight (8);
+                if (fvOn) { fvValueR = fr.removeFromRight (32).toFloat(); fr.removeFromRight (4); }
                 else        fvValueR = {};
-                fvLabelR = fvRow.toFloat();
-                innerB.removeFromBottom (10);
+                fvLabelR = fr.toFloat();
+                win.removeFromBottom (8);           // gap above the divider
             }
-            knobCardR = innerB.removeFromBottom (106);
-            auto row = knobCardR.reduced (14, 11);
-            const int kw = 54;
+            auto row = win;
+            const int kw = 52;
             if (d.hasNodes())
             {
                 const int gap = juce::jmax (6, (row.getWidth() - kw * 3) / 2);
@@ -504,9 +515,9 @@ private:
             g.drawFittedText ("Not sent by this device.", b.removeFromTop (28), juce::Justification::topLeft, 2);
         }
 
-        // knobs, in their own recessed card within the inspector panel (Fred's design)
-        g.setColour (well);
-        g.fillRoundedRectangle (knobCardR.toFloat(), radius::control);
+        // knobs, in a sunken (tileInset) well within the inspector - Fred's .kwell
+        g.setColour (tileInset);
+        g.fillRoundedRectangle (knobCardR.toFloat(), radius::inset);
         for (auto& k : knobR)
         {
             const int v = valueFor (d, k.target);
@@ -514,10 +525,12 @@ private:
             paintKnob (g, k.area, d.colour, v, lab);
         }
 
-        // Fixed velocity: label, optional value, and a switch - at the bottom of the panel.
+        // Fixed velocity (.kfix): a divider, then label, optional value, and a switch - inside the well.
         if (hasFixedVel)
         {
-            g.setColour (ink2);
+            g.setColour (divider);
+            g.drawLine (fvDivider, 1.0f);
+            g.setColour (fvOn ? ink : ink2);
             g.setFont (grab::theme::type::font (grab::theme::type::Role::body));
             g.drawText ("Fixed velocity", fvLabelR, juce::Justification::centredLeft);
             if (fvOn && ! fvValueR.isEmpty())
@@ -526,7 +539,7 @@ private:
                 g.setFont (grab::theme::type::font (grab::theme::type::Role::control));
                 g.drawText (juce::String (fvValue), fvValueR, juce::Justification::centredRight);
             }
-            // switch
+            // switch (34 x 20, Fred's .sw)
             g.setColour (fvOn ? primaryFill : switchOff);
             g.fillRoundedRectangle (fvSwitchR, fvSwitchR.getHeight() * 0.5f);
             const float kr = fvSwitchR.getHeight() - 6.0f;
@@ -539,40 +552,44 @@ private:
     void paintKnob (juce::Graphics& g, juce::Rectangle<float> area, juce::Colour c, int v, const char* lab)
     {
         using namespace grab::theme;
-        // Fred's layout: a small dark knob face (ring + pointer) at the top, the value below it, then
-        // the label. The value is NOT inside the face.
-        const float faceD = juce::jmin (area.getWidth(), 38.0f);
-        auto faceBox = juce::Rectangle<float> (faceD, faceD).withCentre ({ area.getCentreX(), area.getY() + faceD * 0.5f });
-        const auto centre = faceBox.getCentre();
-        const float radius = faceD * 0.5f - 1.5f;
-        const float a0 = juce::MathConstants<float>::pi * 1.25f;
-        const float a1 = juce::MathConstants<float>::pi * 2.75f;
+        // Fred's 52px dial (authored on a 0..100 box): a dark face disc (r 32) with a wider track
+        // ring around it (r 42, 4px), an outward value tick (r 14 -> 30, sitting on the face, not
+        // through the centre), the value below (readout), then the caption label.
+        const float kd = juce::jmin (area.getWidth(), 52.0f);
+        const float s  = kd / 100.0f;
+        auto dialBox = juce::Rectangle<float> (kd, kd).withCentre ({ area.getCentreX(), area.getY() + kd * 0.5f });
+        const auto ctr = dialBox.getCentre();
+        const float rFace = 32.0f * s;
+        const float rArc  = 42.0f * s;
+        const float wArc  = 7.69f * s;   // ~4px at 52
+        const float a0 = juce::MathConstants<float>::pi * 1.25f;   // 225 deg: the gap sits at the bottom
+        const float a1 = juce::MathConstants<float>::pi * 2.75f;   // +270 deg sweep, clockwise
         const float ang = a0 + (a1 - a0) * (float) v / 127.0f;
 
         g.setColour (knobFace);
-        g.fillEllipse (faceBox);
+        g.fillEllipse (dialBox.withSizeKeepingCentre (rFace * 2.0f, rFace * 2.0f));
 
         juce::Path track, val;
-        track.addCentredArc (centre.x, centre.y, radius, radius, 0.0f, a0, a1, true);
-        val.addCentredArc   (centre.x, centre.y, radius, radius, 0.0f, a0, ang, true);
-        g.setColour (knobTrack); g.strokePath (track, juce::PathStrokeType (3.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-        g.setColour (c);         g.strokePath (val,   juce::PathStrokeType (3.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        track.addCentredArc (ctr.x, ctr.y, rArc, rArc, 0.0f, a0, a1,  true);
+        val.addCentredArc   (ctr.x, ctr.y, rArc, rArc, 0.0f, a0, ang, true);
+        g.setColour (knobTrack); g.strokePath (track, juce::PathStrokeType (wArc, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        g.setColour (c);         g.strokePath (val,   juce::PathStrokeType (wArc, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
-        // White pointer from the centre out to the arc.
+        // Outward pointer tick on the face (not through the centre).
         const float sn = std::sin (ang), cs = std::cos (ang);
-        juce::Line<float> tick (centre.x + sn * (radius * 0.35f), centre.y - cs * (radius * 0.35f),
-                                centre.x + sn * (radius - 2.0f),  centre.y - cs * (radius - 2.0f));
+        juce::Line<float> tick (ctr.x + sn * 14.0f * s, ctr.y - cs * 14.0f * s,
+                                ctr.x + sn * 30.0f * s, ctr.y - cs * 30.0f * s);
         g.setColour (ink);
-        g.drawLine (tick, 1.8f);
+        g.drawLine (tick, 3.85f * s);
 
-        // Value below the face, then the label.
-        auto rest = area.withTrimmedTop ((int) faceD + 3);
+        // Value below the dial, then the label.
+        auto rest = area.withTrimmedTop ((int) kd + 2);
         g.setColour (ink);
         g.setFont (grab::theme::type::font (grab::theme::type::Role::readout));
-        g.drawText (juce::String (v), rest.removeFromTop (22), juce::Justification::centred);
+        g.drawText (juce::String (v), rest.removeFromTop (24), juce::Justification::centred);
         g.setColour (label);
         g.setFont (grab::theme::type::font (grab::theme::type::Role::caption));
-        g.drawText (lab, rest, juce::Justification::centredTop);
+        g.drawText (lab, rest.removeFromTop (14), juce::Justification::centredTop);
     }
 
     // --- interaction ---------------------------------------------------------------------------
@@ -691,6 +708,7 @@ private:
     juce::uint32 fvToggleId = 0, fvValueId = 0;
     bool fvOn = false; int fvValue = 0;
     juce::Rectangle<float> fvSwitchR, fvValueR, fvLabelR;
+    juce::Line<float> fvDivider;
     bool draggingFvValue = false;
     juce::Rectangle<float> resetR;
 
