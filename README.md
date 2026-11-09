@@ -36,9 +36,6 @@ of **live editing** (changes write as you make them, like Dashboard), a unified 
   themed dialogs** (Diagnose, Contribute, Capture MIDI, How-you-can-help) with no OS title-bar chrome.
 - **Live keys / keystroke map** — play the device to see where and how hard; now wired on **RISE / GRAND**
   too, not just BLOCKS.
-- **Original RISE Min / Max** — the original RISE (fw 1.x) shows its **Strike / Press / Lift Min / Max**
-  dials again: it accepts those writes (ROLI Dashboard exposes them) but reads the block back as zeros,
-  so GRAB shows the dials with sensible defaults and writes them — **hardware-confirmed on fw 1.1.8**.
 - *(v0.1.86–0.1.96 built this out incrementally on the `feat/track-b-zones` branch; v0.1.97 is the first
   full release of it.)*
 
@@ -150,12 +147,13 @@ one, run **Advanced ▸ Help add device** and press every button so we can confi
 Connected on its own or chained to a Lightpad/Seaboard — either way, a quick report helps. See
 [CONTROL-BLOCKS.md](CONTROL-BLOCKS.md).
 
-**Also needed — contributions very welcome:** **host→device Dashboard captures** for the
-**Lightpad's Note-Grid / Fader / Drum apps** (the shared config is in; the per-app layouts aren't);
-the capture that unlocks device-specific features (see **Advanced ▸ How you can help** and
-[tools/CAPTURE-DASHBOARD.md](tools/CAPTURE-DASHBOARD.md)); and testers for the **Linux** build. In
-GRAB, use **Contribute…**, **Advanced ▸ Capture MIDI**, **Advanced ▸ How you can help**, or
-**Diagnose…** — everything is anonymised and nothing is sent unless you click.
+**Also needed — contributions very welcome:** the host→device **Dashboard capture** that unlocks
+writing for a **new setting or device** (see **Advanced ▸ How you can help** and
+[tools/CAPTURE-DASHBOARD.md](tools/CAPTURE-DASHBOARD.md)), and testers for the **Linux** build.
+(The Lightpad's **Fader / Drum app** layouts can't be surfaced this way — they're program-internal
+and the device never reports them; see [LIGHTPAD-APPS.md](LIGHTPAD-APPS.md).) In GRAB, use
+**Contribute…**, **Advanced ▸ Capture MIDI**, **Advanced ▸ How you can help**, or **Diagnose…** —
+everything is anonymised and nothing is sent unless you click.
 
 ## Supported devices
 | Device | Status |
@@ -164,7 +162,7 @@ GRAB, use **Contribute…**, **Advanced ▸ Capture MIDI**, **Advanced ▸ How y
 | Seaboard **RISE 2** | ✅ supported — live config read/write, ROLI presets (firmware 2.x) — own protocol |
 | **ROLI Piano** (49) | ✅ confirmed (config read/write, key colours, named scales + native scale lighting; firmware 1.5.0, Windows) — same BLOCKS protocol · [PIANO.md](PIANO.md) |
 | **Piano M** (24, formerly **LUMI Keys** / LUMI Keys Studio Edition — same hardware, rebranded) | ✅ confirmed (config read/write, named scales, key, colour schemes, key colours; firmware 1.3.9, macOS) — same config items as the ROLI Piano · [LUMI.md](LUMI.md). A **chained pair** is confirmed too: shown as one device, writes reach both, notes run low to high across the pair |
-| **Lightpad Block** / Pad | 🟡 *work in progress* — shared config **read/write** (MIDI mode, pitch, 5D sensitivity curves, scale, chord, tracking) and the **15×15 pad surface** with live touch; its Note-Grid **apps/modes** aren't managed yet (needs Dashboard captures — see **Scope**). **Reports welcome** |
+| **Lightpad Block** / Pad | 🟡 *work in progress* — shared config **read/write** (MIDI mode, pitch, 5D sensitivity curves, scale, chord, tracking) and the **15×15 pad surface** with live touch — this *is* the default **Note Grid** app, fully covered. The **other apps'** per-pad layouts (Fader, Drum, assignable grids / notes / sliders) live inside each Littlefoot program and **can't be configured** — the device never reports them, and ROLI's app code hides them from the host ([LIGHTPAD-APPS.md](LIGHTPAD-APPS.md)). An **experimental app loader / preview** is in Advanced |
 | **Live / Loop / Touch** control blocks | 🟡 *work in progress* — their **buttons read + live-edit** (per-button MIDI CC, behaviour, default/min/max, on/off colours), drawn in each type's real 10-button layout. Decoded from ROLI's factory program, confirmed against Live + Loop; a **Touch Block** capture is still welcome (see **Scope**). **Reports welcome** |
 | **Airwave** | ◻️ out of scope — a host-side camera/gesture controller that only sends MIDI CCs, so there's nothing on the device to configure (GRAB includes Airwave notes + a CC tester under Advanced) |
 | Multiple BLOCKS (DNA-connected cluster) | ✅ the **whole arrangement is drawn** in its real X/Y layout; **click a block to select it**. Identical chained blocks share one config (writes fan out to the chain). **DNA-joined Seaboards over Bluetooth** are detected **live** — drawn touching when joined, apart when separated (over USB only the cabled block is reachable, with a hint to switch to Auto) |

@@ -125,6 +125,42 @@ public:
         repaint();
     }
 
+    // Per-region footer help (the FooterBar polls this): what the thing under the cursor does. Reuses
+    // the shared Help.h strings so the 5D graph's chips, curve, Min/Sens/Max dials, nodes and fixed
+    // velocity all describe themselves, like the setting rows do.
+    juce::String getTooltip() override
+    {
+        if (dims.empty()) return {};
+        const auto p = getMouseXYRelative().toFloat();
+        auto& d = dims[(size_t) selected];
+
+        for (size_t i = 0; i < chipR.size(); ++i)
+            if (chipR[i].contains (p))
+                return grab::helpForParameter (dims[i].name);
+
+        for (auto& k : knobR)
+            if (k.area.contains (p))
+                return k.target == Drag::knobMin ? grab::helpForParameter (d.name + " Minimum")
+                     : k.target == Drag::knobMax ? grab::helpForParameter (d.name + " Maximum")
+                     :                             grab::helpForParameter (d.name);
+
+        if (fvShown && ! fvSwitchR.isEmpty() && fvSwitchR.contains (p)) return grab::helpForParameter ("Fixed Velocity");
+        if (fvShown && ! fvValueR.isEmpty()  && fvValueR.contains (p))  return grab::helpForParameter ("Fixed Velocity Value");
+        if (! resetR.isEmpty() && resetR.contains (p))
+            return edited (d) ? "Reset " + d.name + " to the value read from the device." : juce::String();
+
+        if (plotR.toFloat().contains (p))
+        {
+            if (d.hasNodes() && d.sens > 0)
+            {
+                if (p.getDistanceFrom (toPlot ({ 0.0f, (float) d.mn / 127.0f })) < 16.0f) return grab::helpForParameter (d.name + " Minimum");
+                if (p.getDistanceFrom (toPlot ({ 1.0f, (float) d.mx / 127.0f })) < 16.0f) return grab::helpForParameter (d.name + " Maximum");
+            }
+            return "Drag to shape the " + d.name + " response curve; click another dimension's curve to select it.";
+        }
+        return "5D sensitivity: pick a dimension above, drag its curve, and set Min / Sensitivity / Max.";
+    }
+
     void paint (juce::Graphics& g) override
     {
         if (dims.empty()) return;

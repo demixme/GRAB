@@ -18,6 +18,7 @@
 #include <map>
 
 class LiveKeysStrip  : public juce::Component,
+                       public juce::SettableTooltipClient,
                        private juce::Timer
 {
 public:

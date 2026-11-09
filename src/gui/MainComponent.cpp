@@ -578,6 +578,8 @@ MainComponent::MainComponent()
     reloadButton.setButtonText   (TRANS ("Reload from device"));
     saveButton.setButtonText     (TRANS ("Save to device"));
     autosaveToggle.setButtonText (TRANS ("Autosave"));
+    saveButton.setTooltip   (TRANS ("Write your pending changes to the device."));
+    reloadButton.setTooltip (TRANS ("Reload every setting from the device, dropping any unsaved changes."));
     saveButton.getProperties().set   ("primary", true);   // Fred's primary (near-white) Save button
     reloadButton.getProperties().set ("ghost",   true);   // Fred's Revert / In sync text link
     contributeBtn.setButtonText  (TRANS ("Contribute..."));
@@ -617,6 +619,7 @@ MainComponent::MainComponent()
     };
 
     addChildComponent (presetBar);   // Fred's .pbar, over presetBox; the arrows step, the name opens the list
+    presetBar.setTooltip (TRANS ("Presets: step through them with the arrows, or click the name to pick one."));
     presetBar.onPrev = [this] { stepPreset (-1); };
     presetBar.onNext = [this] { stepPreset (+1); };
     presetBar.onOpen = [this] { presetBox.showPopup(); };
@@ -647,6 +650,7 @@ MainComponent::MainComponent()
     // Fred's device switcher: a pill in the dashboard tile that opens the rich DeviceMenu callout
     // (device list + connection type). blockBox stays as the hidden selection model behind it.
     addChildComponent (deviceMenuBtn);
+    deviceMenuBtn.setTooltip (TRANS ("The connected ROLI device. Click to switch devices or change the connection type."));
     deviceMenuBtn.onClick = [this] { showDeviceMenu(); };
 
     addAndMakeVisible (contributeBtn);
@@ -712,6 +716,7 @@ MainComponent::MainComponent()
     footer.setVersion (GRAB_VERSION);
     checkForUpdate();   // ask GitHub for the latest release; lights up the footer if newer
     addChildComponent (keyboardView);   // shown only for keyboard devices
+    keyboardView.setTooltip (TRANS ("The connected device. Click it to open Live keys and watch your playing in real time."));
     keyboardView.onTileClicked = [this] (juce::uint64 uid) { selectBlockByUid (uid); }; // Dashboard-style click-to-select
     keyboardView.onDeviceClicked = [this] { enterLiveKeys (! liveKeys); };   // click the device -> Live keys
     addChildComponent (liveStrip);
@@ -721,9 +726,11 @@ MainComponent::MainComponent()
     addChildComponent (backToSettingsBtn);
     backToSettingsBtn.onClick = [this] { enterLiveKeys (false); };
     addChildComponent (viewToggle);   // drawing-tile Device drawing | Keystroke map switch
+    viewToggle.setTooltip (TRANS ("Switch the top-left view between the device drawing and the live keystroke map."));
     viewToggle.onChange = [this] (int i) { setDrawingView (i == 1); };
     addChildComponent (keystrokeMap);
     keystrokeMap.setCompact (true);
+    keystrokeMap.setTooltip (TRANS ("Live keystroke map: where and how hard you play. Click to open the full Live keys view."));
     keystrokeMap.onClick = [this] { enterLiveKeys (! liveKeys); };   // clicking the map opens Live keys too
     {   // restore the device-art V2 preference (Advanced -> New device art)
         juce::PropertiesFile::Options po; po.millisecondsBeforeSaving = 0;

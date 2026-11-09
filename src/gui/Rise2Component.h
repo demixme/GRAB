@@ -163,6 +163,8 @@ private:
 
     bool awaitingState = false;
     int  stateRetries = 0;
+    bool minMaxReliable = true;   // false on the original RISE (fw 1.x): it ignores min/max writes and
+                                  // reads them back as zeros, so the dials are hidden there (RISE 2 only)
     bool grand = false;           // true: render the GRAND field set (4D, 3 pedals, no slide/strike/faders)
 
     juce::Label      statusLabel;

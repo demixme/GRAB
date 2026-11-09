@@ -10,7 +10,8 @@
 
 namespace grab
 {
-    class ViewToggle  : public juce::Component
+    class ViewToggle  : public juce::Component,
+                        public juce::SettableTooltipClient
     {
     public:
         ViewToggle() { setInterceptsMouseClicks (true, false); }
