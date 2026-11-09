@@ -13,10 +13,31 @@ instruments configurable and self-documents their protocol.
        alt="GRAB configuring a Seaboard Block: colour-coded 5D sensitivity curves with live touch rings on the keyboard graphic, and MIDI settings, pitch and play-mode cards below.">
 </p>
 
-## Where it's at — v0.1.85
-**Live editing** (changes write as you make them, like Dashboard), a unified **Preset** menu
+## Where it's at — v0.1.97
+A **rebuilt interface (UI V2)** — a FabFilter-style studio layout designed by *fictionfred* — on top
+of **live editing** (changes write as you make them, like Dashboard), a unified **Preset** menu
 (ROLI presets + your own saved presets, per device), and **factory reset** for Blocks — on
 **Windows, macOS and Linux**.
+
+**New in v0.1.97 — a new interface (UI V2):**
+- **Rebuilt settings page, FabFilter-style** (designed by *fictionfred*). One **5D sensitivity graph**
+  overlays all five curves (Strike / Glide / Slide / Press / Lift), colour-coded, the selected one lit
+  and editable — **drag the curve body or its square Min / Max handles**, with a dotted "default" line
+  showing where it started and **live keypress dots** riding the curve as you play. The selected
+  dimension's **Min / Sensitivity / Max dials** sit in their own inspector panel with a plain-English
+  description of what it does.
+- **Bento top band** — the device drawing (now with a soft drop shadow), a device **dropdown** over a
+  battery / firmware / settings dashboard, and an **MPE / preset** card (preset switcher, Reload, Save,
+  Autosave).
+- **Tidied cards** — MIDI output, Expression, Keyboard, Controller CCs and the rest laid out in two
+  even columns; integers as **steppers** (− / ＋), zones and modes as **segmented** pills, colours as
+  wells, and every setting flagged with a dot when it differs from the device.
+- **One consistent theme** — Red Hat typography, Fred's radii and colours, pill switches, and **dark
+  themed dialogs** (Diagnose, Contribute, Capture MIDI, How-you-can-help) with no OS title-bar chrome.
+- **Live keys / keystroke map** — play the device to see where and how hard; now wired on **RISE / GRAND**
+  too, not just BLOCKS.
+- *(v0.1.86–0.1.96 built this out incrementally on the `feat/track-b-zones` branch; v0.1.97 is the first
+  full release of it.)*
 
 **New in v0.1.85:**
 - **Developer Control Block + Control Block presets.** GRAB now draws the **Developer** block (numbered

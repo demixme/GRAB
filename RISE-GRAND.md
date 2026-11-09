@@ -210,8 +210,9 @@ section maps the RISE/GRAND's additional left-hand hardware controllers to CC nu
 - the **XY pad** → `XYPadXaxisCC` / `XYPadYaxisCC` (113 / 114),
 - the **pedal input(s)** → `PedalInputCC*` (64 Sustain Pedal).
 
-GRAB's RISE page follows the same layout: the curve panels and rows from the BLOCKS page,
-plus a MIDI CC Assignments section. The wire encoding is in the RISE 2 section above.
+GRAB's RISE page follows the same UI V2 layout as the BLOCKS page: the overlaid 5D sensitivity
+graph and the setting cards, plus a **Controller CCs** card grid mapping these extra hardware
+controllers (faders / XY pad / pedals) to CC numbers. The wire encoding is in the RISE 2 section above.
 
 ## Confirmed from live devices (first reports, Oct 2026)
 RISE devices are **class-compliant USB-MIDI** (no driver), with both an input and an
