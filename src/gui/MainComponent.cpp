@@ -3348,6 +3348,12 @@ void MainComponent::layoutDrawingTile (juce::Rectangle<int> tile)
         viewToggle.setBounds (col.removeFromTop (viewToggle.preferredHeight()));
         drawArea.removeFromRight (grab::theme::space::gutter);   // gap between art and toggle
     }
+    // Cap the graphic's height so it reads at Fred's compact size, centred in the tile (the keybed is
+    // wide, so without this it fills the tile and dominates the band).
+    const int artMaxH = 104;
+    if (drawArea.getHeight() > artMaxH)
+        drawArea = drawArea.withSizeKeepingCentre (drawArea.getWidth(), artMaxH);
+
     // Show the device art or the compact keystroke map; the hidden one gets no bounds.
     if (showToggle && drawingIsMap) { keystrokeMap.setBounds (drawArea); keyboardView.setBounds ({}); }
     else if (keyboardView.isVisible()) keyboardView.setBounds (drawArea);
@@ -3403,10 +3409,8 @@ namespace
         // and controls sit side by side beneath it - three tiles across becomes one-over-two.
         if (r.getWidth() < 740)
         {
-            // Keep the drawing at least its full-view size (don't shrink the graphic just because the
-            // window is narrow); the full-width row is taller so the art never renders smaller.
-            const int drawH = 196;    // full-width drawing row, same height as the full band
-            const int infoH = 196;    // dashboard / controls row (fits the controls stack)
+            const int drawH = 150;    // full-width drawing row (compact, matches the full band)
+            const int infoH = 150;    // dashboard / controls row (fits the compact controls stack)
             tb.band = r.removeFromTop (drawH + gutter + infoH);
             r.removeFromTop (gutter);
             auto band = tb.band;
@@ -3418,7 +3422,7 @@ namespace
             return tb;
         }
 
-        tb.band = r.removeFromTop (196);   // fits the controls stack / dashboard; the 96px art centres
+        tb.band = r.removeFromTop (150);   // compact band (Fred's ~120 device zone); the art centres smaller
         r.removeFromTop (gutter);
         auto band = tb.band;
         const int ctrlW = juce::jlimit (200, 260, band.getWidth() / 4);
@@ -3431,9 +3435,9 @@ namespace
 
     CtrlSlots splitCtrlSlots (juce::Rectangle<int> ctrlTile)
     {
-        const int padX = grab::theme::space::tilePadX, padY = grab::theme::space::tilePadY;
-        const int rowH = 30, gap = 8;
-        auto c = ctrlTile.reduced (padX, padY);
+        const int padX = grab::theme::space::tilePadX;
+        const int rowH = 28, gap = 6;
+        auto c = ctrlTile.reduced (padX, 10);
         CtrlSlots s;
         s.preset = c.removeFromTop (rowH); c.removeFromTop (gap);
         auto rs = c.removeFromTop (rowH);
@@ -3442,8 +3446,8 @@ namespace
         auto at = c.removeFromTop (rowH);
         s.autosave = at.removeFromLeft ((at.getWidth() - gap) / 2); at.removeFromLeft (gap); s.tools = at;
         c.removeFromTop (gap);
-        s.conn = c.removeFromTop (rowH); c.removeFromTop (gap);
-        s.status = c.removeFromTop (18);
+        s.conn = {};                       // connection type lives in the device menu now
+        s.status = c.removeFromTop (16);   // thin status line at the bottom
         return s;
     }
 }
