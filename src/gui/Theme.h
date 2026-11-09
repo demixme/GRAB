@@ -369,6 +369,23 @@ public:
         g.fillEllipse (kx, sw.getY() + 3.0f, kr, kr);
     }
 
+    // Fred's .sl: a 2px knob-track rail inset 6px, an ink fill up to a 12px ink thumb.
+    void drawLinearSlider (juce::Graphics& g, int x, int y, int width, int height,
+                           float sliderPos, float, float, juce::Slider::SliderStyle, juce::Slider&) override
+    {
+        using namespace grab::theme;
+        const float cy    = (float) y + (float) height * 0.5f;
+        const float left  = (float) x + 6.0f;
+        const float right = (float) x + (float) width - 6.0f;
+        const float tx    = juce::jlimit (left, right, sliderPos);
+
+        g.setColour (knobTrack);
+        g.fillRoundedRectangle (left, cy - 1.0f, right - left, 2.0f, 1.0f);
+        g.setColour (ink);
+        g.fillRoundedRectangle (left, cy - 1.0f, juce::jmax (0.0f, tx - left), 2.0f, 1.0f);
+        g.fillEllipse (tx - 6.0f, cy - 6.0f, 12.0f, 12.0f);
+    }
+
     // Fred's .combo: a flat sunken well (no outline), rounded, with a down chevron in the label
     // colour on the right. Hover lifts to wellHover.
     void drawComboBox (juce::Graphics& g, int width, int height, bool,

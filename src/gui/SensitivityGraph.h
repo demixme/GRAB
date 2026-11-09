@@ -488,12 +488,13 @@ private:
             }
         }
 
-        // end nodes for the selected dimension
+        // end nodes for the selected dimension (Fred's .node: a 10px rounded square, 2px coloured stroke)
         if (sel.hasNodes() && sel.sens > 0)
             for (auto p : { toPlot ({ 0.0f, (float) sel.mn / 127.0f }), toPlot ({ 1.0f, (float) sel.mx / 127.0f }) })
             {
-                g.setColour (display);                 g.fillEllipse (juce::Rectangle<float> (12.0f, 12.0f).withCentre (p));
-                g.setColour (sel.colour);              g.fillEllipse (juce::Rectangle<float> (8.0f, 8.0f).withCentre (p));
+                auto box = juce::Rectangle<float> (10.0f, 10.0f).withCentre (p);
+                g.setColour (display);    g.fillRoundedRectangle (box, 2.0f);
+                g.setColour (sel.colour); g.drawRoundedRectangle (box.reduced (1.0f), 2.0f, 2.0f);
             }
 
         // axes: labels + 0 / 64 / 127 ticks
