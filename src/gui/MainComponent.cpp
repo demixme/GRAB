@@ -3114,10 +3114,12 @@ void MainComponent::forceRisePreview()
     keyboardView.setBlocks (1);
     keyboardView.setVisible (true);
     rise2Page->previewSyntheticState (risePreviewVerified);
-    setStatus (juce::String ("RISE preview - ")
-               + (risePreviewVerified ? "verified fw 2.0.2"
-                                      : "original RISE fw 1.1.8 (editable; min/max hidden)")
-               + ".  Ctrl+Alt+Shift+R to toggle.");
+    // Spell out model + firmware so it's clear the Min/Max difference is firmware-driven (fw 2.x honours
+    // them, fw 1.x ignores + hides them), not a 49-vs-25-key thing.
+    setStatus (juce::String (risePreviewVerified
+                   ? "RISE 2 preview - fw 2.0.2, 49 keys (Strike/Press/Lift Min/Max shown; honoured on fw 2.x)."
+                   : "Original RISE preview - fw 1.1.8, 25 keys (Min/Max hidden; fw 1.x ignores those writes).")
+               + "  Ctrl+Alt+Shift+R to toggle.");
     risePreviewVerified = ! risePreviewVerified;   // next press shows the other
     resized();
 }

@@ -408,7 +408,9 @@ void Rise2Component::previewSyntheticState (bool verifiedFirmware)
     // No device involved — build a plausible identify reply with plausible values.
     stopTimer();
     closePorts();
-    portName = "Seaboard RISE (preview)";
+    // Model-specific name so the dashboard heading matches the firmware (and the Min/Max behaviour):
+    // the RISE 2 (fw 2.x) shows Min/Max, the original RISE (fw 1.x) doesn't.
+    portName = verifiedFirmware ? "Seaboard RISE 2 (preview)" : "Original Seaboard RISE (preview)";
 
     std::vector<std::uint8_t> raw ((size_t) offset::replySize, 0);
     raw[0] = 0xf0; raw[1] = 0x00; raw[2] = 0x21; raw[3] = 0x10; raw[4] = 0x78; raw[5] = 0x3a;
