@@ -157,14 +157,16 @@ inline void layoutTwoColumnCards (juce::Viewport& viewport, juce::Component& row
     const int gap    = grab::theme::space::gutter;
     const int availW = juce::jmax (260, viewport.getWidth() - 14);
 
-    if (availW < 560)   // too narrow for two columns: one stacked column
+    if (availW < 560)   // too narrow for columns: one stacked column
     {
         layoutCardGrid (viewport, rowHolder, cards, fullWidthTitle);
         return;
     }
 
-    const int colW = (availW - gap) / 2;
-    const int x[2] = { 0, colW + gap };
+    // Responsive column count: two normally, three on a wide window (>= ~1200 px) so the cards flow
+    // into fewer rows and the page is shorter - helps GRAB fit the height of smaller screens.
+    const int cols = availW >= 1180 ? 3 : 2;
+    const int colW = (availW - gap * (cols - 1)) / cols;
 
     int topY = 0;
     SectionCard* full = nullptr;
@@ -172,24 +174,24 @@ inline void layoutTwoColumnCards (juce::Viewport& viewport, juce::Component& row
         if (c->getTitle() == fullWidthTitle) { full = c.get(); break; }
     if (full != nullptr)
     {
-        full->setBounds (0, 0, availW, full->contentHeight());
+        full->setBounds (0, 0, availW, full->contentHeight());   // the 5D graph spans the full width
         topY = full->getBottom() + gap;
     }
 
-    // Lay the remaining cards out as true rows of two: both cards in a row take the taller one's
-    // height, so each row reads as a uniform band (rather than two independently flowing columns).
+    // The remaining cards flow in rows of `cols`; every card in a row takes the tallest one's height,
+    // so each row reads as a uniform band (rather than independently flowing columns).
     std::vector<SectionCard*> flow;
     for (auto& c : cards)
         if (c.get() != full) flow.push_back (c.get());
 
     int rowTop = topY;
-    for (size_t i = 0; i < flow.size(); i += 2)
+    for (size_t i = 0; i < flow.size(); i += (size_t) cols)
     {
-        SectionCard* a = flow[i];
-        SectionCard* b = (i + 1 < flow.size()) ? flow[i + 1] : nullptr;
-        const int h = b != nullptr ? juce::jmax (a->contentHeight(), b->contentHeight()) : a->contentHeight();
-        a->setBounds (x[0], rowTop, colW, h);
-        if (b != nullptr) b->setBounds (x[1], rowTop, colW, h);
+        int h = 0;
+        for (size_t j = i; j < i + (size_t) cols && j < flow.size(); ++j)
+            h = juce::jmax (h, flow[j]->contentHeight());
+        for (size_t j = i; j < i + (size_t) cols && j < flow.size(); ++j)
+            flow[j]->setBounds ((int) (j - i) * (colW + gap), rowTop, colW, h);
         rowTop += h + gap;
     }
 
