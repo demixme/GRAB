@@ -29,6 +29,9 @@ of **live editing** (changes write as you make them, like Dashboard), a unified 
   another app is holding the port.
 - **RISE preview labels** — the dev preview now names the model + firmware (RISE 2 fw 2.0.2 vs original
   RISE fw 1.1.8) so it's clear the Min/Max difference is firmware-driven, not 49-vs-25-key.
+- **RISE live-view Glide** — the touch ring now tracks a glide across the keys (scaled by the device's
+  pitch-bend range) instead of nudging a fixed ±2 semitones, so a big glide reads like ROLI Dashboard's
+  instead of looking almost stationary.
 
 **New in v0.1.97 — a new interface (UI V2):**
 - **Rebuilt settings page, FabFilter-style** (designed by *fictionfred*). One **5D sensitivity graph**
