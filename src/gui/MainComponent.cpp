@@ -1791,12 +1791,10 @@ void MainComponent::openDialog (juce::Component* panel, const juce::String& titl
     o.launchAsync();
 }
 
-// Auto-explore (Help add device) sends a read-only identify and listens. It opens the device's MIDI
-// ports itself, so first free GRAB's own hold on them - the classic Windows MIDI stack is one app per
-// port, so a connected GRAB (its topology source, or the RISE/GRAND page) was blocking its own probe
-// ("could not open output"). Mirror connect()'s teardown to release the ports, then reconnect the
-// device when the probe window closes. (Another app holding the port is still the user's to close.)
-void MainComponent::launchAutoExplore()
+// Release GRAB's own hold on the device's MIDI ports (mirrors connect()'s teardown), so the auto-
+// explore probe can open them. Only used when the probe actually can't open a port - i.e. the classic
+// Windows one-app-per-port stack with GRAB as the holder. connect(Auto) rebuilds afterwards.
+void MainComponent::releaseDeviceForProbe()
 {
     stopTimer();
     liveWriter.cancel();
@@ -1808,10 +1806,27 @@ void MainComponent::launchAutoExplore()
     rise2Page.reset();                 // releases the RISE/GRAND ports; connect(Auto) rebuilds it after
     block = nullptr;
     keyboardView.setVisible (false);
-    setStatus ("Freed the device port for the probe - your settings return when the probe window closes.");
+    setStatus ("Freed the device port so the probe can read it - your settings return when it closes.");
+}
 
+// Auto-explore (Help add device) opens the device's ports itself. It tries first and only asks us to
+// free our hold if that fails (onPortBusy) - so on multi-client systems (Windows MIDI Services / Mac /
+// Linux) the main window is never disturbed; only the legacy one-app-per-port case releases + reconnects.
+void MainComponent::launchAutoExplore()
+{
+    releasedForProbe = false;
     auto* p = new ExplorePanel();
-    p->onFinished = [this] { connect (seaprobe::Transport::Auto); };   // reopen the device afterwards
+    p->onPortBusy = [this]() -> bool
+    {
+        if (releasedForProbe) return false;        // we already freed ours; another app is holding it
+        releaseDeviceForProbe();
+        releasedForProbe = true;
+        return true;
+    };
+    p->onFinished = [this]
+    {
+        if (releasedForProbe) { releasedForProbe = false; connect (seaprobe::Transport::Auto); }
+    };
     openDialog (p, "Help add this device");
 }
 

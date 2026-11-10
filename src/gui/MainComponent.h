@@ -184,7 +184,9 @@ private:
     void touchChanged (roli::TouchSurface&, const roli::TouchSurface::Touch&) override;
     void contribute();
     void openDialog (juce::Component* panel, const juce::String& title); // owns panel in a DialogWindow
-    void launchAutoExplore();   // release GRAB's port hold, run the auto-explore probe, reconnect after
+    void launchAutoExplore();      // run the auto-explore probe; release+reconnect only if the port is busy
+    void releaseDeviceForProbe();  // free GRAB's MIDI-port hold so the probe can open it (legacy stack)
+    bool releasedForProbe = false; // true while the device was released for an in-progress probe
     void openCaptureWindow();   // Advanced ▸ Capture MIDI: the unified capture + decode tool
     void checkForUpdate();      // async: ask GitHub for the latest release, light up the footer if newer
     // Friendly name + formatted value for a config item id (applies overrides + learned names).
