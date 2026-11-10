@@ -778,6 +778,12 @@ int Rise2Component::value (juce::uint32 id) const
     return 0;
 }
 
+int Rise2Component::pitchBendRange() const
+{
+    const int v = value (kBend);
+    return v > 0 ? juce::jlimit (1, 96, v) : 48;   // default 48 before a read
+}
+
 // Build the write message(s) for one field. The GRAND differs from the RISE on a few NRPNs
 // (mapped from BabeleDunnit's captures, issue #6): octave uses a +64 data bias (not +4), and its
 // glide tracking is a single NRPN 0 (it has no Slide axis, so no companion NRPN 7).

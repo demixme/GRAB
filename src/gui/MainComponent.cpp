@@ -945,7 +945,10 @@ void MainComponent::connect (seaprobe::Transport transport)
             // the note to the true key centre - rings land exactly on the pressed key (bend nudges x
             // for Glide). y comes from Slide (vertical finger position): slide 0..1 up the key maps to
             // y 1..0 (the drawn keybed has y=0 at the top). GRAND is 4D (no Slide), so it stays centred.
-            const float x = keyboardView.legacyNoteToX (note, bend * 2.0f);
+            // Glide: a Seaboard's pitch bend maps 1 semitone per key, so the finger has moved
+            // bend * pitchBendRange keys - scale the ring's x by the device's real range (usually 48),
+            // not a fixed 2 (which made a big glide look almost stationary vs Dashboard).
+            const float x = keyboardView.legacyNoteToX (note, bend * (float) rise2Page->pitchBendRange());
             const float y = 1.0f - juce::jlimit (0.0f, 1.0f, slide);
             // Tile 0 is the single RISE/GRAND keybed (not a DNA block).
             keyboardView.setTouch (0, chan, x, y, pressure, strike, end);   // setTouch is thread-safe

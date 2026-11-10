@@ -40,6 +40,10 @@ public:
     /** True when a RISE MIDI port is present. */
     static bool isConnected();
 
+    /** The device's pitch-bend range in semitones (default 48). Used to scale the live-view glide:
+        a Seaboard glides finger-keys == pitch-bend-semitones, so the ring's x offset == bend * range. */
+    int pitchBendRange() const;
+
     /** ROLI firmware-download product name for the connected device, or "" if none is known.
         Confirmed on the server (2026-10-27): RISE 2 -> "Seaboard RISE2" (2.x), RISE 25 ->
         "Seaboard RISE 25", original RISE 49 -> "Seaboard RISE" (1.1.8). The GRAND is registered
