@@ -689,7 +689,7 @@ MainComponent::MainComponent()
                 else if (r == 5) downloadFirmware();
                 else if (r == 12) openDialog (new RoliArchivePanel (roliProductName()), "Archive my ROLI downloads");
                 else if (r == 6) openDialog (new DiagnosePanel(), "Diagnose connection");
-                else if (r == 8) openDialog (new ExplorePanel(), "Help add this device");
+                else if (r == 8) launchAutoExplore();
                 else if (r == 9) openDialog (new AirwavePanel(), "Airwave & gesture control (experimental)");
                 else if (r == 10) openDialog (new AirwaveTesterPanel(), "Airwave CC tester (experimental)");
                 else if (r == 11)
@@ -1789,6 +1789,30 @@ void MainComponent::openDialog (juce::Component* panel, const juce::String& titl
     o.useNativeTitleBar = false;   // JUCE-drawn title bar: dark, matches the window, no OS app icon
     o.resizable = true;
     o.launchAsync();
+}
+
+// Auto-explore (Help add device) sends a read-only identify and listens. It opens the device's MIDI
+// ports itself, so first free GRAB's own hold on them - the classic Windows MIDI stack is one app per
+// port, so a connected GRAB (its topology source, or the RISE/GRAND page) was blocking its own probe
+// ("could not open output"). Mirror connect()'s teardown to release the ports, then reconnect the
+// device when the probe window closes. (Another app holding the port is still the user's to close.)
+void MainComponent::launchAutoExplore()
+{
+    stopTimer();
+    liveWriter.cancel();
+    dirtyWrites.clear();
+    setListeningBlock (nullptr);
+    setTouchListening ({});
+    if (source != nullptr) { source->removeListener (this); source->setActive (false); source.reset(); }
+    detector.reset();
+    rise2Page.reset();                 // releases the RISE/GRAND ports; connect(Auto) rebuilds it after
+    block = nullptr;
+    keyboardView.setVisible (false);
+    setStatus ("Freed the device port for the probe - your settings return when the probe window closes.");
+
+    auto* p = new ExplorePanel();
+    p->onFinished = [this] { connect (seaprobe::Transport::Auto); };   // reopen the device afterwards
+    openDialog (p, "Help add this device");
 }
 
 void MainComponent::checkForUpdate()

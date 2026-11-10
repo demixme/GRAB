@@ -77,7 +77,11 @@ public:
                                              : juce::String::fromUTF8 ("No ROLI device found - connect one and reopen."));
     }
 
-    ~ExplorePanel() override { stopListening(); }
+    // Called once the panel is torn down (its own MIDI ports already freed by stopListening), so the
+    // owner can reconnect the device it released to let this probe open the ports.
+    std::function<void()> onFinished;
+
+    ~ExplorePanel() override { stopListening(); if (onFinished) onFinished(); }
 
     void resized() override
     {
@@ -157,7 +161,10 @@ private:
                 out->sendMessageNow (juce::MidiMessage (roliId, (int) sizeof (roliId)));
                 logLine ("SENT   " + juce::String (sea::toHex (roliId, sizeof (roliId))) + "   (ROLI identify)");
             }
-            else logLine ("# could not open output to send the Identity Request");
+            else logLine ("# could not open the device's MIDI output - the port is in use by another app. "
+                          "On Windows only one app can hold a MIDI port at a time, so close ROLI Dashboard, "
+                          "your DAW and any other MIDI software, then reopen this. (Windows 11 25H2+ with "
+                          "Windows MIDI Services shares ports automatically; a Mac shares by default.)");
         }
 
         elapsedTicks = 0;
