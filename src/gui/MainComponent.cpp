@@ -458,6 +458,10 @@ static constexpr int sectionHeaderHeight = 30;
 static juce::String fredGroupBlocks (const juce::String& n, const juce::String& fallback)
 {
     if (fallback == "Sensitivity") return "Sensitivity";   // 5D curves + fixed velocity stay put
+    // Per-mode settings (Piano / LUMI: Color Scheme, Enable Pitch Bend, Enable Pressure for Mode 1..4)
+    // stay in their mode card - don't let the keyword rules below pull "Enable Pressure" into
+    // Expression or "Color Scheme" into Colors (they belong under each mode, like ROLI Dashboard).
+    if (fallback.startsWith ("Mode ")) return fallback;
     if (n == "MIDI Mode" || n.containsIgnoreCase ("MPE Zone")) return "MIDI output";
     // Channel fields: "MIDI Channel", "MIDI Start/End Channel", "No. MIDI Channels", "Member channels".
     if (n.containsIgnoreCase ("Channel") || n.containsIgnoreCase ("Member")) return "MIDI output";
@@ -685,7 +689,7 @@ MainComponent::MainComponent()
                 else if (r == 5) downloadFirmware();
                 else if (r == 12) openDialog (new RoliArchivePanel (roliProductName()), "Archive my ROLI downloads");
                 else if (r == 6) openDialog (new DiagnosePanel(), "Diagnose connection");
-                else if (r == 8) openDialog (new ExplorePanel(), "Help add this device");
+                else if (r == 8) launchAutoExplore();
                 else if (r == 9) openDialog (new AirwavePanel(), "Airwave & gesture control (experimental)");
                 else if (r == 10) openDialog (new AirwaveTesterPanel(), "Airwave CC tester (experimental)");
                 else if (r == 11)
@@ -1785,6 +1789,45 @@ void MainComponent::openDialog (juce::Component* panel, const juce::String& titl
     o.useNativeTitleBar = false;   // JUCE-drawn title bar: dark, matches the window, no OS app icon
     o.resizable = true;
     o.launchAsync();
+}
+
+// Release GRAB's own hold on the device's MIDI ports (mirrors connect()'s teardown), so the auto-
+// explore probe can open them. Only used when the probe actually can't open a port - i.e. the classic
+// Windows one-app-per-port stack with GRAB as the holder. connect(Auto) rebuilds afterwards.
+void MainComponent::releaseDeviceForProbe()
+{
+    stopTimer();
+    liveWriter.cancel();
+    dirtyWrites.clear();
+    setListeningBlock (nullptr);
+    setTouchListening ({});
+    if (source != nullptr) { source->removeListener (this); source->setActive (false); source.reset(); }
+    detector.reset();
+    rise2Page.reset();                 // releases the RISE/GRAND ports; connect(Auto) rebuilds it after
+    block = nullptr;
+    keyboardView.setVisible (false);
+    setStatus ("Freed the device port so the probe can read it - your settings return when it closes.");
+}
+
+// Auto-explore (Help add device) opens the device's ports itself. It tries first and only asks us to
+// free our hold if that fails (onPortBusy) - so on multi-client systems (Windows MIDI Services / Mac /
+// Linux) the main window is never disturbed; only the legacy one-app-per-port case releases + reconnects.
+void MainComponent::launchAutoExplore()
+{
+    releasedForProbe = false;
+    auto* p = new ExplorePanel();
+    p->onPortBusy = [this]() -> bool
+    {
+        if (releasedForProbe) return false;        // we already freed ours; another app is holding it
+        releaseDeviceForProbe();
+        releasedForProbe = true;
+        return true;
+    };
+    p->onFinished = [this]
+    {
+        if (releasedForProbe) { releasedForProbe = false; connect (seaprobe::Transport::Auto); }
+    };
+    openDialog (p, "Help add this device");
 }
 
 void MainComponent::checkForUpdate()
@@ -3071,10 +3114,12 @@ void MainComponent::forceRisePreview()
     keyboardView.setBlocks (1);
     keyboardView.setVisible (true);
     rise2Page->previewSyntheticState (risePreviewVerified);
-    setStatus (juce::String ("RISE preview - ")
-               + (risePreviewVerified ? "verified fw 2.0.2"
-                                      : "original RISE fw 1.1.8 (editable; min/max hidden)")
-               + ".  Ctrl+Alt+Shift+R to toggle.");
+    // Spell out model + firmware so it's clear the Min/Max difference is firmware-driven (fw 2.x honours
+    // them, fw 1.x ignores + hides them), not a 49-vs-25-key thing.
+    setStatus (juce::String (risePreviewVerified
+                   ? "RISE 2 preview - fw 2.0.2, 49 keys (Strike/Press/Lift Min/Max shown; honoured on fw 2.x)."
+                   : "Original RISE preview - fw 1.1.8, 25 keys (Min/Max hidden; fw 1.x ignores those writes).")
+               + "  Ctrl+Alt+Shift+R to toggle.");
     risePreviewVerified = ! risePreviewVerified;   // next press shows the other
     resized();
 }

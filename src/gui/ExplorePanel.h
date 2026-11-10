@@ -77,7 +77,16 @@ public:
                                              : juce::String::fromUTF8 ("No ROLI device found - connect one and reopen."));
     }
 
-    ~ExplorePanel() override { stopListening(); }
+    // Called if the device's MIDI port can't be opened (held by GRAB on a one-app-per-port system):
+    // the owner frees its hold and returns true so the probe retries. Returns false (another app holds
+    // it) to leave it alone. Only fires on the classic stack; multi-client opens succeed first time.
+    std::function<bool()> onPortBusy;
+
+    // Called once the panel is torn down (its own MIDI ports already freed by stopListening), so the
+    // owner can reconnect the device it released - only does so if it actually released (onPortBusy).
+    std::function<void()> onFinished;
+
+    ~ExplorePanel() override { stopListening(); if (onFinished) onFinished(); }
 
     void resized() override
     {
@@ -135,30 +144,43 @@ private:
         for (auto& d : inputs)  logLine ("# port IN   " + d.name + "  id=[" + grab::anonymizeIdentifier (d.identifier) + "]");
         for (auto& d : outputs) logLine ("# port OUT  " + d.name + "  id=[" + grab::anonymizeIdentifier (d.identifier) + "]");
 
-        if (inIdx >= 0)
+        // Open the device's ports. On the classic Windows MIDI stack only one app can hold a port, so if
+        // GRAB itself is holding it the first open fails - ask the owner to release it (onPortBusy) and
+        // try once more. On multi-client systems (Windows MIDI Services / Mac / Linux) the first open
+        // succeeds and nothing is released, so the main window isn't disturbed.
+        std::unique_ptr<juce::MidiOutput> out;
+        auto tryOpen = [this, &out]() -> bool
         {
-            input = juce::MidiInput::openDevice (inputs[inIdx].identifier, this);
-            if (input != nullptr) input->start();
-        }
-
-        if (outIdx >= 0)
-        {
-            if (auto out = juce::MidiOutput::openDevice (outputs[outIdx].identifier))
+            if (inIdx >= 0 && input == nullptr)
             {
-                // Universal Identity Request (read-only) — works on most MIDI gear.
-                const std::uint8_t idReq[] = { 0xF0, 0x7E, 0x7F, 0x06, 0x01, 0xF7 };
-                out->sendMessageNow (juce::MidiMessage (idReq, (int) sizeof (idReq)));
-                logLine ("SENT   " + juce::String (sea::toHex (idReq, sizeof (idReq))) + "   (Universal Identity Request)");
-
-                // ROLI identify (read-only). The RISE ignores the universal one but answers this
-                // with a full settings dump. On RISE 2 fw 2.0.2 the decoded 0x78 handler only reads
-                // for 3F. The original RISE 49 and the Piano answer it too, other devices are untested.
-                const std::uint8_t roliId[] = { 0xF0, 0x00, 0x21, 0x10, 0x78, 0x3F, 0xF7 };
-                out->sendMessageNow (juce::MidiMessage (roliId, (int) sizeof (roliId)));
-                logLine ("SENT   " + juce::String (sea::toHex (roliId, sizeof (roliId))) + "   (ROLI identify)");
+                input = juce::MidiInput::openDevice (inputs[inIdx].identifier, this);
+                if (input != nullptr) input->start();
             }
-            else logLine ("# could not open output to send the Identity Request");
+            out = (outIdx >= 0) ? juce::MidiOutput::openDevice (outputs[outIdx].identifier) : nullptr;
+            return (inIdx < 0 || input != nullptr) && (outIdx < 0 || out != nullptr);
+        };
+        if (! tryOpen() && onPortBusy && onPortBusy())
+            tryOpen();   // the owner freed its hold - try once more
+
+        if (out != nullptr)
+        {
+            // Universal Identity Request (read-only) — works on most MIDI gear.
+            const std::uint8_t idReq[] = { 0xF0, 0x7E, 0x7F, 0x06, 0x01, 0xF7 };
+            out->sendMessageNow (juce::MidiMessage (idReq, (int) sizeof (idReq)));
+            logLine ("SENT   " + juce::String (sea::toHex (idReq, sizeof (idReq))) + "   (Universal Identity Request)");
+
+            // ROLI identify (read-only). The RISE ignores the universal one but answers this with a full
+            // settings dump. On RISE 2 fw 2.0.2 the decoded 0x78 handler only reads for 3F. The original
+            // RISE 49 and the Piano answer it too, other devices are untested.
+            const std::uint8_t roliId[] = { 0xF0, 0x00, 0x21, 0x10, 0x78, 0x3F, 0xF7 };
+            out->sendMessageNow (juce::MidiMessage (roliId, (int) sizeof (roliId)));
+            logLine ("SENT   " + juce::String (sea::toHex (roliId, sizeof (roliId))) + "   (ROLI identify)");
         }
+        else if (outIdx >= 0)
+            logLine ("# could not open the device's MIDI output - the port is in use by another app. "
+                     "On Windows only one app can hold a MIDI port at a time, so close ROLI Dashboard, "
+                     "your DAW and any other MIDI software, then reopen this. (Windows 11 25H2+ with "
+                     "Windows MIDI Services shares ports automatically; a Mac shares by default.)");
 
         elapsedTicks = 0;
         startTimer (250); // collect for ~5s (20 ticks), then auto-submit
