@@ -458,6 +458,10 @@ static constexpr int sectionHeaderHeight = 30;
 static juce::String fredGroupBlocks (const juce::String& n, const juce::String& fallback)
 {
     if (fallback == "Sensitivity") return "Sensitivity";   // 5D curves + fixed velocity stay put
+    // Per-mode settings (Piano / LUMI: Color Scheme, Enable Pitch Bend, Enable Pressure for Mode 1..4)
+    // stay in their mode card - don't let the keyword rules below pull "Enable Pressure" into
+    // Expression or "Color Scheme" into Colors (they belong under each mode, like ROLI Dashboard).
+    if (fallback.startsWith ("Mode ")) return fallback;
     if (n == "MIDI Mode" || n.containsIgnoreCase ("MPE Zone")) return "MIDI output";
     // Channel fields: "MIDI Channel", "MIDI Start/End Channel", "No. MIDI Channels", "Member channels".
     if (n.containsIgnoreCase ("Channel") || n.containsIgnoreCase ("Member")) return "MIDI output";
