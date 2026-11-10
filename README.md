@@ -13,11 +13,15 @@ instruments configurable and self-documents their protocol.
        alt="GRAB configuring a Seaboard Block in its FabFilter-style UI: one 5D sensitivity graph overlaying all five curves with live keypress dots, a Min/Sensitivity/Max inspector, the device drawing with touch rings, and MIDI output / expression / keyboard / play-mode cards below.">
 </p>
 
-## Where it's at — v0.1.98
+## Where it's at — v0.1.99
 A **rebuilt interface (UI V2)** — a FabFilter-style studio layout designed by *fictionfred* — on top
-of **live editing** (changes write as you make them, like Dashboard), a unified **Preset** menu
-(ROLI presets + your own saved presets, per device), and **factory reset** for Blocks — on
-**Windows, macOS and Linux**.
+of **live editing**, a unified **Preset** menu, and **factory reset** for Blocks — on **Windows, macOS
+and Linux**.
+
+**New in v0.1.99:**
+- **3-column layout on wide windows** — the setting cards now flow into **three columns** past ~1200px
+  (two below that, one when narrow), so the page is **shorter** and fits the height of smaller screens
+  without scrolling. The 5D graph still spans the full width.
 
 **New in v0.1.98 — fixes:**
 - **Piano / LUMI mode cards** ([#32](../../issues/32)) — each of the four modes now shows its own
