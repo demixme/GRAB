@@ -13,11 +13,22 @@ instruments configurable and self-documents their protocol.
        alt="GRAB configuring a Seaboard Block in its FabFilter-style UI: one 5D sensitivity graph overlaying all five curves with live keypress dots, a Min/Sensitivity/Max inspector, the device drawing with touch rings, and MIDI output / expression / keyboard / play-mode cards below.">
 </p>
 
-## Where it's at — v0.1.97
+## Where it's at — v0.1.98
 A **rebuilt interface (UI V2)** — a FabFilter-style studio layout designed by *fictionfred* — on top
 of **live editing** (changes write as you make them, like Dashboard), a unified **Preset** menu
 (ROLI presets + your own saved presets, per device), and **factory reset** for Blocks — on
 **Windows, macOS and Linux**.
+
+**New in v0.1.98 — fixes:**
+- **Piano / LUMI mode cards** ([#32](../../issues/32)) — each of the four modes now shows its own
+  **Color Scheme + Enable Pitch Bend + Enable Pressure** together, like ROLI Dashboard (the four
+  "Enable Pressure" toggles were being pulled into the Expression card).
+- **Auto-explore no longer blocks itself** ([#14](../../issues/14)) — on the legacy Windows one-app-per-port
+  stack, *Help add device* can now free GRAB's own hold on the port when the probe can't open it, then
+  reconnect. On Windows MIDI Services / Mac / Linux (multi-client) nothing changes. Clearer message when
+  another app is holding the port.
+- **RISE preview labels** — the dev preview now names the model + firmware (RISE 2 fw 2.0.2 vs original
+  RISE fw 1.1.8) so it's clear the Min/Max difference is firmware-driven, not 49-vs-25-key.
 
 **New in v0.1.97 — a new interface (UI V2):**
 - **Rebuilt settings page, FabFilter-style** (designed by *fictionfred*). One **5D sensitivity graph**
