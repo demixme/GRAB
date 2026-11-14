@@ -25,6 +25,8 @@
 #include "Rise2.h"
 
 #include <iostream>
+#include <atomic>
+#include <vector>
 
 using namespace seaprobe;
 
@@ -380,6 +382,239 @@ static int runSet (RawLogger& logger, seaprobe::Transport transport, const juce:
 }
 
 //==============================================================================
+// Firmware flash (research; see docs/FIRMWARE-FLASH-BLE.md). Dry-run by default:
+// parses the .syx, shows the exact packets it WOULD send, transmits nothing. With
+// --commit it streams every packet, waiting for each firmwareUpdateACK before the
+// next. Each .syx message `F0 00 21 10 47 <op> ... F7` becomes one
+// firmwareUpdatePacket (host msg type 0x04); packetData = the bytes between the
+// 5-byte `F0 00 21 10 47` prefix and the trailing `F7` (starts at <op>). This
+// mapping was confirmed byte-for-byte against a BLE capture of ROLI Dashboard.
+static bool parseSyx (const juce::File& f, std::vector<std::vector<juce::uint8>>& out, juce::String& err)
+{
+    juce::MemoryBlock mb;
+    if (! f.existsAsFile() || ! f.loadFileAsData (mb)) { err = "could not read file: " + f.getFullPathName(); return false; }
+    const auto* d = static_cast<const juce::uint8*> (mb.getData());
+    const auto n = mb.getSize();
+    for (size_t i = 0; i < n; )
+    {
+        if (d[i] != 0xF0) { ++i; continue; }
+        size_t e = i + 1;
+        while (e < n && d[e] != 0xF7) ++e;
+        if (e >= n) break;
+        out.emplace_back (d + i, d + e + 1);
+        i = e + 1;
+    }
+    if (out.empty()) { err = "no SysEx (F0..F7) messages found"; return false; }
+    return true;
+}
+
+static juce::String expectedImageFor (roli::Block::Type t)
+{
+    switch (t)
+    {
+        case roli::Block::seaboardBlock:         return "seaboard";
+        case roli::Block::liveBlock:
+        case roli::Block::loopBlock:
+        case roli::Block::touchBlock:
+        case roli::Block::developerControlBlock: return "control";
+        default:                                 return {};
+    }
+}
+
+static int runFlash (RawLogger& logger, seaprobe::Transport transport, const juce::String& serial,
+                     const juce::File& syxFile, bool commit, bool forceImage)
+{
+    // ---- 1. Parse + validate the .syx (no device needed yet) ----
+    std::vector<std::vector<juce::uint8>> msgs;
+    juce::String err;
+    if (! parseSyx (syxFile, msgs, err)) { logger.line ("ERROR: " + err); return 1; }
+
+    for (size_t k = 0; k < msgs.size(); ++k)
+    {
+        const auto& m = msgs[k];
+        if (m.size() < 7 || m[0] != 0xF0 || m[1] != 0x00 || m[2] != 0x21 || m[3] != 0x10 || m[4] != 0x47)
+        { logger.line ("ERROR: message " + juce::String ((int) k) + " is not a ROLI 0x47 firmware message."); return 1; }
+        if (m.size() - 6 > 127)
+        { logger.line ("ERROR: message " + juce::String ((int) k) + " packetData " + juce::String ((int) (m.size() - 6)) + " > 127 (won't fit the 7-bit size field)."); return 1; }
+        for (size_t b = 5; b + 1 < m.size(); ++b)
+            if (m[b] > 0x7F) { logger.line ("ERROR: message " + juce::String ((int) k) + " has a data byte > 0x7F."); return 1; }
+    }
+
+    // Manifest (first message): keyed ASCII; pull V: (version) and I: (target image).
+    juce::String imageId, version;
+    {
+        const auto& m0 = msgs.front();
+        juce::String ascii;
+        for (size_t b = 6; b + 1 < m0.size(); ++b)
+            ascii << (juce::juce_wchar) ((m0[b] >= 32 && m0[b] < 127) ? (int) m0[b] : (int) ' ');
+        auto field = [&] (const juce::String& key) -> juce::String
+        {
+            auto idx = ascii.indexOf (key);
+            if (idx < 0) return {};
+            return ascii.substring (idx + key.length()).upToFirstOccurrenceOf (" ", false, false).trim();
+        };
+        version = field ("V:");
+        imageId = field ("I:");
+    }
+
+    logger.line ("");
+    logger.line ("---- FIRMWARE FLASH " + juce::String (commit ? "(COMMIT)" : "(DRY-RUN)") + " ----");
+    logger.line ("  file        : " + syxFile.getFullPathName());
+    logger.line ("  messages    : " + juce::String ((int) msgs.size()));
+    logger.line ("  manifest    : image='" + imageId + "'  version='" + version + "'");
+
+    // ---- 2. Find + select the target block ----
+    LoggingDeviceDetector detector (logger, transport);
+    if (detector.getSelectedPairs().empty())
+    {
+        logger.line ("No Seaboard found for the selected transport. Nothing to flash.");
+        return 1;
+    }
+
+    roli::PhysicalTopologySource source (detector);
+    Probe probe (source, logger, /*blocksMode*/ false);
+    source.addListener (&probe);
+    source.setActive (true);
+
+    auto* mm = juce::MessageManager::getInstance();
+    {
+        const auto endMs = juce::Time::getMillisecondCounterHiRes() + 6000.0;
+        while (juce::Time::getMillisecondCounterHiRes() < endMs)
+        {
+            mm->runDispatchLoopUntil (100);
+            if (probe.getFirstBlock() != nullptr) break;
+        }
+    }
+
+    roli::Block::Ptr block;
+    if (serial.isNotEmpty())
+    {
+        block = probe.getBlockBySerial (serial);
+        if (block == nullptr)
+            logger.line ("ERROR: no connected block with serial '" + serial + "'.");
+    }
+    else if (probe.getBlocks().size() > 1)
+    {
+        juce::String serials;
+        for (auto& b : probe.getBlocks()) serials << " " << b->serialNumber;
+        logger.line ("REFUSED: " + juce::String (probe.getBlocks().size())
+                     + " blocks connected; flashing must not guess. Pass --serial <S>. Connected:" + serials);
+    }
+    else
+    {
+        block = probe.getFirstBlock();
+    }
+
+    int rc = 0;
+    if (block == nullptr)
+    {
+        logger.line ("ERROR: no target block; aborting flash.");
+        rc = 1;
+    }
+    else if (detector.getLastConnection() != nullptr)
+    {
+        logger.line ("  target      : " + block->serialNumber + "  type=" + blockTypeName (block->getType())
+                     + "  current fw=" + block->versionNumber);
+
+        // ---- 3. Match-before-flash: refuse an image that doesn't target this device ----
+        const auto expected = expectedImageFor (block->getType());
+        if (expected.isNotEmpty() && imageId.isNotEmpty() && ! imageId.equalsIgnoreCase (expected))
+        {
+            logger.line ("  REFUSED: manifest image '" + imageId + "' does not match this device ('"
+                         + expected + "'). Re-run with --force-image only if you are certain.");
+            if (! forceImage) rc = 2;
+        }
+
+        if (rc == 0 && ! commit)
+        {
+            // ---- 4a. DRY-RUN: build the real packets, show bytes, transmit nothing ----
+            // Suppress EVERY open connection, not just getLastConnection(): a block
+            // sends through its own connection, which with >1 device need not be the
+            // last opened. (Getting this wrong once actually transmitted in a dry-run.)
+            detector.setSuppressAllSends (true);
+            auto show = [&] (size_t k, const char* label)
+            {
+                const auto& m = msgs[k];
+                detector.clearAllSuppressed();
+                block->sendFirmwareUpdatePacket (m.data() + 5, (juce::uint8) (m.size() - 6),
+                                                 [] (juce::uint8, juce::uint32) {});
+                const auto* bytes = detector.findLastSuppressed();
+                logger.line (juce::String ("  ") + label + " packet[" + juce::String ((int) k) + "] pdSize="
+                             + juce::String ((int) (m.size() - 6)) + "  -> "
+                             + (bytes != nullptr ? juce::String (sea::toHex (*bytes)) : juce::String ("(no bytes built!)")));
+            };
+            show (0, "manifest");
+            if (msgs.size() > 1) show (1, "data    ");
+            show (msgs.size() - 1, "commit  ");
+            detector.setSuppressAllSends (false);
+            logger.line ("  (DRY-RUN: nothing transmitted. Re-run with --commit to flash all "
+                         + juce::String ((int) msgs.size()) + " packets.)");
+        }
+        else if (rc == 0)
+        {
+            // ---- 4b. COMMIT: stream every packet, wait for each ACK ----
+            logger.line ("  streaming " + juce::String ((int) msgs.size()) + " packets (ACK-gated)...");
+            std::atomic<bool> gotAck { false };
+            juce::uint8 ackCode = 0; juce::uint32 ackDetail = 0;
+            int firstCode = -1;
+
+            for (size_t k = 0; k < msgs.size() && rc == 0; ++k)
+            {
+                const auto& m = msgs[k];
+                gotAck = false;
+                const bool ok = block->sendFirmwareUpdatePacket (
+                    m.data() + 5, (juce::uint8) (m.size() - 6),
+                    [&] (juce::uint8 c, juce::uint32 d) { ackCode = c; ackDetail = d; gotAck = true; });
+
+                if (! ok) { logger.line ("ERROR: packet build/send failed at " + juce::String ((int) k)); rc = 3; break; }
+
+                const auto endMs = juce::Time::getMillisecondCounterHiRes() + 5000.0;
+                while (! gotAck && juce::Time::getMillisecondCounterHiRes() < endMs)
+                    mm->runDispatchLoopUntil (5);
+
+                if (! gotAck)
+                {
+                    logger.line ("ERROR: no firmwareUpdateACK (timeout) at packet " + juce::String ((int) k)
+                                 + " — ABORTING. The device may now need a BLE reflash (Dashboard) to recover.");
+                    rc = 4; break;
+                }
+                if (firstCode < 0)
+                {
+                    firstCode = (int) ackCode;
+                    logger.line ("  first ACK: code=" + juce::String ((int) ackCode) + " detail=" + juce::String ((juce::int64) ackDetail));
+                }
+                else if ((int) ackCode != firstCode)
+                {
+                    logger.line ("ERROR: ACK code changed to " + juce::String ((int) ackCode) + " (detail="
+                                 + juce::String ((juce::int64) ackDetail) + ") at packet " + juce::String ((int) k) + " — ABORTING.");
+                    rc = 5; break;
+                }
+                if (k % 200 == 0 || k + 1 == msgs.size())
+                    logger.line ("  ... " + juce::String ((int) (k + 1)) + "/" + juce::String ((int) msgs.size()) + " ACKed");
+            }
+
+            if (rc == 0)
+                logger.line ("  ALL " + juce::String ((int) msgs.size()) + " packets ACKed. Ending API mode; the device should commit + reboot (~30 s).");
+        }
+    }
+    else
+    {
+        logger.line ("ERROR: no live connection handle; aborting.");
+        rc = 1;
+    }
+
+    logger.line ("Deactivating topology source.");
+    source.removeListener (&probe);
+    source.setActive (false);
+    mm->runDispatchLoopUntil (500);
+
+    if (commit && rc == 0)
+        logger.line ("NEXT: wait ~15 s for reboot, then run `seaprobe blocks` to confirm the new firmware version.");
+
+    return rc;
+}
+
+//==============================================================================
 int main (int argc, char* argv[])
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
@@ -389,6 +624,7 @@ int main (int argc, char* argv[])
         args.add (juce::String (argv[i]));
 
     const bool commit = args.contains ("--commit");
+    const bool forceImage = args.contains ("--force-image");
 
     // --transport usb|ble|auto  (default auto: prefer USB, fall back to BLE)
     seaprobe::Transport transport = seaprobe::Transport::Auto;
@@ -411,7 +647,7 @@ int main (int argc, char* argv[])
     juce::StringArray pos;
     for (int i = 0; i < args.size(); ++i)
     {
-        if (args[i] == "--commit") continue;
+        if (args[i] == "--commit" || args[i] == "--force-image") continue;
         if (args[i] == "--transport" || args[i] == "--serial") { ++i; continue; }
         pos.add (args[i]);
     }
@@ -454,13 +690,28 @@ int main (int argc, char* argv[])
             rc = runSet (logger, transport, serial, id, value, commit);
         }
     }
+    else if (mode == "flash")
+    {
+        // flash <path-to-.syx> [--commit] [--transport usb|ble] [--serial <S>] [--force-image]
+        if (pos.size() < 2)
+        {
+            logger.line ("Usage: seaprobe flash <file.syx> [--commit] [--transport usb|ble] [--serial <S>] [--force-image]");
+            rc = 2;
+        }
+        else
+        {
+            const auto syx = juce::File::isAbsolutePath (pos[1]) ? juce::File (pos[1])
+                                                                 : juce::File::getCurrentWorkingDirectory().getChildFile (pos[1]);
+            rc = runFlash (logger, transport, serial, syx, commit, forceImage);
+        }
+    }
     else if (mode == "rise2")
     {
         rc = seaprobe::rise2::run (logger, pos, commit);
     }
     else
     {
-        std::cerr << "Unknown mode '" << mode << "'. Use: list | raw [s] | blocks [s] | set <id> <value> [--commit] | rise2 ...\n";
+        std::cerr << "Unknown mode '" << mode << "'. Use: list | raw [s] | blocks [s] | set <id> <value> [--commit] | flash <file.syx> [--commit] | rise2 ...\n";
         rc = 2;
     }
 

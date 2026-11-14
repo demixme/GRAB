@@ -247,6 +247,9 @@ public:
     /** The bytes of the most recent suppressed (dry-run) send. */
     const std::vector<std::uint8_t>& getLastSuppressed() const { return lastSuppressed; }
 
+    /** Clears the captured dry-run bytes (so a later read reflects only a fresh send). */
+    void clearLastSuppressed() { lastSuppressed.clear(); }
+
     bool sendMessageToDevice (const void* data, std::size_t dataSize) override
     {
         // Start listening lazily on the first outbound message. By this point the
@@ -364,6 +367,24 @@ public:
         topology source is active). */
     LoggingDeviceConnection* getLastConnection() const { return lastConnection; }
 
+    /** Suppresses (dry-run) or re-enables sends on EVERY open connection. With more
+        than one device connected, getLastConnection() alone is not enough — a block
+        sends through its OWN connection, which may not be the last one opened. */
+    void setSuppressAllSends (bool b) { for (auto* c : allConnections) if (c != nullptr) c->setSuppressSends (b); }
+
+    /** Clears captured dry-run bytes on every open connection. */
+    void clearAllSuppressed() { for (auto* c : allConnections) if (c != nullptr) c->clearLastSuppressed(); }
+
+    /** After one suppressed send, returns the bytes from whichever connection actually
+        built them (the others stay empty), or nullptr if none did. */
+    const std::vector<std::uint8_t>* findLastSuppressed() const
+    {
+        for (auto* c : allConnections)
+            if (c != nullptr && ! c->getLastSuppressed().empty())
+                return &c->getLastSuppressed();
+        return nullptr;
+    }
+
     juce::StringArray scanForDevices() override
     {
         juce::StringArray result;
@@ -401,6 +422,7 @@ public:
         }
 
         lastConnection = conn.get();
+        allConnections.push_back (conn.get());
         return conn.release();
     }
 
@@ -586,6 +608,7 @@ private:
     DnaLinkTracker dnaTracker;
     std::vector<Port> allPorts;
     LoggingDeviceConnection* lastConnection = nullptr;
+    std::vector<LoggingDeviceConnection*> allConnections;
 };
 
 } // namespace seaprobe
