@@ -417,6 +417,8 @@ static juce::String expectedImageFor (roli::Block::Type t)
         case roli::Block::loopBlock:
         case roli::Block::touchBlock:
         case roli::Block::developerControlBlock: return "control";
+        case roli::Block::lumiKeysBlock:         return "lightkey";  // LUMI Keyboard / Piano M
+        case roli::Block::lightPadBlock:         return "padmini";   // Lightpad (Block) M
         default:                                 return {};
     }
 }
