@@ -94,7 +94,7 @@ Two host pages share these widgets (the **BLOCKS page in `MainComponent`** and
 - **Device graphic + live touch/fader mirror** kept intact.
 - Verified on **Windows + macOS CI** and with the preview shortcuts (`Ctrl/⌃+Alt/⌥+Shift+`
   `R` RISE / `G` GRAND / `L`·`P` LUMI·Piano / `B` Lightpad / `C` Control — see
-  [`docs/DEV-SHORTCUTS.md`](../DEV-SHORTCUTS.md)) and a real device where possible.
+  [`DEV-SHORTCUTS.md`](../../DEV-SHORTCUTS.md)) and a real device where possible.
 
 ### Order of work (low-risk first)
 1. **Tokens + LookAndFeel** — port colours/fonts/shape into `Theme.h` / `GrabLookAndFeel`;
