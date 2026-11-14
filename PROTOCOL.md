@@ -231,9 +231,11 @@ intercept proxy (mitmproxy; see `tools/FIRMWARE-CAPTURE.md`).
 
 **Firmware .syx format [dev]:** the entire file is a concatenation of
 `F0 00 21 10 47 ... F7` messages — **every message is in the `0x47` namespace**
-(not the `0x77` config/control namespace). This corrects an earlier reading: the
-on-wire flash is a dedicated `0x47` protocol, *not* the config-namespace
-`firmwareUpdatePacket`. Within `0x47`, the byte after the namespace is an opcode:
+(not the `0x77` config/control namespace). The `.syx` is a transport-neutral
+*container*; how its contents reach the device depends on the flash path (a Block
+flashed by Dashboard over BLE re-wraps them as `0x77` `firmwareUpdatePacket` — see
+"Device side", confirmed by capture below; RISE streams the raw `0x47` — see the
+no-Dashboard method). Within `0x47`, the byte after the namespace is an opcode:
 
 | opcode | role | count (seaboard 1.4.3) |
 |--------|------|------------------------|
@@ -262,11 +264,23 @@ header — no `V:`/`I:`, version only in the filename, three empty
 `F0 00 21 10 47 F7` sync messages up front, plus a `0x48`-namespace begin/commit
 pair. RISE is the older non-BLOCKS line.
 
-**Device side (how it's flashed) [src]:** host streams `firmwareUpdatePacket`
-(MessageFromHost `0x04`: `size(7) + 7-bit data`) over the same transport; device
-replies `firmwareUpdateACK` (MessageFromDevice `0x03`: `code(7) + detail(32)`).
-Dashboard brackets it with `hardware_firmware_update_begin`/`_end` and reports
-`firmware-update-progress`.
+**Device side (how a Block is flashed) — CONFIRMED on the wire [dev]:** captured
+Dashboard reflashing a Seaboard Block over BLE and decoded it (full write-up:
+[docs/FIRMWARE-FLASH-BLE.md](docs/FIRMWARE-FLASH-BLE.md)). Dashboard **transcodes each
+`.syx` `0x47` message 1:1 into a `firmwareUpdatePacket`** — host message type `0x04`
+carried in the **`0x77` packedProtocol** (`F0 00 21 10 77 <idx> 04 <sub> … F7`), **not**
+raw `0x47`. The 2882 `.syx` messages map to exactly 2882 packets: manifest `04 69 00`
+(= `47 00`), 2880 data `04 50 04 <addr>` (= `47 04/05/07`, addr steps `0x20`), commit
+`04 07 01 …` (= `47 01`). The device ACKs **every** packet with `firmwareUpdateACK`
+(MessageFromDevice `0x03`: `code(7) + detail(32)`) — 2882 ACKs, a strict 1:1 handshake —
+and Dashboard interleaves `ping` keepalives. Sequence: beginAPIMode → requestTopology →
+manifest → data×2880 (each ACKed) → commit → endAPIMode → **reboot** → beginAPIMode →
+requestTopology → requestFactorySync → device reports `deviceVersion '1.4.3'`. This is
+exactly `HostPacketBuilder::addFirmwareUpdatePacket()` in `roli_blocks_basics`, so the
+packets need no custom packing. Firmware is accepted **only over BLE**: a Block sent the
+identical `firmwareUpdatePacket` bytes over USB-MIDI ignores them (no `firmwareUpdateACK`,
+never enters update mode), so Dashboard's "requires BT LE MIDI" is a real device-side
+requirement, not just app policy.
 
 **ROLI's own "no-Dashboard" method (archived RISE support articles, 2019/2022):** for a RISE
 that Dashboard won't recognise, ROLI told users to flash the `.syx` **with a generic SysEx tool**
@@ -326,8 +340,12 @@ gitignored, never committed or echoed.
 **Preservation note (ROLI winding down):** the version check + download depend on
 `my.roli.com`/`api.roli.com`/`builds.roli.com`. The firmware above has been
 archived locally (`captures/firmware/`, gitignored — ROLI's copyrighted files, not
-committed). We do NOT flash firmware (hard rule; a bad flash bricks the device) —
-this is archival + version-reference only.
+committed). The **shipping GRAB does not flash firmware** (a bad flash bricks the
+device); this section is reverse-engineering + preservation reference. The on-wire
+flash has since been decoded from a capture — see
+[docs/FIRMWARE-FLASH-BLE.md](docs/FIRMWARE-FLASH-BLE.md) — toward an account-free
+recovery path for orphaned/NOS devices; actually shipping a flasher stays a separate,
+explicit decision.
 
 **Download auth (re-probed 2026-10-27):** both `my.roli.com` hops require auth — the
 `X-API-Key` header *or* a logged-in browser session cookie (confirmed working). The
