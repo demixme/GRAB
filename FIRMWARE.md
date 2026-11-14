@@ -179,24 +179,41 @@ On the wire: host→device is ATT Write Command (`0x52`) on handle `0x001b` (the
 characteristic); device→host is Handle Value Notification (`0x1b`). Long SysEx is split
 across BLE-MIDI fragments; `seadecode --blemidi` reassembles them.
 
-## RISE flash (inferred from the image; capture wanted)
+## RISE flash over USB (confirmed from a capture)
 
-Per ROLI's archived RISE support articles, the RISE `.syx` is streamed **with a generic
-SysEx tool** (SysEx Librarian on macOS, MIDI-OX on Windows): set the destination to the
-RISE and send the file; the device restarts (~30 s) when done. First the RISE is put into
-**bootloader mode physically** — connect USB and **hold both octave-shift buttons while
-switching it on**, then release. That gesture is the safety gate: the device only accepts a
-flash when the user has deliberately entered bootloader mode.
+The RISE `.syx` is streamed **verbatim over USB** after the RISE is put into **bootloader
+mode physically** — connect USB and **hold both octave-shift buttons while switching it on**.
+In bootloader mode the RISE enumerates with a distinct USB identity (**PID_0200**, vs
+**PID_0210** for the normal running app); the bootloader does *not* answer the app-protocol
+identify (`F0 00 21 10 78 3F F7`), so silence there is expected in this state.
 
-Because a generic SysEx tool cannot do a per-packet ACK handshake, RISE flashing is almost
-certainly **fire-and-forget** — the `.syx` bytes streamed verbatim with inter-message
-pacing, no reply required. That fits the flat, address-less block structure above. **Still
-to confirm from a capture:** whether the RISE bootloader sends *any* response during the
-stream, what inter-message timing it needs, the exact role of the two `0x48` markers, and
-whether the RISE enumerates as a *different* USB-MIDI device in bootloader mode. A community
-Wireshark **USB** capture of a RISE being flashed (noting the power-on gesture) would settle
-all of these — ideally one each for an original RISE (1.x) and a RISE 2 (2.x), since they
-are probably different protocols.
+The protocol was confirmed by a RISE 2 (2.0.2) update capture + a disassembly of ROLI
+Dashboard 4.7.2's RISE updater, contributed on
+[issue #42](https://github.com/demixme/GRAB/issues/42):
+
+- **No commit/CRC/activate bracket.** Dashboard sends one sync `F0 00 21 10 47 F7`, then
+  streams the `.syx` messages with ~100 ms sleeps between them. The raw `.syx` *is* the whole
+  flash — there is no separate commit handshake.
+- **Ack-paced.** The device replies `F0 00 21 10 79 F7` to **every `0x47`** message (data
+  block and sync). The two **`0x48` end-of-image messages get no reply.** Progress is reported
+  as `F0 00 21 10 50 <page> 78 F7` (the `0x78` RISE dialect), counting pages committed —
+  up to `0x63` (99 pages) for 2.0.2.
+- **Two images, bracketed by the two `0x48` markers:** `aid:1` = MAIN (RISE STM32 main app),
+  `aid:2` = SUB (RISE SUB, an STM32F0 co-processor). A long **~93 s stall** sits at the
+  MAIN-end → SUB-accept boundary; the last progress markers arrive ~5 s after the final
+  `48 7F`; ~17 s after that the main MCU restarts and the bootloader jumps to the app once.
+
+Our archived `RISE 2.0.2 RC6.syx` (727 messages) matches the contributed send byte-for-byte,
+and an independent decode of the log corroborates it exactly: **725 `0x79` acks for 727 sends
+→ the only two unacked messages are the `0x48` ends**, 99 `50 <page> 78` progress markers, and
+the 93 s stall at the MAIN→SUB boundary (page `0x30`→`0x31`), total ~136 s.
+
+**Still open (the key diagnostic):** whether a *healthy* RISE 2 also stalls ~93 s after the
+MAIN end — i.e. whether that stall is normal or a symptom. In issue #42 the device flashes and
+the app *does* launch, then dies in ~1 ms from an STM32 power-supervisor (PVD) trip at boot —
+pointing to a **hardware power-subsystem fault, not a firmware/flash problem**. A MIDI capture
+of one Dashboard update on a *working* RISE 2 (with notes on the LED/power-button behaviour
+during and after) would settle it.
 
 ## Safety / scope
 
