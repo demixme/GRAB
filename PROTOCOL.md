@@ -300,19 +300,28 @@ hints they share firmware. But the firmware **server has no GRAND build** (`Seab
 GRAND can run the RISE `.syx` is **unverified** — do not assume it; it would need testing on a
 GRAND (with the brick risk that implies), and the GRAND's bootloader-entry gesture is unknown.
 
-**Firmware catalogue — latest versions (captured 2026-10-16, servers still up):**
-These are the `-latest` builds the download endpoint returned; archived so the
-version check survives ROLI's shutdown.
+**Firmware catalogue — latest versions (captured 2026-10-16, extended to the full set
+2026-11-14; servers still up):** the `-latest` builds the download endpoint returned,
+archived so the version check survives ROLI's shutdown. Full per-image anatomy +
+flash-family detail is in [FIRMWARE.md](FIRMWARE.md).
 
-| Device | Latest firmware | Image id (`I:`) | File |
-|--------|-----------------|-----------------|------|
-| Seaboard Block (M)        | `1.4.3`      | `seaboard` | `BLOCKS seaboard 1.4.3 RC.syx` |
-| Live / Loop / Touch Block | `0.1.2`      | `control`  | `BLOCKS control 0.1.2.syx`     |
-| Seaboard RISE (49)        | `MAIN 1.1.8` | (none)     | `MAIN_1.1.8.syx`               |
-| Seaboard RISE 25          | `MAIN 1.0.9` | (none)     | `MAIN_1.0.9.syx`               |
+| Device | Server product name | Latest | Image id (`I:`) | File |
+|--------|---------------------|--------|-----------------|------|
+| Seaboard Block            | `Seaboard Block`  | `1.4.3`      | `seaboard` | `BLOCKS seaboard 1.4.3 RC.syx` |
+| Live / Loop / Touch / Control Block | `Live`/`Loop`/`Touch`/`Control Block` | `0.1.2` | `control` | `BLOCKS control 0.1.2.syx` |
+| LUMI Keyboard / Piano M   | **`LUMI Keyboard`** | `1.3.9`    | `lightkey` | `BLOCKS lightkey 1.3.9.syx`    |
+| Lightpad (Block) M        | **`Lightpad M`**  | `0.1.2`      | `padmini`  | `BLOCKS padmini 0.1.2.syx`     |
+| Seaboard RISE (49)        | `Seaboard RISE`   | `1.1.8`      | (none)     | `MAIN_1.1.8.syx`               |
+| Seaboard RISE 25          | `Seaboard RISE 25`| `1.0.9`      | (none)     | `MAIN_1.0.9.syx`               |
+| Seaboard RISE 2           | `Seaboard RISE2`  | `2.0.2`      | (none)     | `RISE 2.0.2 RC6.syx`           |
 
-**Live Block, Loop Block and Touch Block ship the byte-identical `control`
-image** — ROLI serves one firmware for that whole family.
+**Live/Loop/Touch/Control Block ship the byte-identical `control` image** — ROLI serves one
+firmware for that whole family. **Product names are not obvious and must match ROLI
+Dashboard's own strings** — note `LUMI Keyboard` (not "LUMI Keys"/"Piano M") and `Lightpad M`
+(not "Lightpad Block M"); the probe logs below that call those names "unknown/404" predate
+finding the right strings. `Seaboard GRAND` and `ROLI Piano 49` are registered but return
+`204` (no downloadable build). A separate Linux-based LUMI (standalone *LUMI Keys* / Studio
+Edition) uses an encrypted `.bin`, not this endpoint — see FIRMWARE.md.
 
 **Download coordinates + no version history (probed 2026-10-26, servers up) [dev]:**
 `GET /firmware_versions/update_to/{name}/{anyVersion}` is a *catch-up-to-latest*

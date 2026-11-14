@@ -22,18 +22,41 @@ on-wire flash protocol. This documents what we have decoded toward that.
 Fetched account-free while ROLI's servers are up (gitignored under `captures/firmware/`;
 ROLI's copyrighted files, never committed). Four **distinct** images:
 
-| Image file | Version | Target (`I:`) | Devices | Flash family |
-|---|---|---|---|---|
-| `BLOCKS seaboard 1.4.3 RC.syx` | 1.4.3 | `seaboard` | Seaboard Block | BLOCKS |
-| `BLOCKS control 0.1.2.syx` | 0.1.2 | `control` | Live / Loop / Touch Block (byte-identical) | BLOCKS |
-| `MAIN_1.1.8.syx` | 1.1.8 | — | Seaboard RISE (49) | RISE |
-| `MAIN_1.0.9.syx` | 1.0.9 | — | Seaboard RISE 25 | RISE |
+Each image is fetched account-free while ROLI's servers are up:
+`GET my.roli.com/firmware_versions/update_to/<product>/<any-version>` with a static
+`X-API-Key` (no login — see [PROTOCOL.md §12](PROTOCOL.md#12-firmware-update-mechanism-dev))
+303-redirects to a signed `builds.roli.com/hardware/<product>/<ver>/<file>`. Seven distinct
+images:
 
-Confirmed by hash: the Seaboard Block image ships under several names but is one file, and
-**Live/Loop/Touch are byte-identical** — ROLI serves a single `control` image for that
-family. The RISE 2 (`Seaboard RISE2`, fw 2.x, the `0x78` dialect) is a *different* product
-and is **not** covered here — we have no RISE 2 image, and its flash is likely different
-again. Fetch coordinates and version IDs: PROTOCOL.md §12.
+| Product name (on the server) | Image id (`I:`) | Version | File | Devices | Family |
+|---|---|---|---|---|---|
+| `Seaboard Block` | `seaboard` | 1.4.3 | `BLOCKS seaboard 1.4.3 RC.syx` | Seaboard Block | BLOCKS |
+| `Live` / `Loop` / `Touch` / `Control Block` | `control` | 0.1.2 | `BLOCKS control 0.1.2.syx` | Live / Loop / Touch (one shared image) | BLOCKS |
+| `LUMI Keyboard` | `lightkey` | 1.3.9 | `BLOCKS lightkey 1.3.9.syx` | LUMI Keyboard / Piano M | BLOCKS |
+| `Lightpad M` | `padmini` | 0.1.2 | `BLOCKS padmini 0.1.2.syx` | Lightpad (Block) M | BLOCKS |
+| `Seaboard RISE` | — | 1.1.8 | `MAIN_1.1.8.syx` | Seaboard RISE (49) | RISE |
+| `Seaboard RISE 25` | — | 1.0.9 | `MAIN_1.0.9.syx` | Seaboard RISE 25 | RISE |
+| `Seaboard RISE2` | — | 2.0.2 | `RISE 2.0.2 RC6.syx` | Seaboard RISE 2 | RISE |
+
+**No downloadable build** (product registered, but the server returns 204): `Seaboard GRAND`,
+`ROLI Piano 49`.
+
+**The product names come from ROLI Dashboard's own strings, and they are not obvious:** it is
+`Lightpad M` (not "Lightpad Block M"), `LUMI Keyboard` (not "LUMI Keys" or "Piano M"), and
+`Seaboard RISE2` (no space). Confirmed by hash, the Seaboard Block image ships under several
+product names but is one file, and **Live/Loop/Touch/Control are byte-identical** — one
+shared `control` image. Fetch coordinates / opaque product+version IDs: PROTOCOL.md §12.
+
+> **Note on a different LUMI:** there is also a Linux-based LUMI product (the standalone
+> *LUMI Keys* / Studio Edition) whose firmware is an **encrypted `.bin`** (not a `.syx`),
+> delivered by the LUMI / ROLI Learn app, not this endpoint. Its container format is
+> documented by the community `Wh1terat` "Lumi FW Unpacker" gist (a `LumiHdr` header → an
+> obfuscated tar → RC4-variant-encrypted components such as `linux.bin`). We have not
+> obtained that image; it is out of scope for the SysEx flash below.
+
+> **The firmware images themselves are ROLI's copyrighted property and are NOT committed to
+> this repository.** This document publishes only the reverse-engineered *details* (formats,
+> names, structures). Archiving is done locally, outside version control.
 
 ## Two firmware families
 
@@ -41,7 +64,7 @@ All ROLI `.syx` firmware is a concatenation of `F0 00 21 10 <ns> … F7` message
 payloads are high-entropy (~6.4 bits/byte against the 7-bit ceiling) — a compressed or
 encrypted image, not readable code. But the two families are structured very differently:
 
-| | **BLOCKS** (seaboard, control) | **RISE** (49, 25) |
+| | **BLOCKS** (seaboard, control, lightkey, padmini) | **RISE** (49, 25, RISE 2) |
 |---|---|---|
 | Namespace(s) | `0x47` only | `0x47` data + `0x48` control |
 | Per-message structure | `op + address`, 80-byte 7-bit payload | flat **128-byte** block, no op/address |
@@ -55,7 +78,8 @@ encrypted image, not readable code. But the two families are structured very dif
 `F0 00 21 10 47 <op> <payload…> F7`, 86 bytes for a data message (80-byte payload):
 
 - `op 0x00` — **manifest / START** (1 message). Keyed ASCII, `\r\n`-separated:
-  `ROLI BLOCKS Update`, `V:` version, `I:` target image (`seaboard`/`control`), then
+  `ROLI BLOCKS Update`, `V:` version, `I:` target image (`seaboard`, `control`, `lightkey`,
+  `padmini`), then
   binary-valued `A`/`a` (load address), `M`/`m` (hash/CRC), `S`/`s` (signature slot, empty
   in these builds), `B`/`b` (build). A `.syx` thus identifies its own version + target from
   its bytes — a match-before-flash check that doesn't trust the filename.
@@ -64,7 +88,8 @@ encrypted image, not readable code. But the two families are structured very dif
   segments (cf. Dashboard's `ROLI_SYSEX_UPDATE_FIRMWARE_*` vs `…_BINARY_*`).
 - `op 0x01` — **commit / END** (1 message, 13 B seaboard / 12 B control): CRC + size trailer.
 
-Counts: seaboard = 2882 messages; control = 979.
+Counts (messages): seaboard 2882, control 979, lightkey 2356, padmini 1723 — all the same
+BLOCKS shape, differing only in size and image id.
 
 ### RISE image anatomy
 
@@ -84,9 +109,17 @@ F0 00 21 10 48 7F F7               ← 0x48 commit / finalise
 
 So the **`0x48` namespace carries the control markers**: an empty `48 F7` splits the image
 into two regions (as BLOCKS splits via opcodes), and `48 7F F7` is the final commit. There
-is no keyed manifest — the only version marker is the filename (`MAIN_x.x.x`). Counts:
+is no keyed manifest — the only version marker is the filename. Counts:
 RISE 49 (1.1.8) = 619 messages (~78 KB payload, boundary at msg 492); RISE 25 (1.0.9) = 509
-(~64 KB, boundary at msg 387).
+(~64 KB, boundary at msg 387); **RISE 2 (2.0.2) = 727 messages** (~90 KB).
+
+**RISE 2 firmware is RISE-family, not something new.** Despite the RISE 2 using the `0x78`
+dialect for *config/topology*, its firmware image has the identical RISE shape above (flat
+`0x47` 128-byte blocks, two `0x48` markers, three empty syncs). So a stuck RISE 2 is recovered
+the same way as any RISE — stream the `.syx` after physical bootloader entry. This is the
+recovery image for [issue #42](https://github.com/demixme/GRAB/issues/42) (a RISE 2 stuck in
+bootloader); a real flash capture is still wanted to confirm the per-message ACK/timing before
+guiding anyone through it.
 
 ## BLOCKS on-wire flash over BLE (decoded from a capture)
 
