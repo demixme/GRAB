@@ -266,7 +266,7 @@ pair. RISE is the older non-BLOCKS line.
 
 **Device side (how a Block is flashed) — CONFIRMED on the wire [dev]:** captured
 Dashboard reflashing a Seaboard Block over BLE and decoded it (full write-up:
-[docs/FIRMWARE-FLASH-BLE.md](docs/FIRMWARE-FLASH-BLE.md)). Dashboard **transcodes each
+[FIRMWARE.md](FIRMWARE.md)). Dashboard **transcodes each
 `.syx` `0x47` message 1:1 into a `firmwareUpdatePacket`** — host message type `0x04`
 carried in the **`0x77` packedProtocol** (`F0 00 21 10 77 <idx> 04 <sub> … F7`), **not**
 raw `0x47`. The 2882 `.syx` messages map to exactly 2882 packets: manifest `04 69 00`
@@ -343,7 +343,7 @@ archived locally (`captures/firmware/`, gitignored — ROLI's copyrighted files,
 committed). The **shipping GRAB does not flash firmware** (a bad flash bricks the
 device); this section is reverse-engineering + preservation reference. The on-wire
 flash has since been decoded from a capture — see
-[docs/FIRMWARE-FLASH-BLE.md](docs/FIRMWARE-FLASH-BLE.md) — toward an account-free
+[FIRMWARE.md](FIRMWARE.md) — toward an account-free
 recovery path for orphaned/NOS devices; actually shipping a flasher stays a separate,
 explicit decision.
 
