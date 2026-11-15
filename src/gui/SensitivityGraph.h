@@ -52,6 +52,13 @@ public:
     void addDimension (juce::uint32 id, juce::String name, juce::Colour colour,
                        int sens, int minId, int mn, int maxId, int mx)
     {
+        // Cap on ingest: a device can report a value outside 0..127 (e.g. original RISE reads min/max
+        // back unreliably). Clamp here so the curve, nodes and the reset baseline stay inside the plot
+        // and stay consistent with every setter (which already clamps).
+        sens = juce::jlimit (0, 127, sens);
+        mn   = juce::jlimit (0, 127, mn);
+        mx   = juce::jlimit (0, 127, mx);
+
         Dim d;
         d.id = id; d.name = std::move (name); d.colour = colour;
         d.minId = minId; d.maxId = maxId;

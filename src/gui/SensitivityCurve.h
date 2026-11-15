@@ -27,6 +27,14 @@ namespace grab
         using P = juce::Point<float>;
         const CurveKind kind = curveKindFor (name);
         juce::Path path;
+
+        // Defensive cap: a device can report a min/max (or sensitivity) outside 0..127. Without this
+        // the curve's end (y = hi/lo) draws above/below the plot. The callers (SensitivityGraph /
+        // CurveComponent) also clamp on ingest; this makes the shared geometry safe for any caller.
+        lo   = juce::jlimit (0.0f, 1.0f, lo);
+        hi   = juce::jlimit (0.0f, 1.0f, hi);
+        sens = juce::jlimit (0, 127, sens);
+
         const float s = (float) sens / 127.0f;
         const float straight = juce::jlimit (0.0f, 1.0f, ((float) sens - 104.0f) / 17.0f);
         const auto lerp = [] (P a, P b, float f) { return a + (b - a) * f; };
