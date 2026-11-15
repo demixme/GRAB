@@ -99,7 +99,8 @@ gate, matching the button-press capture `B0 66 7F` (CC 102, momentary 127 press 
 - **Firmware archiving** — **Advanced ▸ Download firmware for archiving** now resolves for control blocks.
   `my.roli.com/firmware_versions/update_to/{Live,Loop,Touch,Control} Block/1.0.0` all download the same
   **`BLOCKS control 1.1.0.syx.zip`** (one shared `control` firmware), confirming the names resolve.
-  Download-only; GRAB never flashes.
+  As of v0.2.0 GRAB can also **flash** this shared `control` image (Advanced ▸ Flash firmware) — guided,
+  match-checked and ACK-gated — though so far that path is hardware-validated only on a Seaboard Block.
 
 ## ⭐ Help wanted — one gap left: a Touch Block
 

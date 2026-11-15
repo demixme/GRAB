@@ -124,8 +124,10 @@ sends in). New *writing* support always needs the write side.
   read-only capture you preview first.
 - **No account, no raw IP.** See [DEVICE-PROFILES.md](DEVICE-PROFILES.md) for exactly what each
   payload contains.
-- GRAB **never** sends firmware-update, program-upload (Littlefoot), factory-reset, or
-  bootloader messages. Captures are observe-only. See the hard rules below.
+- GRAB writes to a device **only** when you explicitly invoke and confirm it — live setting edits,
+  factory reset (presets only), or firmware flashing (Advanced ▸ Flash firmware, opt-in + ACK-gated).
+  **Capturing and contributing are strictly observe-only.** GRAB never uploads Littlefoot programs and
+  never sends bootloader messages. See the hard rules below.
 
 ---
 
@@ -137,11 +139,17 @@ Build per the [README](README.md). Keep changes small and focused. For protocol 
 - Keep decoder logic in `libs/sea_sysex` (portable, no JUCE) so it also parses captures.
 - Any change to `third_party/roli_blocks_basics/` must be minimal and recorded in `PATCHES.md`.
 
-### Hard safety rules (non-negotiable)
-GRAB must **never** send firmware-update, program-upload (Littlefoot), factory-reset, or
-bootloader messages — a bad write can brick a device. Config writes use `setConfig` only (on
-RISE/GRAND, the `0x78 3D` set-parameter, NRPN and RPN messages Dashboard itself sends for
-settings). Don't add a firmware flasher. If you're capturing, it's observe-only.
+### Hard safety rules
+A bad firmware write can **brick** a device, so every write is deliberate, guarded and owner-confirmed —
+never a side effect of capturing or browsing:
+- **Config writes** use `setConfig` only (on RISE/GRAND, the `0x78 3D` set-parameter, NRPN and RPN
+  messages Dashboard itself sends for settings).
+- **Capturing is observe-only** — it never writes to the device.
+- **Firmware flashing** (Advanced ▸ Flash firmware, since v0.2.0) is **BLOCKS-only**, opt-in, shows the
+  exact bytes, checks the image matches the device and the battery is charged, confirms with a brick
+  warning, and is ACK-gated. Keep those guards if you touch it.
+- **No RISE/bootloader flasher** and **no Littlefoot program upload** — don't add either without the same
+  deliberate, guarded, owner-confirmed, show-the-bytes design.
 
 ### Repo pointers
 - `PROTOCOL.md` — the BLOCKS SysEx protocol · `RISE-GRAND.md` — RISE 2 / RISE 25 / GRAND.

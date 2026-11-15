@@ -5,8 +5,9 @@ images themselves and from a live BLE capture of ROLI Dashboard flashing a Seabo
 Companion to [PROTOCOL.md §12](PROTOCOL.md#12-firmware-update-mechanism-dev) (the
 firmware *fetch* chain and the `.syx` opcode map) and
 [tools/FIRMWARE-CAPTURE.md](tools/FIRMWARE-CAPTURE.md) (archiving the images over HTTPS).
-Everything here is **reverse-engineering / preservation reference** — the shipping GRAB
-does not flash firmware.
+This is the **reverse-engineering / preservation reference** behind GRAB's firmware flashing. As of
+**v0.2.0**, GRAB ships a guided, ACK-gated **BLOCKS** flasher (Advanced ▸ Flash firmware), validated on a
+Seaboard Block — see the **Device coverage** note at the end for exactly what's proven vs. assumed.
 
 ## Why this matters
 
@@ -290,5 +291,21 @@ by default** (prints the exact packets, transmits nothing), **serial-gated** (re
 guess which block when more than one is connected), and does a **match-before-flash** check
 (manifest `I:` vs device type). It has been validated by reflashing the maintainer's own
 Seaboard Block 1.4.3 over BLE — byte-identical to Dashboard, all 2882 packets ACKed, device
-rebooted cleanly. The **GRAB GUI does not flash firmware yet**; folding this account-free
-recovery path into GRAB (for orphaned/NOS devices) is the planned next step.
+rebooted cleanly. **GRAB's GUI now ships this flasher** (Advanced ▸ Flash firmware, v0.2.0): the same
+parse → match-before-flash → ACK-gated stream, plus a battery check and a brick-warning confirm.
+
+## Device coverage — what's actually validated
+
+The GUI flasher is **BLOCKS-only**: it needs a live `roli::Block`, so RISE/GRAND aren't offered (their
+flash is a different bootloader-stream path — manual bootloader entry + raw `.syx` over USB-MIDI — which
+is **not** built). Among BLOCKS:
+
+- **Seaboard Block** — **validated on hardware** (2882 packets, first ACK = 1, clean re-enumerate).
+- **Control (Live/Loop/Touch/Dev), Lightpad M, LUMI Keyboard** — share the *identical*
+  `sendFirmwareUpdatePacket` path and the same guards (image-id match, battery, confirm), but are
+  **not yet flashed on hardware**. Treat as probably-safe, not proven.
+
+Flashing is **BLE-only** (a Block ignores firmware packets over USB-MIDI — it just won't ACK, so a USB
+attempt fails rather than bricks) and **must not be interrupted** (closing GRAB, a rebuild, or power loss
+mid-flash can brick the device). The image-match guard can be overridden deliberately, which then allows
+flashing a mismatched image — a foot-gun reserved for unmapped/future devices.

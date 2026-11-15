@@ -163,8 +163,10 @@ An "app" (Note Grid, Fader Block, Drum Block, …) is a **Littlefoot program** t
   [LIGHTPAD-APPS.md](LIGHTPAD-APPS.md). Only the default **Note Grid** app's settings are standard
   config, which GRAB configures.
 
-**GRAB itself never uploads programs** — program/firmware upload is the brick-risk line it won't
-cross. The point above is that a *separate* tool could, using entirely open components.
+**GRAB never uploads Littlefoot programs** — the point above is that a *separate* tool could, using
+entirely open components. It *does* flash **device firmware**, but only through the explicit, guarded,
+BLOCKS-only **Flash** panel (match-checked, battery-gated, ACK-gated, brick-warning confirm) — never a
+silent or app-style upload. See [FIRMWARE.md](FIRMWARE.md).
 
 ## Airwave — Ultraleap hardware, leased software
 
@@ -176,7 +178,9 @@ cross. The point above is that a *separate* tool could, using entirely open comp
 
 ## What to archive now (to your own disk, while servers are up)
 
-- **Device firmware** — GRAB's *Advanced ▸ Download firmware for archiving*.
+- **Device firmware** — GRAB's *Advanced ▸ Download firmware for archiving* (one device) or *▸ Download
+  ALL firmware (archive sweep)* (the whole catalogue into per-device folders). Works **account-free** via
+  Dashboard's embedded key — no logged-in Connect needed.
 - **ROLI Dashboard** installer (offline-safe config + the bundled apps + the open library is public).
 - **Equator2 / Studio / Airwave Player** installers (even though they're licence-leased).
 - **Ultraleap SDK** from ultraleap.com (the durable path for Airwave's camera).

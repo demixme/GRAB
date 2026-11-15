@@ -13,10 +13,28 @@ instruments configurable and self-documents their protocol.
        alt="GRAB configuring a Seaboard Block in its FabFilter-style UI: one 5D sensitivity graph overlaying all five curves with live keypress dots, a Min/Sensitivity/Max inspector, the device drawing with touch rings, and MIDI output / expression / keyboard / play-mode cards below.">
 </p>
 
-## Where it's at — v0.1.99
+## Where it's at — v0.2.0
 A **rebuilt interface (UI V2)** — a FabFilter-style studio layout designed by *fictionfred* — on top
-of **live editing**, a unified **Preset** menu, and **factory reset** for Blocks — on **Windows, macOS
-and Linux**.
+of **live editing**, a unified **Preset** menu, **factory reset** for Blocks, and now **firmware
+archival + flashing** — on **Windows, macOS and Linux**.
+
+**New in v0.2.0 — firmware archival & flashing:**
+- **Account-free firmware download.** GRAB fetches ROLI's signed firmware directly, using a logged-in
+  ROLI Connect session if present and otherwise ROLI Dashboard's **static API key** — so a used / orphaned
+  / new-old-stock device with **no ROLI account** can still get its firmware. This matters most *now*,
+  while ROLI's servers are still up.
+- **Download ALL firmware (archive sweep)** (*Advanced ▸*). One pass banks every confirmed build —
+  Seaboard Block, Lightpad M, the Control Blocks, and Seaboard RISE / RISE 25 / RISE 2 — into tidy
+  **per-device folders** with a self-describing index, so the whole catalogue is preserved before the
+  servers go dark.
+- **Flash firmware (BLOCKS)** (*Advanced ▸*). A guided, **ACK-gated** flasher for the BLOCKS family: it
+  parses the `.syx`, **checks the image matches the connected device**, requires adequate **battery**,
+  shows a **brick-warning confirm**, and streams with a progress bar. Hardware-validated on a **Seaboard
+  Block**; Control / Lightpad M / LUMI share the identical path and guards but aren't yet flashed on
+  hardware. **RISE / GRAND aren't flashable** (a different bootloader path, not built). See
+  [FIRMWARE.md](FIRMWARE.md) for the full device-coverage note.
+- **Fixes:** the 5D curve's Min/Max can no longer stray above the plot (clamped to range); one consistent
+  **font scale** across every dialog; and the Lightpad firmware name is corrected (`Lightpad M`).
 
 **New in v0.1.99:**
 - **3-column layout on wide windows** — the setting cards now flow into **three columns** past ~1200px
@@ -198,7 +216,7 @@ device's configuration is a fixed parameter set GRAB reads and writes in full. T
 BLOCKS** (Live / Loop / Touch) are also covered — their per-button config reads and live-edits.
 The **pad BLOCKS** (Lightpad / Pad) run ROLI's Littlefoot **app** system, where each app
 (Note Grid, Fader Block, Drum Block, …) has its own layout and most settings live; GRAB reads
-their shared settings but doesn't manage apps/modes, and it never uploads firmware. That's where
+their shared settings but doesn't manage apps/modes (GRAB never uploads Littlefoot programs). That's where
 the current scope ends — **not where it has to**: if you'd
 like your block fully supported, **contributions are very welcome**. **Advanced… ▸ Help add
 device (auto-explore)** and **Advanced… ▸ Capture MIDI** gather exactly what's needed to start

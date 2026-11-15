@@ -351,12 +351,11 @@ property — sensitive, gitignored, never committed or echoed.
 **Preservation note (ROLI winding down):** the version check + download depend on
 `my.roli.com`/`api.roli.com`/`builds.roli.com`. The firmware above has been
 archived locally (`captures/firmware/`, gitignored — ROLI's copyrighted files, not
-committed). The **shipping GRAB does not flash firmware** (a bad flash bricks the
-device); this section is reverse-engineering + preservation reference. The on-wire
-flash has since been decoded from a capture — see
-[FIRMWARE.md](FIRMWARE.md) — toward an account-free
-recovery path for orphaned/NOS devices; actually shipping a flasher stays a separate,
-explicit decision.
+committed). GRAB now **ships a guided BLOCKS flasher** (Advanced ▸ Flash firmware, v0.2.0), built from
+the on-wire flash decoded from a capture — see [FIRMWARE.md](FIRMWARE.md) — so orphaned/NOS **BLOCKS**
+devices have an account-free recovery path. It is BLOCKS-only, opt-in, shows the exact bytes, checks the
+image matches the device, requires adequate battery, confirms with a brick warning and is ACK-gated.
+RISE/GRAND flashing is a different bootloader-stream path and is **not** built.
 
 **Download auth (re-probed 2026-10-27, extended 2026-11-15):** both `my.roli.com` hops require
 auth — the static `X-API-Key` header **or** a logged-in session token/cookie. The chain is
