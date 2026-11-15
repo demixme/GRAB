@@ -1,34 +1,24 @@
-// FirmwareApiKey - the account-free firmware-download credential, kept OUT of the git-tracked source.
+// FirmwareApiKey - ROLI Dashboard's static firmware X-API-Key (deliberately public).
 //
-// ROLI Dashboard authenticates the firmware endpoints (my.roli.com / api.roli.com) with a static
-// `X-API-Key` (a UUID, User-Agent "juce"). It is NOT a per-user login: with only this header, the
-// firmware catalogue downloads with no ROLI account at all - which is the whole point for orphaned /
-// NOS devices whose owner never had, or can no longer reach, an account, and for the window before
-// ROLI's servers go dark. GRAB uses it ONLY as a fallback, after any logged-in ROLI Connect session.
+// ROLI Dashboard authenticates the firmware endpoints (my.roli.com / api.roli.com) with this static
+// X-API-Key (a UUID, User-Agent "juce"). It is NOT a per-user login: with only this header the firmware
+// catalogue downloads with NO ROLI account at all - the point for orphaned / NOS / used devices whose
+// owner has no account, and for the window before ROLI's servers shut down. GRAB uses it as a fallback,
+// after any logged-in ROLI Connect session.
 //
-// The key is ROLI's property. To honour "never commit the X-API-Key", the raw value does NOT live in
-// this tracked header - it lives in `FirmwareApiKey.local.h` (gitignored), which this file includes if
-// present. So a local build / release binary carries the key, but the repository never does. Copy
-// `FirmwareApiKey.local.h.example` to `FirmwareApiKey.local.h` and paste the key to enable it. With no
-// local header, firmwareApiKey() returns "" and GRAB simply falls back to session-only (account) auth.
+// The key is ROLI's property. It is published here by a deliberate project decision so that every build
+// (release binaries AND anyone compiling from source) can archive firmware while the servers are up. If
+// you are repurposing this code, review that choice yourself.
 
 #pragma once
 
 #include <juce_core/juce_core.h>
 
-#if __has_include("FirmwareApiKey.local.h")
- #include "FirmwareApiKey.local.h"
-#endif
-
 namespace grab
 {
-    // ROLI Dashboard's static firmware X-API-Key, or "" if this build wasn't given one.
+    // ROLI Dashboard's static firmware X-API-Key. Account-free; sent as the `X-API-Key` request header.
     inline juce::String firmwareApiKey()
     {
-       #ifdef GRAB_FIRMWARE_API_KEY
-        return juce::String (GRAB_FIRMWARE_API_KEY).trim();
-       #else
-        return {};
-       #endif
+        return "93754126-4b0e-409b-afed-5c90664edb9c";
     }
 }

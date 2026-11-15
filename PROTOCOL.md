@@ -366,8 +366,9 @@ account**, confirmed end-to-end 2026-11-15 (`Lightpad M` → `303` → `200 appl
 GRAB offers **Advanced ▸ Download firmware for archiving…** and **▸ Download ALL firmware (archive
 sweep)…**: it fetches the `update_to` URL directly (no browser), trying a logged-in ROLI Connect
 session token first, then falling back to the embedded Dashboard `X-API-Key` so a used/orphaned device
-with no account can still archive firmware. Nothing is ever sent to the device. The key value lives in
-the gitignored `src/common/FirmwareApiKey.local.h`, never in the tracked source.
+with no account can still archive firmware. Nothing is ever sent to the device. The key is hardcoded in
+`src/common/FirmwareApiKey.h` — a deliberate project decision to publish ROLI's static Dashboard key so
+every build (release binaries and from-source) can archive firmware while the servers are still up.
 
 **Product-name probe (2026-10-27, authed):** `update_to/<name>/1.0.0` results —
 - `Seaboard Block` → **303** (downloadable, 1.4.3).
