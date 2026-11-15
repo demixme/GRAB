@@ -523,7 +523,7 @@ private:
             return;
         }
         info.setText (juce::String ("These are downloads the signed-in ROLI account is entitled to. GRAB fetches them for ")
-            + "archiving while ROLI's servers are up - it never flashes firmware or uploads anything.\n\n"
+            + "archiving while ROLI's servers are up - this is download-only (nothing is flashed or uploaded).\n\n"
             + (token.isNotEmpty()
                ? "Reusing your ROLI Connect session (no password needed). If a download fails with an auth error, "
                  "open ROLI Connect to refresh your session, then reopen this."

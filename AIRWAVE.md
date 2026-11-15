@@ -67,7 +67,8 @@ This set is fixed and documented — the key to a ROLI-free rebuild and to GRAB'
 The pedal is a separate class-compliant device whose **config + firmware go over ROLI's own MIDI
 protocol via ROLI Dashboard** (pedal type/model, pitch transpose). That's a small settings surface of
 the kind GRAB reads/writes on other ROLI gear, so in principle GRAB could read/write the pedal config
-too. **GRAB never touches firmware** (hard rule), and nobody has captured the pedal frames yet — if you
+too. GRAB's firmware flashing is **BLOCKS-only** and never touches the pedal (or any RISE/GRAND), and
+nobody has captured the pedal frames yet — if you
 own an Airwave Pedal, a Dashboard capture ([tools/CAPTURE-DASHBOARD.md](tools/CAPTURE-DASHBOARD.md))
 would let us map it.
 

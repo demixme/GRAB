@@ -139,7 +139,7 @@ private:
         add (Body,  "    Archiving: Advanced can download your Block / RISE firmware and the ROLI software your "
                     "account owns while ROLI's servers are up - download-only, never flashes or uploads.\n");
         add (Body,  "    Private & safe: serials hashed, serial & MAC stripped from captures, nothing sent until you "
-                    "click, and GRAB never flashes firmware.\n\n");
+                    "click - and firmware flashing is opt-in and guarded (GRAB warns and confirms first).\n\n");
 
         // --- credits ----------------------------------------------------------------------------
         add (H1,    "With thanks to our contributors\n");
