@@ -34,13 +34,13 @@ public:
         addAndMakeVisible (title);
         title.setText ("Airwave Expression emulator " + grab::u8 ("-") + " experimental",
                        juce::dontSendNotification);
-        title.setFont (grab::theme::type::fontAt (18.0f, 2));
+        title.setFont (grab::theme::type::fontAt (20.0f, 2));
         title.setColour (juce::Label::textColourId, grab::theme::accent);
 
         addAndMakeVisible (intro);
         intro.setJustificationType (juce::Justification::topLeft);
         intro.setColour (juce::Label::textColourId, grab::theme::textPrimary.withAlpha (0.8f));
-        intro.setFont (juce::Font (juce::FontOptions (13.0f)));
+        intro.setFont (grab::theme::type::fontAt (15.0f));
         intro.setText ("Sends the exact CC21-31 a real ROLI Airwave emits, so you can MIDI-map and test "
                        "Airwave gestures in your DAW or plug-in without the hardware. Pick an output, then move "
                        "the sliders. On Windows, route into a DAW via a virtual port (e.g. loopMIDI); on macOS "
@@ -49,6 +49,7 @@ public:
         addAndMakeVisible (outputLabel);
         outputLabel.setText ("MIDI output:", juce::dontSendNotification);
         outputLabel.setJustificationType (juce::Justification::centredRight);
+        outputLabel.setFont (grab::theme::type::fontAt (15.0f));
         addAndMakeVisible (outputBox);
         refreshOutputs();
         outputBox.onChange = [this] { openSelectedOutput(); };
@@ -60,6 +61,7 @@ public:
         addAndMakeVisible (channelLabel);
         channelLabel.setText ("Channel:", juce::dontSendNotification);
         channelLabel.setJustificationType (juce::Justification::centredRight);
+        channelLabel.setFont (grab::theme::type::fontAt (15.0f));
         addAndMakeVisible (channelBox);
         for (int ch = 1; ch <= 16; ++ch) channelBox.addItem (juce::String (ch), ch);
         channelBox.setSelectedId (1, juce::dontSendNotification);
@@ -69,7 +71,7 @@ public:
             auto& nl = names[i];
             addAndMakeVisible (nl);
             nl.setText ("CC" + juce::String (kRows[i].cc) + "   " + kRows[i].name, juce::dontSendNotification);
-            nl.setFont (juce::Font (juce::FontOptions (13.0f)));
+            nl.setFont (grab::theme::type::fontAt (13.0f));
 
             auto& s = sliders[i];
             addAndMakeVisible (s);

@@ -29,12 +29,13 @@ public:
     {
         addAndMakeVisible (title);
         title.setText ("Archive my ROLI downloads", juce::dontSendNotification);
-        title.setFont (grab::theme::type::fontAt (19.0f, 2));
+        title.setFont (grab::theme::type::fontAt (20.0f, 2));
         title.setColour (juce::Label::textColourId, grab::theme::accent);
 
         addAndMakeVisible (info);
         info.setJustificationType (juce::Justification::topLeft);
         info.setMinimumHorizontalScale (1.0f);
+        info.setFont (grab::theme::type::fontAt (15.0f));
 
         addAndMakeVisible (listView);
         listView.setViewedComponent (&listBox, false);
@@ -45,6 +46,7 @@ public:
 
         addAndMakeVisible (status);
         status.setJustificationType (juce::Justification::centredLeft);
+        status.setFont (grab::theme::type::fontAt (15.0f));
         status.setColour (juce::Label::textColourId, grab::theme::textPrimary.withAlpha (0.8f));
 
         addAndMakeVisible (closeBtn);
@@ -96,11 +98,13 @@ public:
         return c;
     }
 
-    // Download a URL to a file with a Connect token (follows ROLI's 303/302 redirects). No progress UI.
-    static bool fetchToFile (const juce::String& url, const juce::File& dest, const juce::String& token)
+    // Download a URL to a file (follows ROLI's 303/302 redirects). No progress UI. `token` is either a
+    // Connect session token (apiKey=false) or ROLI Dashboard's static X-API-Key (apiKey=true, account-free).
+    static bool fetchToFile (const juce::String& url, const juce::File& dest, const juce::String& token,
+                             bool apiKey = false)
     {
         juce::WebInputStream web (juce::URL (url), false);
-        web.withExtraHeaders (authHeaders (token));
+        web.withExtraHeaders (authHeaders (token, apiKey));
         web.withConnectionTimeout (20000);
         web.withNumRedirectsToFollow (6);
         if (! web.connect (nullptr)) return false;
@@ -121,6 +125,19 @@ public:
         out.flush();
         if (done <= 0) { dest.deleteFile(); return false; }
         return true;
+    }
+
+    // Download firmware trying every logged-in Connect session token first, then - if none works or none
+    // exists - ROLI Dashboard's embedded X-API-Key, which needs no account. Either source may be empty;
+    // returns true on the first success. This is the account-free path for orphaned / NOS devices.
+    static bool fetchFirmware (const juce::String& url, const juce::File& dest,
+                               const juce::StringArray& sessionTokens, const juce::String& apiKey)
+    {
+        for (const auto& tok : sessionTokens)
+            if (fetchToFile (url, dest, tok, false)) return true;
+        if (apiKey.isNotEmpty())
+            return fetchToFile (url, dest, apiKey, true);
+        return false;
     }
 
 private:
@@ -382,7 +399,7 @@ private:
         it.toggle = std::make_unique<juce::ToggleButton> (it.name);
         it.toggle->setToggleState (true, juce::dontSendNotification);
         listBox.addAndMakeVisible (*it.toggle);
-        it.note.setFont (juce::Font (juce::FontOptions (12.0f)));
+        it.note.setFont (grab::theme::type::fontAt (13.0f));
         it.note.setColour (juce::Label::textColourId, grab::theme::textPrimary.withAlpha (0.55f));
         listBox.addAndMakeVisible (it.note);
     }
@@ -572,7 +589,7 @@ private:
             it->toggle = std::make_unique<juce::ToggleButton> (it->name);
             it->toggle->setToggleState (true, juce::dontSendNotification);
             listBox.addAndMakeVisible (*it->toggle);
-            it->note.setFont (juce::Font (juce::FontOptions (12.0f)));
+            it->note.setFont (grab::theme::type::fontAt (13.0f));
             it->note.setColour (juce::Label::textColourId, grab::theme::textPrimary.withAlpha (0.55f));
             listBox.addAndMakeVisible (it->note);
             items.push_back (std::move (it));
@@ -643,17 +660,20 @@ private:
         });
     }
 
-    static juce::String authHeaders (const juce::String& token)
+    static juce::String authHeaders (const juce::String& token, bool apiKey = false)
     {
-        juce::String h = "User-Agent: GRAB";
-        if (token.isNotEmpty())
-            // The firmware endpoint (my.roli.com) and api.roli.com both authenticate the Connect session
-            // via x-access-token; send x-auth-token and the cookie too so every endpoint is covered. With
-            // this, firmware downloads directly (303 -> signed builds.roli.com .syx.zip) - no browser.
-            h += "\r\nx-access-token: " + token
-               + "\r\nx-auth-token: "  + token
-               + "\r\nCookie: token="  + token;
-        return h;
+        if (token.isEmpty()) return "User-Agent: GRAB";
+        if (apiKey)
+            // Account-free: ROLI Dashboard's static X-API-Key (UUID). No session, no login. Dashboard
+            // sends User-Agent "juce" + an Accept version header, so we match it exactly.
+            return "User-Agent: juce\r\nAccept: application/json; version=1\r\nX-API-Key: " + token;
+        // The firmware endpoint (my.roli.com) and api.roli.com both authenticate the Connect session
+        // via x-access-token; send x-auth-token and the cookie too so every endpoint is covered. With
+        // this, firmware downloads directly (303 -> signed builds.roli.com .syx.zip) - no browser.
+        return juce::String ("User-Agent: GRAB")
+             + "\r\nx-access-token: " + token
+             + "\r\nx-auth-token: "  + token
+             + "\r\nCookie: token="  + token;
     }
 
     // Resolve an item to a saved file: copy a local package, or (ROLI Connect) read latest.yml then

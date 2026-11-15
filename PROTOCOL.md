@@ -342,9 +342,11 @@ ObjectID `versionId`s that are neither listed nor guessable (time+random+counter
 
 (`versionId` prefix is a creation timestamp: `6683de5d` ≈ 2024-07-01. These are
 opaque identifiers, not credentials. `Lightpad Block` returns 404 "Product not
-found" — that exact name isn't a registered product.) The `X-API-Key` used to probe
-is the user's ROLI session token in `captures/firmware/auth-headers.txt` — sensitive,
-gitignored, never committed or echoed.
+found" — that exact name isn't a registered product.) The `X-API-Key` used to probe is
+**ROLI Dashboard's own static application key** (a UUID, `User-Agent: juce`), captured from
+Dashboard in `captures/firmware/auth-headers.txt` — **not** a per-user login: it authorises the
+firmware endpoints with no account at all (confirmed 2026-11-15, session-token-free). It is ROLI
+property — sensitive, gitignored, never committed or echoed.
 
 **Preservation note (ROLI winding down):** the version check + download depend on
 `my.roli.com`/`api.roli.com`/`builds.roli.com`. The firmware above has been
@@ -356,13 +358,17 @@ flash has since been decoded from a capture — see
 recovery path for orphaned/NOS devices; actually shipping a flasher stays a separate,
 explicit decision.
 
-**Download auth (re-probed 2026-10-27):** both `my.roli.com` hops require auth — the
-`X-API-Key` header *or* a logged-in browser session cookie (confirmed working). The
-chain is `update_to` → `303` → `build_redirect` → `303` → a **public signed S3 URL**
-on `builds.roli.com` serving `…/<name>/<ver>/<file>.syx.zip` (the `.syx` ships zipped).
-GRAB offers **Advanced ▸ Download firmware for archiving…** It opens the name-based
-`update_to` URL in the user's browser, so **GRAB holds no credential** — the browser's
-ROLI login does the auth, and nothing is ever sent to the device.
+**Download auth (re-probed 2026-10-27, extended 2026-11-15):** both `my.roli.com` hops require
+auth — the static `X-API-Key` header **or** a logged-in session token/cookie. The chain is
+`update_to` → `303` → `build_redirect` → `303` → a **public signed S3 URL** on `builds.roli.com`
+serving `…/<name>/<ver>/<file>.syx.zip` (the `.syx` ships zipped). The `X-API-Key` path needs **no
+account**, confirmed end-to-end 2026-11-15 (`Lightpad M` → `303` → `200 application/zip`, no cookie).
+GRAB offers **Advanced ▸ Download firmware for archiving…** and **▸ Download ALL firmware (archive
+sweep)…**: it fetches the `update_to` URL directly (no browser), trying a logged-in ROLI Connect
+session token first, then falling back to the embedded Dashboard `X-API-Key` so a used/orphaned device
+with no account can still archive firmware. Nothing is ever sent to the device. The key is hardcoded in
+`src/common/FirmwareApiKey.h` — a deliberate project decision to publish ROLI's static Dashboard key so
+every build (release binaries and from-source) can archive firmware while the servers are still up.
 
 **Product-name probe (2026-10-27, authed):** `update_to/<name>/1.0.0` results —
 - `Seaboard Block` → **303** (downloadable, 1.4.3).

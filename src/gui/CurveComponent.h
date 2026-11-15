@@ -32,8 +32,12 @@ public:
 
     CurveComponent (juce::String nameToUse, juce::Colour colourToUse, juce::uint32 sensId, juce::int32 sensitivity,
                     int minIdToUse, juce::int32 minVal, int maxIdToUse, juce::int32 maxVal, ChangeFn onChange)
-        : name (std::move (nameToUse)), colour (colourToUse), id (sensId), sens (sensitivity),
-          minId (minIdToUse), maxId (maxIdToUse), mn (minVal), mx (maxVal), change (std::move (onChange)),
+        // Cap on ingest (see SensitivityGraph::addDimension): a device can report min/max/sensitivity
+        // outside 0..127; clamp so the curve end and node dots can't draw outside the plot. initial*
+        // below copy these clamped members, so the reset baseline matches.
+        : name (std::move (nameToUse)), colour (colourToUse), id (sensId), sens (juce::jlimit (0, 127, sensitivity)),
+          minId (minIdToUse), maxId (maxIdToUse), mn (juce::jlimit (0, 127, minVal)), mx (juce::jlimit (0, 127, maxVal)),
+          change (std::move (onChange)),
           nodes (minIdToUse > 0 && maxIdToUse > 0)
     {
         setTooltip (grab::helpForParameter (name)

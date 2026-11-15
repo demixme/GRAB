@@ -23,33 +23,38 @@ public:
         title.setText ("This sends an anonymized profile of what your device reports. "
                        "Your serial is hashed, never sent raw.", juce::dontSendNotification);
         title.setJustificationType (juce::Justification::topLeft);
+        title.setFont (grab::theme::type::fontAt (15.0f));
         addAndMakeVisible (title);
 
         jsonView.setMultiLine (true);
         jsonView.setReadOnly (true);
-        jsonView.setFont (grab::theme::type::fontAt (14.0f));
+        jsonView.setFont (grab::theme::type::mono());
         jsonView.setCaretVisible (false);
         addAndMakeVisible (jsonView);
 
         addAndMakeVisible (endpointLabel);
         endpointLabel.setText ("Endpoint:", juce::dontSendNotification);
+        endpointLabel.setFont (grab::theme::type::fontAt (15.0f));
         addAndMakeVisible (endpointField);
         endpointField.setText (loadEndpoint(), juce::dontSendNotification);
 
         addAndMakeVisible (nameLabel);
         nameLabel.setText ("Name to credit (optional):", juce::dontSendNotification);
+        nameLabel.setFont (grab::theme::type::fontAt (15.0f));
         addAndMakeVisible (nameField);
         nameField.setText (loadCredit(), juce::dontSendNotification);   // remembered across sessions
         nameField.onTextChange = [this] { rebuildJson(); };
 
         addAndMakeVisible (notesLabel);
         notesLabel.setText ("Notes (optional):", juce::dontSendNotification);
+        notesLabel.setFont (grab::theme::type::fontAt (15.0f));
         addAndMakeVisible (notesField);
         notesField.setMultiLine (true);
         notesField.onTextChange = [this] { rebuildJson(); };
 
         addAndMakeVisible (statusLabel);
         statusLabel.setJustificationType (juce::Justification::centredLeft);
+        statusLabel.setFont (grab::theme::type::fontAt (15.0f));
 
         addAndMakeVisible (submitBtn);
         addAndMakeVisible (saveBtn);

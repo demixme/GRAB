@@ -7,6 +7,8 @@
 #include "DiagnosePanel.h"
 #include "AirwavePanel.h"
 #include "RoliArchivePanel.h"
+#include "FlashPanel.h"
+#include "../common/FirmwareApiKey.h"   // account-free firmware X-API-Key (gitignored value)
 #include "GrabPaths.h"
 #include "AirwaveTesterPanel.h"
 #include "AppInspectorPanel.h"
@@ -668,9 +670,11 @@ MainComponent::MainComponent()
         m.addItem (8, "Help add device (auto-explore)...");  // one-click device->host probe + submit
         m.addItem (2, "Active probe...");
         m.addItem (5, "Download firmware for archiving...");   // always enabled; explains if unmapped
+        m.addItem (15, "Download ALL firmware (archive sweep)...");   // every confirmed build -> per-device folders
         m.addItem (12, "Archive my ROLI downloads (apps + firmware)...");  // reads Connect's cache; download-only
         m.addSeparator();
         m.addItem (3, "Factory reset (presets only)...", block != nullptr);  // Blocks only; confirm dialog follows
+        m.addItem (14, "Flash firmware (advanced)...", block != nullptr);     // Blocks only; guided, ACK-gated, confirms first
         m.addSeparator();
         juce::PopupMenu airwave;                               // documentation/research; talks to no ROLI device
         airwave.addItem (9,  "About Airwave (documentation)...");
@@ -687,6 +691,8 @@ MainComponent::MainComponent()
                 else if (r == 3) factoryReset();
                 else if (r == 4) showHelpWanted();
                 else if (r == 5) downloadFirmware();
+                else if (r == 15) downloadAllFirmware();
+                else if (r == 14) openDialog (new FlashPanel (block, roliProductName(), (int) writeTargets().size()), "Flash firmware");
                 else if (r == 12) openDialog (new RoliArchivePanel (roliProductName()), "Archive my ROLI downloads");
                 else if (r == 6) openDialog (new DiagnosePanel(), "Diagnose connection");
                 else if (r == 8) launchAutoExplore();
@@ -2556,8 +2562,9 @@ void MainComponent::reloadFromDevice()
 //   Live/Loop/Touch/Developer control    -> all four return "BLOCKS control 1.1.0.syx.zip"
 //     (the control blocks share one byte-identical 'control' firmware, so any of the names
 //      resolves to the same build; we send the type-appropriate name).
-//   Lightpad Block M (the 2x2 Pad BLOCK = apiType lightPadBlock) -> "Lightpad Block M" resolves.
-//     (The original "Lightpad Block" name 404s; the rare 4x4 lightpadProBlock has no confirmed name.)
+//   Lightpad (Block) M (the 2x2 Pad BLOCK = apiType lightPadBlock) -> "Lightpad M" resolves (303).
+//     (NOT "Lightpad Block M" and NOT "Lightpad Block" - both 404. Confirmed against the server
+//      2026-11-15; see FIRMWARE.md. The rare 4x4 lightpadProBlock has no confirmed name.)
 // Still unmapped: Piano/LUMI/GRAND, and the 4x4 Lightpad Pro (names not confirmed).
 juce::String MainComponent::roliProductName() const
 {
@@ -2566,7 +2573,7 @@ juce::String MainComponent::roliProductName() const
         switch (block->getType())
         {
             case roli::Block::Type::seaboardBlock:         return "Seaboard Block";
-            case roli::Block::Type::lightPadBlock:         return "Lightpad Block M";   // 2x2 Pad BLOCK, confirmed
+            case roli::Block::Type::lightPadBlock:         return "Lightpad M";   // 2x2 Pad BLOCK; "Lightpad Block M" 404s
             case roli::Block::Type::liveBlock:             return "Live Block";
             case roli::Block::Type::loopBlock:             return "Loop Block";
             case roli::Block::Type::touchBlock:            return "Touch Block";
@@ -2606,15 +2613,15 @@ void MainComponent::downloadFirmware()
     }
 
     const auto candidates = RoliArchivePanel::connectTokenCandidates();
-    if (candidates.isEmpty())
+    const auto apiKey     = grab::firmwareApiKey();   // account-free fallback (empty if this build has no key)
+    if (candidates.isEmpty() && apiKey.isEmpty())
     {
         juce::AlertWindow::showAsync (
             juce::MessageBoxOptions()
                 .withIconType (juce::MessageBoxIconType::InfoIcon)
                 .withTitle ("Download firmware for archiving")
-                .withMessage ("GRAB reuses your ROLI Connect session to download firmware (no browser, no "
-                              "password). No signed-in Connect was found — open ROLI Connect, sign in, then "
-                              "try again.")
+                .withMessage ("This build has no account-free firmware key, and no signed-in ROLI Connect "
+                              "was found. Open ROLI Connect, sign in, then try again.")
                 .withButton ("OK"),
             nullptr);
         return;
@@ -2627,24 +2634,126 @@ void MainComponent::downloadFirmware()
     chooser = std::make_unique<juce::FileChooser> ("Save " + product + " firmware to a folder",
                                                    juce::File::getSpecialLocation (juce::File::userDesktopDirectory));
     chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
-        [this, url, product, candidates] (const juce::FileChooser& fc)
+        [this, url, product, candidates, apiKey] (const juce::FileChooser& fc)
         {
             const auto dir = fc.getResult();
             if (! dir.isDirectory()) return;
             const auto dest = dir.getChildFile (product.replaceCharacter (' ', '_') + "-firmware.syx.zip");
             setStatus ("Downloading " + product + " firmware...");
             juce::Component::SafePointer<MainComponent> safe (this);
-            std::thread ([safe, url, dest, product, candidates]
+            std::thread ([safe, url, dest, product, candidates, apiKey]
             {
-                bool ok = false;
-                for (const auto& tok : candidates)
-                    if (RoliArchivePanel::fetchToFile (url, dest, tok)) { ok = true; break; }
+                const bool ok = RoliArchivePanel::fetchFirmware (url, dest, candidates, apiKey);
                 juce::MessageManager::callAsync ([safe, ok, dest, product]
                 {
                     if (auto* self = safe.getComponent())
                         self->setStatus (ok ? "Saved " + product + " firmware to " + dest.getFullPathName()
                                             : "Firmware download failed - open ROLI Connect, sign in, and try again.");
                     if (ok) dest.revealToUser();
+                });
+            }).detach();
+        });
+}
+
+// Archive sweep: download EVERY confirmed firmware build in one signed-in Connect session, each into
+// its own per-device subfolder, so the whole catalogue is banked locally before my.roli.com goes dark.
+// The owner of a used/orphaned device with no account can't download at all once the server is gone -
+// so whoever still has a live Connect session is the one who can harvest the files now. Download-only,
+// never flashes. (The four Control Blocks share one byte-identical 'control' build, so one entry covers
+// all of them; the GRAND has no downloadable build; LUMI/Piano names aren't confirmed, so they're left
+// out of the sweep - grab those individually via "Download firmware" if a name is later confirmed.)
+void MainComponent::downloadAllFirmware()
+{
+    // {destination subfolder, ROLI product name for the URL}. Product names are the server-confirmed ones
+    // from roliProductName()/firmwareDownloadProduct() - each tested to return a real .syx.zip.
+    struct Entry { const char* folder; const char* product; };
+    static const std::vector<Entry> kCatalogue {
+        { "Seaboard Block",                    "Seaboard Block"   },
+        { "Lightpad Block M",                  "Lightpad M"       },   // server name is "Lightpad M", NOT "Lightpad Block M" (FIRMWARE.md)
+        { "Control Blocks (Live-Loop-Touch-Dev)", "Control Block" },   // one build for all four control types
+        { "Seaboard RISE (original 49)",       "Seaboard RISE"    },
+        { "Seaboard RISE 25",                  "Seaboard RISE 25" },
+        { "Seaboard RISE 2",                   "Seaboard RISE2"   },
+    };
+
+    const auto candidates = RoliArchivePanel::connectTokenCandidates();
+    const auto apiKey     = grab::firmwareApiKey();   // account-free fallback (empty if this build has no key)
+    if (candidates.isEmpty() && apiKey.isEmpty())
+    {
+        juce::AlertWindow::showAsync (
+            juce::MessageBoxOptions()
+                .withIconType (juce::MessageBoxIconType::InfoIcon)
+                .withTitle ("Download ALL firmware (archive sweep)")
+                .withMessage ("This build has no account-free firmware key, and no signed-in ROLI Connect "
+                              "was found - open ROLI Connect, sign in, then try again.\n\nThis sweep matters "
+                              "most while the ROLI servers are still up: once they're gone, a used device with "
+                              "no account can't fetch firmware at all.")
+                .withButton ("OK"),
+            nullptr);
+        return;
+    }
+
+    chooser = std::make_unique<juce::FileChooser> ("Choose a folder to archive ALL ROLI firmware into",
+                                                   juce::File::getSpecialLocation (juce::File::userDesktopDirectory));
+    chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
+        [this, candidates, apiKey] (const juce::FileChooser& fc)
+        {
+            const auto root = fc.getResult();
+            if (! root.isDirectory()) return;
+
+            setStatus ("Archiving all firmware - starting...");
+            juce::Component::SafePointer<MainComponent> safe (this);
+            std::thread ([safe, root, candidates, apiKey]
+            {
+                const int total = (int) kCatalogue.size();
+                int okCount = 0;
+                juce::StringArray failed;
+                juce::StringArray log;   // one line per entry for the archive index
+
+                for (int i = 0; i < total; ++i)
+                {
+                    const auto& e = kCatalogue[(size_t) i];
+                    const juce::String folder (e.folder), product (e.product);
+
+                    juce::MessageManager::callAsync ([safe, i, total, folder]
+                    {
+                        if (auto* self = safe.getComponent())
+                            self->setStatus ("Archiving firmware " + juce::String (i + 1) + "/" + juce::String (total)
+                                             + ": " + folder + "...");
+                    });
+
+                    auto sub = root.getChildFile (folder);
+                    sub.createDirectory();
+                    const auto dest = sub.getChildFile (product.replaceCharacter (' ', '_') + "-latest.syx.zip");
+                    const auto url  = "https://my.roli.com/firmware_versions/update_to/"
+                                    + juce::URL::addEscapeChars (product, false) + "/1.0.0";
+
+                    const bool got = RoliArchivePanel::fetchFirmware (url, dest, candidates, apiKey);
+
+                    if (got) { ++okCount; log.add (product + "  ->  " + folder + "/" + dest.getFileName() + "   OK"); }
+                    else     { failed.add (product); log.add (product + "  ->  " + folder + "   FAILED"); }
+                }
+
+                // Leave an index behind so the archive is self-describing years from now.
+                auto index = root.getChildFile ("GRAB-firmware-archive.txt");
+                index.replaceWithText ("ROLI firmware archive - saved by GRAB on "
+                                       + juce::Time::getCurrentTime().toString (true, true) + "\n"
+                                       + "Source: my.roli.com (via a signed-in ROLI Connect session)\n"
+                                       + "These are ROLI's signed firmware images - keep them private; GRAB can flash a\n"
+                                       + ".syx/.syx.zip from here later with no account and no server.\n\n"
+                                       + log.joinIntoString ("\n") + "\n");
+
+                juce::MessageManager::callAsync ([safe, root, okCount, total, failed]
+                {
+                    if (auto* self = safe.getComponent())
+                    {
+                        juce::String msg = "Archived " + juce::String (okCount) + "/" + juce::String (total)
+                                         + " firmware builds to " + root.getFullPathName();
+                        if (! failed.isEmpty())
+                            msg += "  (failed: " + failed.joinIntoString (", ") + " - try again while signed in)";
+                        self->setStatus (msg);
+                    }
+                    root.revealToUser();
                 });
             }).detach();
         });

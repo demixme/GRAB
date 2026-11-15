@@ -14,6 +14,7 @@
 
 #include "Anonymize.h"
 #include "GrabPaths.h"
+#include "Theme.h"
 
 #include <cstdint>
 #include <thread>
@@ -40,16 +41,20 @@ public:
                        "messages are blocked."),
                        juce::dontSendNotification);
         title.setJustificationType (juce::Justification::topLeft);
+        title.setFont (grab::theme::type::fontAt (15.0f));
         addAndMakeVisible (title);
 
         addAndMakeVisible (outLabel); outLabel.setText ("Send to (output):", juce::dontSendNotification);
+        outLabel.setFont (grab::theme::type::fontAt (15.0f));
         addAndMakeVisible (inLabel);  inLabel.setText ("Listen on (input):", juce::dontSendNotification);
+        inLabel.setFont (grab::theme::type::fontAt (15.0f));
         addAndMakeVisible (outBox);
         addAndMakeVisible (inBox);
         inBox.onChange = [this] { restartListening(); };
         refreshPorts();
 
         addAndMakeVisible (probeLabel); probeLabel.setText ("Message:", juce::dontSendNotification);
+        probeLabel.setFont (grab::theme::type::fontAt (15.0f));
         addAndMakeVisible (probeBox);
         for (int i = 0; i < (int) library.size(); ++i)
             probeBox.addItem (library[(size_t) i].name, i + 1);
@@ -57,13 +62,15 @@ public:
         probeBox.onChange = [this] { updateBytes(); };
 
         addAndMakeVisible (valueLabel); valueLabel.setText ("Value (0-127):", juce::dontSendNotification);
+        valueLabel.setFont (grab::theme::type::fontAt (15.0f));
         addAndMakeVisible (valueField); valueField.setText ("0", juce::dontSendNotification);
         valueField.onTextChange = [this] { updateBytes(); };
         addAndMakeVisible (customField);
+        customField.setFont (grab::theme::type::mono());   // hex entry: monospace
         customField.setTextToShowWhenEmpty ("custom hex, e.g. F0 00 21 10 78 3D 0E 01 F7", juce::Colours::grey);
         customField.onTextChange = [this] { updateBytes(); };
 
-        bytesLabel.setFont (juce::Font (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), 13.0f, 0)));
+        bytesLabel.setFont (grab::theme::type::mono());
         addAndMakeVisible (bytesLabel);
 
         addAndMakeVisible (armButton); armButton.setButtonText ("Arm send");
@@ -72,12 +79,13 @@ public:
 
         logView.setMultiLine (true);
         logView.setReadOnly (true);
-        logView.setFont (juce::Font (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), 12.0f, 0)));
+        logView.setFont (grab::theme::type::mono());
         logView.setCaretVisible (false);
         addAndMakeVisible (logView);
 
         addAndMakeVisible (statusLabel);
         statusLabel.setJustificationType (juce::Justification::centredLeft);
+        statusLabel.setFont (grab::theme::type::fontAt (15.0f));
 
         addAndMakeVisible (submitBtn); submitBtn.setButtonText ("Submit");
         addAndMakeVisible (saveBtn);   saveBtn.setButtonText ("Save to file");

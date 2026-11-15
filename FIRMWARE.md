@@ -160,6 +160,23 @@ enters update mode (harmless to attempt, no change to the device). So Dashboard'
 updates require BT LE MIDI" is a **real device-side requirement, not just an app policy** —
 a BLOCKS recovery flasher must use BLE.
 
+### Battery precondition (client-side)
+
+Dashboard refuses to start a BLOCKS flash when the battery is low — it shows **"Battery too low
+to update"** and never enters update mode. This is a **client-side precheck** (Dashboard reads the
+battery level from topology before sending any `firmwareUpdatePacket`), and it exists because a
+flash that dies partway through bricks the device.
+
+**Observed (2026-11-15):** a Seaboard Block (`SBBUI5PBW5X03XU9`) at **~28%, not charging** was
+refused by Dashboard; at **29% while charging** it proceeded. So the cutoff is bounded from below
+at ~28%, and **charging counts as safe** (the device is then externally powered). The exact
+threshold is not published.
+
+The battery level is available without any flash traffic: `roli::Block::getBatteryLevel()` (0..1,
+from the 5-bit `BatteryLevel` field in the topology message) and `isBatteryCharging()`. GRAB's GUI
+Flash panel mirrors Dashboard: it shows the level up front and warns below a conservative **50%**
+(treating "charging" as OK), so a doomed flash is caught before the first packet.
+
 ### Capture method (BLE HCI, below the app)
 
 The flash is invisible at the app layer (USBPcap can't see USB-MIDI class traffic; macOS
@@ -214,6 +231,49 @@ the app *does* launch, then dies in ~1 ms from an STM32 power-supervisor (PVD) t
 pointing to a **hardware power-subsystem fault, not a firmware/flash problem**. A MIDI capture
 of one Dashboard update on a *working* RISE 2 (with notes on the LED/power-button behaviour
 during and after) would settle it.
+
+## ROLI's own recovery method + firmware history (support forum)
+
+ROLI's (now-defunct) support forum at `support.roli.com` is preserved in the Internet Archive
+and is a useful historical record. Two things are worth keeping here.
+
+**ROLI's documented manual firmware recovery for the RISE** (verbatim method, posted by ROLI
+support staff — it matches our decoded protocol exactly and needs no ROLI account):
+
+- *macOS:* install **SysEx Librarian** (Snoize). Connect the RISE by USB and — **while holding
+  both octave-shift buttons** — switch it on, then release (this is the physical bootloader
+  entry). Drag the firmware `.syx` into SysEx Librarian, set **Destination = "Seaboard RISE"**,
+  select the file, press **Play**. The RISE restarts automatically when done (~30 s) — do not
+  touch it until it has finished.
+- *Windows:* install **MIDI-OX**. Enter bootloader the same way (hold both octave buttons at
+  power-on). In MIDI-OX: **Options → MIDI Devices**, select the Seaboard RISE under *MIDI
+  Outputs*; then **Actions → Send → SysEx File** and choose the `.syx`. Takes 20–30 s; don't
+  touch the RISE until complete, then restart it.
+
+This confirms original-RISE firmware flows over **USB-MIDI** (not BLE), and that the raw `.syx`
+is streamed with no app involvement — the same conclusion as the issue-#42 capture above.
+ROLI staff also confirmed on the forum that the **RISE 25 and RISE 49 share one firmware**.
+
+**Firmware version history (from the forum's Announcements, ~2018–2019 BLOCKS/RISE era):**
+
+| Date | ROLI Dashboard | BLOCKS firmware | RISE firmware | Highlights |
+|---|---|---|---|---|
+| ~Aug 2018 | 4.1.0 | 0.4.3 | 1.1.7 | Approved **MPE spec** (Lower/Upper Zone); BT sticking-notes fix |
+| Nov 2018 | — | 0.4.4 | — | Fix "save Littlefoot to flash" failure + mistriggering (all three Blocks) |
+| ~May 2019 | 4.1.6 | — | — | Fixes a 4.1.4 launch crash |
+| ~Sep 2019 | — | 0.4.5 | — | **Auto MIDI-channel reassignment over DNA** (avoids MPE channel clash); DNA/BT stability; Control-Block LED colour correction. ⚠ inter-block comms changed → all Blocks must be updated together. Introduced a cosmetic Lightpad grid flicker. |
+
+Notes:
+- The forum's firmware attachments (e.g. `BLOCKS seaboard 0.4.4.syx` 215 KB, `BLOCKS lightpad
+  0.4.4 (1).syx` 245 KB, `BLOCKS control 0.4.4.syx` 99.5 KB, `RISE 1.1.7.syx` 79.6 KB) are
+  **not recoverable from the Archive** — Freshdesk served attachments via an expiring redirect,
+  so every archived `/helpdesk/attachments/*` capture is a 302 stub, not the file. The filenames
+  do confirm the `seaboard`/`lightpad`/`control` image-id naming (the modern `padmini` is a
+  later rename of `lightpad`).
+- The **original Seaboard GRAND does not appear on this forum at all.** Its final firmware was
+  **v1.1.0** (per ROLI support staff), it predates this forum, and it shipped in the 2014 Mac
+  GRAND/Equator app rather than the Blocks/RISE update server — which is why modern
+  `my.roli.com` returns `204 no-build` for it.
 
 ## Safety / scope
 
