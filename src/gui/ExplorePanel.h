@@ -40,6 +40,7 @@ public:
                        "a few seconds, then submit it (anonymized) to help add support. It does NOT "
                        "change any settings. One click.", juce::dontSendNotification);
         title.setJustificationType (juce::Justification::topLeft);
+        title.setFont (grab::theme::type::fontAt (15.0f));
         addAndMakeVisible (title);
 
         addAndMakeVisible (runBtn);
@@ -49,14 +50,16 @@ public:
 
         logView.setMultiLine (true);
         logView.setReadOnly (true);
-        logView.setFont (grab::theme::type::fontAt (14.0f));
+        logView.setFont (grab::theme::type::mono());
         logView.setCaretVisible (false);
         addAndMakeVisible (logView);
 
         addAndMakeVisible (statusLabel);
         statusLabel.setJustificationType (juce::Justification::centredLeft);
+        statusLabel.setFont (grab::theme::type::fontAt (15.0f));
 
         addAndMakeVisible (notesLabel); notesLabel.setText ("Notes (device model):", juce::dontSendNotification);
+        notesLabel.setFont (grab::theme::type::fontAt (15.0f));
         addAndMakeVisible (notesField);
 
         addAndMakeVisible (saveBtn);  saveBtn.setButtonText ("Save to file");

@@ -190,6 +190,17 @@ namespace grab::theme
             return juce::Font { juce::FontOptions().withTypeface (tf).withPointHeight (px * uiScale) };
         }
 
+        // The OS monospaced font (Consolas / Menlo / ...) at a readable size, metric-matched to
+        // fontAt() via withPointHeight so code / hex / diagnostic output lines up in apparent size
+        // with the modal prose. One home for every log / byte-dump / JSON view - default 15px to match
+        // the modal body, so mono text never reads tiny next to it.
+        inline juce::Font mono (float px = 15.0f)
+        {
+            return juce::Font { juce::FontOptions()
+                                    .withName (juce::Font::getDefaultMonospacedFontName())
+                                    .withPointHeight (px * uiScale) };
+        }
+
         // A role at Red Hat Medium (weight 500) - Fred sets his numeric values and .btn.primary this way.
         inline juce::Font fontMedium (Role r)
         {

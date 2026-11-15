@@ -75,14 +75,14 @@ private:
 
     void add (Style s, const char* utf8)
     {
-        juce::Font   f = grab::theme::type::fontAt (15.5f);
+        juce::Font   f = grab::theme::type::fontAt (15.0f);
         juce::Colour col = grab::theme::textPrimary;
         switch (s)
         {
             case H1:   f = grab::theme::type::fontAt (18.0f, 2); col = grab::theme::accent; break;
-            case H2:   f = grab::theme::type::fontAt (15.5f, 2);                            break;
+            case H2:   f = grab::theme::type::fontAt (15.0f, 2);                            break;
             case Click:col = grab::theme::accent;                                           break;
-            case Note: f = grab::theme::type::fontAt (15.5f); col = grab::theme::textPrimary.withAlpha (0.72f); break;
+            case Note: f = grab::theme::type::fontAt (15.0f); col = grab::theme::textPrimary.withAlpha (0.72f); break;
             case Body: default: break;
         }
         body.setFont (f);

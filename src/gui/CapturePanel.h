@@ -51,10 +51,12 @@ public:
                        juce::dontSendNotification);
         title.setJustificationType (juce::Justification::topLeft);
         title.setColour (juce::Label::textColourId, grab::theme::textSecondary);
+        title.setFont (grab::theme::type::fontAt (15.0f));   // match Diagnose body (bare labels default to the legacy metric)
         addAndMakeVisible (title);
 
         addAndMakeVisible (portLabel);
         portLabel.setText ("Input port:", juce::dontSendNotification);
+        portLabel.setFont (grab::theme::type::fontAt (15.0f));
         addAndMakeVisible (portBox);
         addAndMakeVisible (refreshBtn);
         refreshBtn.onClick = [this] { refreshPorts(); };
@@ -102,15 +104,18 @@ public:
 
         addAndMakeVisible (nameLabel);
         nameLabel.setText ("Name to credit (optional):", juce::dontSendNotification);
+        nameLabel.setFont (grab::theme::type::fontAt (15.0f));
         addAndMakeVisible (nameField);
         nameField.setText (loadCredit(), juce::dontSendNotification);   // shared with Contribute, remembered
 
         addAndMakeVisible (notesLabel);
         notesLabel.setText ("Notes (device model, what you did):", juce::dontSendNotification);
+        notesLabel.setFont (grab::theme::type::fontAt (15.0f));
         addAndMakeVisible (notesField);
 
         addAndMakeVisible (statusLabel);
         statusLabel.setJustificationType (juce::Justification::centredLeft);
+        statusLabel.setFont (grab::theme::type::fontAt (15.0f));
 
         addAndMakeVisible (startBtn);
         addAndMakeVisible (stopBtn);
@@ -239,8 +244,8 @@ private:
                    : columnId == colKind  ? (e.isConfig ? grab::theme::accent : grab::theme::textSecondary)
                                           : grab::theme::textSecondary);
         const bool mono = (columnId == colRaw || columnId == colTime);   // hex / timestamps: keep monospace
-        g.setFont (mono ? juce::Font (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), 13.0f, juce::Font::plain))
-                        : grab::theme::type::fontAt (14.0f));
+        g.setFont (mono ? grab::theme::type::mono()
+                        : grab::theme::type::fontAt (15.0f));
         g.drawText (text, 4, 0, width - 8, height, juce::Justification::centredLeft, true);
     }
 
