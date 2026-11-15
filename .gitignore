@@ -42,3 +42,6 @@ __pycache__/
 
 # ROLI product photos: tracing reference, included for a graphics designer. See the credit
 # note in design/product-photos/README.md (images remain ROLI / reseller property).
+
+# Account-free firmware X-API-Key (ROLI property, never commit)
+src/common/FirmwareApiKey.local.h

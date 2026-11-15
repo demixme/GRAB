@@ -1,0 +1,11 @@
+// Copy this file to `FirmwareApiKey.local.h` (same folder) and paste ROLI Dashboard's firmware
+// X-API-Key below to enable GRAB's account-free firmware download. `FirmwareApiKey.local.h` is
+// gitignored, so the key never enters the repository. Without it, GRAB falls back to a logged-in
+// ROLI Connect session (i.e. an account is required).
+//
+// The key is a UUID captured from ROLI Dashboard's own firmware request (see captures/firmware/
+// auth-headers.txt). It is ROLI's property - keep it out of anything public.
+
+#pragma once
+
+#define GRAB_FIRMWARE_API_KEY "00000000-0000-0000-0000-000000000000"

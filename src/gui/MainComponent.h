@@ -207,7 +207,8 @@ private:
     juce::String appLoadTargetName() const;
     juce::Result loadAppToDevice (const juce::String& appSource, const juce::Array<juce::File>& searchPaths);
     juce::String roliProductName() const;  // ROLI download product name for the connected device, or empty
-    void downloadFirmware();               // open ROLI's firmware download page in the browser (archival; never flashes)
+    void downloadFirmware();               // fetch the connected device's firmware via Connect's token (archival; never flashes)
+    void downloadAllFirmware();            // sweep: fetch EVERY confirmed firmware into per-device folders (archive-before-the-server-dies)
     void populatePresetBox();                 // (re)fill the unified Preset menu for the current device
     void applyBlockPreset (const juce::String& name);   // apply a built-in ROLI preset (live-writes)
     void loadPreset();        // import a preset from a user-chosen .json file

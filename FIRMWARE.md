@@ -160,6 +160,23 @@ enters update mode (harmless to attempt, no change to the device). So Dashboard'
 updates require BT LE MIDI" is a **real device-side requirement, not just an app policy** —
 a BLOCKS recovery flasher must use BLE.
 
+### Battery precondition (client-side)
+
+Dashboard refuses to start a BLOCKS flash when the battery is low — it shows **"Battery too low
+to update"** and never enters update mode. This is a **client-side precheck** (Dashboard reads the
+battery level from topology before sending any `firmwareUpdatePacket`), and it exists because a
+flash that dies partway through bricks the device.
+
+**Observed (2026-11-15):** a Seaboard Block (`SBBUI5PBW5X03XU9`) at **~28%, not charging** was
+refused by Dashboard; at **29% while charging** it proceeded. So the cutoff is bounded from below
+at ~28%, and **charging counts as safe** (the device is then externally powered). The exact
+threshold is not published.
+
+The battery level is available without any flash traffic: `roli::Block::getBatteryLevel()` (0..1,
+from the 5-bit `BatteryLevel` field in the topology message) and `isBatteryCharging()`. GRAB's GUI
+Flash panel mirrors Dashboard: it shows the level up front and warns below a conservative **50%**
+(treating "charging" as OK), so a doomed flash is caught before the first packet.
+
 ### Capture method (BLE HCI, below the app)
 
 The flash is invisible at the app layer (USBPcap can't see USB-MIDI class traffic; macOS
