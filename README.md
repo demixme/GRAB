@@ -13,7 +13,7 @@ instruments configurable and self-documents their protocol.
        alt="GRAB configuring a Seaboard Block in its FabFilter-style UI: one 5D sensitivity graph overlaying all five curves with live keypress dots, a Min/Sensitivity/Max inspector, the device drawing with touch rings, and MIDI output / expression / keyboard / play-mode cards below.">
 </p>
 
-## Where it's at — v0.2.0
+## Where it's at — v0.2.1
 A **rebuilt interface (UI V2)** — a FabFilter-style studio layout designed by *fictionfred* — on top
 of **live editing**, a unified **Preset** menu, **factory reset** for Blocks, and now **firmware
 archival + flashing** — on **Windows, macOS and Linux**.
