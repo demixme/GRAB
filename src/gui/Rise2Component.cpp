@@ -163,6 +163,20 @@ bool isRiseOnlyField (juce::uint32 id)
 }
 bool isGrandOnlyField (juce::uint32 id) { return id == kPedal1Cc || id == kPedal2Cc || id == kPedal3Cc; }
 
+// Fields the original RISE (fw 1.x) firmware does not implement: Semitone Legato, MIDI Port
+// Forwarding and MIDI Port Throttle. These three were added with the RISE 2 firmware (fw 2.0.2 -
+// the same release that added the Strike/Press/Lift min/max block, which the Mk1 likewise ignores).
+// Their params (0x4c/0x4d/0x4e) and reply offsets (160/161/162) are one contiguous block: on a Mk1
+// 25/49 that whole block reads back uniformly zero and the writes are no-ops, so a control for them
+// would never persist (exactly the "MIDI Port Throttle isn't retained on my Mk1" report). Verified
+// across every Mk1 identify reply in the contribution DB (the fw-2.x units populate the block, the
+// "1.1.0"-marked Mk1 units leave it zero) plus ROLI's own 2.0.2 release notes. So the RISE page
+// hides them on fw 1.x - as ROLI Dashboard does - rather than showing a dead control.
+bool isRise2OnlyField (juce::uint32 id)
+{
+    return id == kSemitoneLegato || id == kPortForwarding || id == kPortThrottle;
+}
+
 // The fields a real GRAND shows. All reads/writes confirmed from BabeleDunnit's Dashboard captures
 // (issue #6): pedals, glide (stored inverted), glide tracking (73), press mode (75), octave (78),
 // transpose (79), and the MIDI block (mode / channel / count / bend, via grandMidiMode's RPN-6 reset).
@@ -825,7 +839,13 @@ void Rise2Component::rebuildRows()
     // GRAND hides the RISE-only controls (slide/strike/faders/XY/single pedal) and shows its
     // three pedals instead; the RISE hides the GRAND-only pedal fields.
     const auto include = [this] (juce::uint32 id)
-    { return grand ? isGrandField (id) : ! isGrandOnlyField (id); };
+    {
+        // Original RISE (fw 1.x): drop the RISE-2-only fields its firmware never stores, so no
+        // dead row appears (minMaxReliable is true only on fw 2.x - see isRise2OnlyField).
+        if (! grand && ! minMaxReliable && isRise2OnlyField (id))
+            return false;
+        return grand ? isGrandField (id) : ! isGrandOnlyField (id);
+    };
 
     const char* groupOrder[] = { "Sensitivity", "MIDI output", "Expression", "Keyboard",
                                  "Controller CCs", "Pedals", "Ports & power" };
